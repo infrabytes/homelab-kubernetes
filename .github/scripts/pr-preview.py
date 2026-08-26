@@ -492,12 +492,29 @@ def operation_error(doc: dict, since: datetime | None = None) -> str | None:
             return op["message"][:4000]
         return f"operation phase: {phase}"
     conditions = status.get("conditions") or []
-    msgs = [
-        c.get("message", "")
-        for c in conditions
-        if c.get("message")
-        and "waiting for healthy state of" not in c.get("message", "")
-    ]
+    msgs = []
+    for c in conditions:
+        msg = c.get("message", "")
+        if not msg or "waiting for healthy state of" in msg:
+            continue
+        # Same staleness rule as the operationState above: a condition (e.g.
+        # ComparisonError) set by an inter-run auto-sync with a dead Git
+        # token persists until the hard-refresh comparison replaces it. The
+        # first poll after apply would otherwise report it before the fresh
+        # comparison gets a chance to clear it.
+        if since is not None and c.get("lastTransitionTime"):
+            try:
+                if _parse_rfc3339(c["lastTransitionTime"]) < since:
+                    log(
+                        f"ignoring stale app condition from an earlier run "
+                        f"(lastTransitionTime {c['lastTransitionTime']} < "
+                        f"apply time)"
+                    )
+                    continue
+            except ValueError:
+                # Unparsable timestamp: treat as fresh rather than hide it.
+                pass
+        msgs.append(msg)
     return msgs[0][:4000] if msgs else None
 
 
