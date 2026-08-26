@@ -191,7 +191,12 @@ jobs:
 
       - name: Deploy preview apps and check health
         run: |
-          python3 target-branch/.github/scripts/pr-preview.py \
+          # Run the preview tooling from the base checkout, not the PR's
+          # merge ref: GitHub recomputes refs/pull/N/merge lazily, so the
+          # target-branch script can be stale (missing merged fixes) when a
+          # PR is re-run. The PR content under test still comes in via
+          # --target-dir; only the script itself is main's.
+          python3 base-branch/.github/scripts/pr-preview.py \
             --repo-url https://github.com/${{ github.repository }} \
             --pr ${{ github.event.number }} \
             --base-dir base-branch \
