@@ -7,7 +7,7 @@ variable "kubeconfig_path" {
 variable "gitops_repo_url" {
   description = "Git (HTTPS) URL of the repo containing the platform/ and apps/ folders ArgoCD syncs."
   type        = string
-  default     = "https://github.com/bbayrakt/homelab-kubernetes"
+  default     = "https://github.com/infrabytes/homelab-kubernetes"
 }
 
 variable "github_pat" {

@@ -6,7 +6,7 @@
 locals {
   infra_dir = get_terragrunt_dir()
 
-  gitops_repo_url = "https://github.com/bbayrakt/homelab-kubernetes"
+  gitops_repo_url = "https://github.com/infrabytes/homelab-kubernetes"
 
   kubeconfig_path = abspath("${local.infra_dir}/cluster/artifacts/kubeconfig")
 
@@ -141,7 +141,7 @@ locals {
     github_oidc_client_id     = local.secrets.github_oidc_client_id
     github_oidc_client_secret = local.secrets.github_oidc_client_secret
     github_oidc_org           = "infrabytes"
-    github_admin_username     = "bbayrakt"
+    github_admin_username     = "infrabytes"
     github_runner_token       = local.secrets.github_runner_token
 
     # Grafana Cloud (free tier) remote-write credentials. Usernames are the
