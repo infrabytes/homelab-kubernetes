@@ -39,6 +39,7 @@ import os
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -243,6 +244,15 @@ kind: Application
 metadata:
   name: {name}
   namespace: {namespace}
+  # Force a fresh target-state computation + sync on every run: the preview
+  # ArgoCD is long-lived across runs, and without this the app-controller
+  # auto-syncs in the background (e.g. when Renovate moves refs/pull/N/merge)
+  # using the job-scoped GITHUB_TOKEN, which expires between runs. A stale
+  # Failed opState would then be read on the next run's first poll. The hard
+  # refresh re-fetches the merge ref with the freshly re-applied token, the
+  # comparison detects drift, and the existing automated syncPolicy applies it.
+  annotations:
+    argocd.argoproj.io/refresh: "hard"
   labels:
     {APP_LABEL_KEY}: "{pr}"
   finalizers:
@@ -304,6 +314,12 @@ def mirrored_application(
     meta = dict(doc.get("metadata") or {})
     meta["name"] = name
     meta["namespace"] = "argocd-preview"
+    # Force a fresh target-state computation + sync on every run (see
+    # application_manifest): merges into any annotations the committed chart
+    # Application already carries.
+    annotations = dict(meta.get("annotations") or {})
+    annotations["argocd.argoproj.io/refresh"] = "hard"
+    meta["annotations"] = annotations
     meta["labels"] = {APP_LABEL_KEY: str(pr)}
     finalizers = [
         f
@@ -434,18 +450,44 @@ def sync_health(doc: dict) -> tuple[str | None, str | None]:
     return sync, health
 
 
-def operation_error(doc: dict) -> str | None:
+def _parse_rfc3339(value: str) -> datetime:
+    """Parse a k8s RFC3339 timestamp (e.g. 2024-03-15T10:30:00.123Z)."""
+    v = value.strip()
+    if v.endswith("Z"):
+        v = v[:-1] + "+00:00"
+    return datetime.fromisoformat(v)
+
+
+def operation_error(doc: dict, since: datetime | None = None) -> str | None:
     """Failure detail from the last operation, or None while sync progresses.
 
     ArgoCD logs progress messages ("waiting for healthy state of ...") with
     an operation phase of Running; only terminal phases mean failure. The
     same progress text can surface as a status condition, so it is filtered
     there too.
+
+    `since` is the wall-clock time at which this run applied the Application.
+    The preview ArgoCD is long-lived and auto-syncs between runs with a now-
+    dead Git token, so a Failed opState can predate this run (read on the
+    first poll before the hard-refresh sync starts). Failures whose startedAt
+    predates `since` are stale and ignored; a freshly-started failure still
+    surfaces.
     """
     status = doc.get("status") or {}
     op = status.get("operationState") or {}
     phase = op.get("phase")
     if phase in ("Failed", "Error", "Terminating"):
+        if since is not None and op.get("startedAt"):
+            try:
+                if _parse_rfc3339(op["startedAt"]) < since:
+                    log(
+                        f"ignoring stale operation failure from an earlier "
+                        f"run (startedAt {op['startedAt']} < apply time)"
+                    )
+                    return None
+            except ValueError:
+                # Unparsable timestamp: treat as fresh rather than hide it.
+                pass
         if op.get("message"):
             return op["message"][:4000]
         return f"operation phase: {phase}"
@@ -460,7 +502,7 @@ def operation_error(doc: dict) -> str | None:
 
 
 def wait_healthy(
-    kubectl: Kubectl, ns: str, name: str, timeout: int
+    kubectl: Kubectl, ns: str, name: str, timeout: int, since: datetime
 ) -> tuple[bool, str]:
     """Wait for Synced + Healthy. Returns (ok, detail)."""
     deadline = time.monotonic() + timeout
@@ -473,7 +515,7 @@ def wait_healthy(
                 return True, "Synced + Healthy"
             if health in (None, "", "Missing"):
                 return True, "Synced (no health reported)"
-        err = operation_error(doc)
+        err = operation_error(doc, since)
         if err:
             return False, f"sync failed: {err}"
         last_detail = f"sync={sync or 'n/a'}, health={health or 'n/a'}"
@@ -662,9 +704,14 @@ def main() -> int:
                 )
             if app in HOST_CRD_SUPPLY:
                 ensure_crds(kubectl, host_kubectl, app)
+            # Wall-clock apply time: wait_healthy() uses it to ignore a stale
+            # Failed opState from an earlier run (see operation_error).
+            apply_time = datetime.now(timezone.utc)
             kubectl.apply(manifest)
             started = time.monotonic()
-            ok, detail = wait_healthy(kubectl, namespace, name, args.timeout)
+            ok, detail = wait_healthy(
+                kubectl, namespace, name, args.timeout, apply_time
+            )
             elapsed = int(time.monotonic() - started)
             if ok:
                 rows.append(
