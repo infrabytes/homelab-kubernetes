@@ -6,7 +6,7 @@ metadata:
 spec:
   generators:
     - git:
-        repoURL: https://github.com/bbayrakt/homelab-kubernetes
+        repoURL: https://github.com/infrabytes/homelab-kubernetes
         revision: main
         directories:
           - path: apps
@@ -16,7 +16,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: https://github.com/bbayrakt/homelab-kubernetes
+        repoURL: https://github.com/infrabytes/homelab-kubernetes
         targetRevision: main
         path: "{{path}}"
         directory:
