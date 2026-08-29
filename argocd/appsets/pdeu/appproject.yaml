@@ -16,5 +16,5 @@ spec:
   # Allow every *namespaced* resource …
   namespaceResourceWhitelist:
     - group: "*"
-      kinds: ["*"]
+      kind: "*"
   # … which also denies every *cluster-scoped* resource
