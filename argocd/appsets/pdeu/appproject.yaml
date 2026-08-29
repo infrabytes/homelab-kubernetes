@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: pdeu
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: pdeu-discord-bot project
+  sourceRepos:
+    - https://github.com/dhaustein/pdeu-discord-bot
+  destinations:
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: pdeu
+  # Allow every *namespaced* resource …
+  namespaceResourceWhitelist:
+    - group: "*"
+      kinds: ["*"]
+  # … which also denies every *cluster-scoped* resource

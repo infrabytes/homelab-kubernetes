@@ -13,7 +13,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | Kubernetes (1.36.3)          | Cluster on Proxmox VE (4 nodes), LAN 192.168.0.0/24                  |
 | Terragrunt + OpenTofu        | Infrastructure provisioning: `cluster -> addons -> argocd-config`    |
 | Cilium (1.20.0)              | CNI, kube-proxy-free, L2 LB (LB-IPAM 192.168.0.200-219), Gateway API (Gateway `homelab` at 192.168.0.200), WireGuard encryption, Hubble |
-| ArgoCD                       | GitOps delivery: `platform`/`apps` ApplicationSets committed in `argocd/appsets/`, applied by a Terraform-managed bootstrap ApplicationSet; UI at argocd.icaninto.space |
+| ArgoCD                       | GitOps delivery: `platform`/`apps`/`pdeu` ApplicationSets committed in `argocd/appsets/`, applied by a Terraform-managed bootstrap ApplicationSet; UI at argocd.icaninto.space |
 | cert-manager                 | TLS via Let's Encrypt DNS-01 (Cloudflare), ClusterIssuer `letsencrypt-dns01` |
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
 | Longhorn                     | Block storage on the worker nodes (dedicated disk labels); UI at longhorn.icaninto.space |
@@ -40,7 +40,7 @@ infra/              Terragrunt/OpenTofu units: cluster -> viewer-kubeconfig, add
   viewer-kubeconfig/ Mints the view-only client cert + kubeconfig (CSR API, no CA key extraction)
   addons/           Installs ArgoCD, cert-manager, external-dns, ARC namespaces
   argocd-config/    ArgoCD bootstrap ApplicationSet (app-of-appsets)
-argocd/appsets/     committed ApplicationSets (platform, apps), applied via the
+argocd/appsets/     committed ApplicationSets (platform, apps, pdeu), applied via the
                     Terraform bootstrap ApplicationSet
 platform/           ArgoCD-managed cluster-level resources (network, issuer,
                     metrics-server, kubelet-serving-cert-approver,
@@ -56,6 +56,17 @@ apps/               ArgoCD-managed applications (one subdir per app)
 .pre-commit-config.yaml  the single lint/format gate
 renovate.json       dependency automation
 ```
+
+## External apps (pdeu)
+
+`argocd/appsets/pdeu/` onboards `github.com/dhaustein/pdeu-discord-bot` as a
+externally-managed application, fully GitOps: the directory carries the `pdeu`
+AppProject (namespace `pdeu` only, that one repo as source, no cluster-scoped
+resources), the `pdeu` Namespace itself, and an ApplicationSet whose git
+directory generator watches the repo's `deploy/` folder on `main` and
+auto-syncs it into namespace `pdeu`. The generator yields no applications
+until a `deploy/` folder is pushed to the repo's `main` branch; when it is,
+the `pdeu-discord-bot` Application is generated and auto-synced.
 
 ## Resource recommendations (VPA)
 

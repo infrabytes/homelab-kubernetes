@@ -20,6 +20,11 @@ the argocd provider can only connect once the ArgoCD server exists.
 - ArgoCD reads GitOps content only from the git repo (`gitops_repo_url` from
   `env.hcl`).
 
+ApplicationSet dirs may carry more than ApplicationSets: `argocd/appsets/pdeu/`
+(the first to do so) also contains the `pdeu` AppProject and `pdeu` Namespace,
+they are plain objects applied in the same operation by the generated
+`appset-pdeu` Application.
+
 The `platform` ApplicationSet generates one app per `platform/*` folder. Helm
 chart `Application`s live under `platform/helm-charts/<chart>/`; because
 `platform/*` matches one level, ArgoCD generates a single parent app for
