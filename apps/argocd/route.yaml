@@ -4,11 +4,15 @@ metadata:
   name: argocd
   namespace: argocd
   annotations:
+    # external-dns ignores any route carrying a controller annotation with a
+    # value other than "dns-controller" (the documented, gateway-source-
+    # implemented mechanism; there is no "exclude" annotation in external-dns).
     # Served publicly via the edge SWAG hostnames (Cloudflare record points at
     # the SWAG target; LAN clients use a router-local override to the gateway
-    # L2 IP). Keep external-dns from owning this record: with policy=sync it
-    # would republish it as the cluster's RFC1918 gateway IP.
-    external-dns.alpha.kubernetes.io/exclude: "true"
+    # L2 IP). external-dns must not keep republishing this record as the
+    # cluster's RFC1918 gateway IP; with policy=sync it deletes its owned
+    # A/TXT records on the next sync after this annotation lands.
+    external-dns.alpha.kubernetes.io/controller: "manual-dns"
 spec:
   parentRefs:
     - name: homelab
