@@ -10,13 +10,31 @@ ClusterIP only; no LB, the Cilium Gateway fronts it  (`server.insecure` so ArgoC
 serves plain HTTP behind the Gateway's TLS). Installs the ApplicationSet CRD +
 controller.
 
-### **ArgoCD default admin password**
+### **ArgoCD authentication (SSO-only)**
 
-The admin password is set deterministically on the chart
-(`configs.secret.argocdServerAdminPassword`, a bcrypt of the SOPS plaintext),
-so ArgoCD's `admin` password matches the SOPS value on fresh installs
-(ArgoCD regenerates `argocd-initial-admin-secret` with a random value
-otherwise).
+Login is exclusively via **GitHub SSO** (Dex connector, org-restricted to
+`infrabytes`); no username/password login is offered. The local `admin` account
+is disabled (`configs.cm."admin.enabled" = "false"`) and the only local account,
+`tf-bot`, has the `apiKey` capability (token generation) but **not** `login` —
+so the ArgoCD login page shows SSO only (ArgoCD hides the password form when no
+enabled account has the `login` capability).
+
+- RBAC is configured in `../env.hcl` (`addons.argocd_rbac`): `policy.default`,
+  the OIDC `scopes`, and the `policy.csv` lines (any ArgoCD RBAC syntax —
+  users, roles, project-scoped grants). The unit only prepends the mandatory
+  `p, tf-bot, *, *, *, allow` line (the argocd-config provider authenticates
+  as `tf-bot`, so it must always be allowed; a role binding would also match
+  any SSO scope named `tf-bot`, per the RBAC docs).
+- The admin password is still set deterministically on the chart
+  (`configs.secret.argocdServerAdminPassword`, a bcrypt of the SOPS plaintext)
+  so the argocd provider in `../argocd-config` can bootstrap before SSO
+  variables exist, but the account is disabled once `argocd_tf_token` is set.
+- **`argocd_tf_token`**: long-lived API token for `tf-bot`, generated with
+  `argocd account generate-token --account tf-bot` (while admin login still
+  works, i.e. before the token is stored in SOPS). Stored in
+  `../secrets.sops.yaml`. When it's set, the `admin.enabled=false` flip is
+  applied and the argocd provider switches to token auth; while it's empty the
+  provider falls back to the admin password (fresh bootstrap).
 
 ### **cert-manager + external-dns secrets**
 

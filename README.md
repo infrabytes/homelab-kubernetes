@@ -196,7 +196,9 @@ The allowlist lives in `.github/scripts/pr-preview.py`.
 - Cloudflare API token (DNS-01 certs + external-dns), set in
   `infra/secrets.sops.yaml`
 - GitHub PAT (private repo access for ArgoCD) + GitHub OIDC client for ArgoCD
-  login, both in `infra/secrets.sops.yaml`
+  SSO login (GitHub-only, org-restricted; the local admin and password login
+  are disabled) + the `argocd_tf_token` for the Terraform provider, all in
+  `infra/secrets.sops.yaml`
 
 ### Bootstrap
 

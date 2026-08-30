@@ -44,7 +44,20 @@ resource "helm_release" "argo_cd" {
           "server.insecure" = true
         }
         cm = merge(
-          { url = "https://argocd.icaninto.space" },
+          {
+            url = "https://argocd.icaninto.space"
+            # Local service account used by the Terraform argocd provider
+            # (infra/argocd-config). apiKey capability only — no login — so it
+            # can mint tokens but cannot log in; the login page stays SSO-only
+            # (ArgoCD hides local login when no account has the login
+            # capability).
+            "accounts.tf-bot" = "apiKey"
+          },
+          # SSO-only login: disable the local admin account once the tf-bot
+          # token exists (empty token = still bootstrapping with admin creds).
+          var.argocd_tf_token != "" ? {
+            "admin.enabled" = "false"
+          } : {},
           var.github_oidc_client_id != "" ? {
             "dex.config" = <<-EOT
               connectors:
@@ -68,10 +81,14 @@ resource "helm_release" "argo_cd" {
             "dex.github.clientSecret" = var.github_oidc_client_secret
           } : {}
         }
-        rbac = var.github_admin_username != "" ? {
-          "policy.default" = ""
-          "policy.csv"     = "g, ${var.github_admin_username}, role:admin"
-          scopes           = "[groups, preferred_username]"
+        # RBAC comes from env.hcl (`addons.argocd_rbac`): policy.default,
+        # OIDC scopes, and the policy.csv lines. Only the mandatory tf-bot
+        # service-account policy is fixed here — the argocd-config provider
+        # needs it to authenticate, so it must survive any env.hcl edit.
+        rbac = var.argocd_rbac != null ? {
+          "policy.default" = var.argocd_rbac.policy_default
+          "policy.csv"     = join("\n", compact(concat(["p, tf-bot, *, *, *, allow"], var.argocd_rbac.policy_csv)))
+          scopes           = var.argocd_rbac.scopes
         } : {}
         repositories = var.github_pat != "" ? [
           {

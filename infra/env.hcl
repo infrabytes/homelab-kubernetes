@@ -141,13 +141,44 @@ locals {
     github_oidc_client_id     = local.secrets.github_oidc_client_id
     github_oidc_client_secret = local.secrets.github_oidc_client_secret
     github_oidc_org           = "infrabytes"
-    # ArgoCD RBAC admin binding must use the SSO *username*: the GitHub
-    # account used to log in is still `bbayrakt` (the repo moved to the
-    # infrabytes org, the account did not rename). Dex returns no groups
-    # claim for the GitHub connector, so an org-name binding would never
-    # match with policy.default = "".
-    github_admin_username = "bbayrakt"
-    github_runner_token   = local.secrets.github_runner_token
+    # ArgoCD RBAC (argocd-rbac-cm), configured here rather than in the addons
+    # unit: policy.default, the OIDC scopes to read for RBAC, and the raw
+    # policy.csv lines (any ArgoCD RBAC syntax is expressible).
+    #
+    # Bindings must use the SSO *username* (GitHub login, from the
+    # preferred_username scope): Dex returns no groups claim for the GitHub
+    # connector, so an org-name binding would never match with
+    # policy.default = "". Note bbayrakt's account kept its name when the repo
+    # moved to the infrabytes org.
+    #
+    # The tf-bot service-account line is NOT listed here — the addons unit
+    # always prepends `p, tf-bot, *, *, *, allow` (the argocd-config provider
+    # needs it to authenticate; keeping it enforced prevents a mis-edit from
+    # locking out Terraform bootstrap).
+    argocd_rbac = {
+      policy_default = ""
+      scopes         = "[groups, preferred_username]"
+      policy_csv = [
+        # bbayrakt: cluster admin.
+        "g, bbayrakt, role:admin",
+        # dhaustein (pdeu-discord-bot repo owner): read-only everywhere,
+        # plus full admin of the pdeu project.
+        "g, dhaustein, role:readonly",
+        "p, dhaustein, applications, *, pdeu/*, allow",
+        "p, dhaustein, applicationsets, *, pdeu/*, allow",
+        "p, dhaustein, logs, get, pdeu/*, allow",
+        "p, dhaustein, exec, create, pdeu/*, allow",
+        "p, dhaustein, projects, update, pdeu, allow",
+        "p, dhaustein, repositories, create, pdeu/*, allow",
+        "p, dhaustein, repositories, update, pdeu/*, allow",
+        "p, dhaustein, repositories, delete, pdeu/*, allow",
+      ]
+    }
+    # ArgoCD SSO-only login: once the tf-bot API token is added below, the
+    # local admin account is disabled and the argocd-config provider
+    # authenticates with the token instead of the admin password.
+    argocd_tf_token     = try(local.secrets.argocd_tf_token, "")
+    github_runner_token = local.secrets.github_runner_token
 
     # Grafana Cloud (free tier) remote-write credentials. Usernames are the
     # stack instance IDs, tokens are access-policy/API tokens scoped to
@@ -178,6 +209,9 @@ locals {
     kubeconfig_path       = local.kubeconfig_path
     gitops_repo_url       = local.gitops_repo_url
     argocd_admin_password = local.secrets.argocd_admin_password
+    # Used by the argocd provider when the local admin login is disabled
+    # (SSO-only mode). Falls back to admin password while empty (bootstrap).
+    argocd_tf_token = try(local.secrets.argocd_tf_token, "")
   }
 
   # ---------------------------------------------------------------------------
