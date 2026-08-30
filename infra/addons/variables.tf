@@ -50,10 +50,21 @@ variable "github_oidc_org" {
   default     = ""
 }
 
-variable "github_admin_username" {
-  description = "GitHub username granted role:admin in ArgoCD RBAC."
+variable "argocd_rbac" {
+  description = "ArgoCD RBAC (argocd-rbac-cm): policy.default, OIDC scopes, and policy.csv lines. Configured in env.hcl; users, roles, and project scopes are plain CSV policy lines."
+  type = object({
+    policy_default = string
+    scopes         = string
+    policy_csv     = list(string)
+  })
+  default = null
+}
+
+variable "argocd_tf_token" {
+  description = "Long-lived API token for the tf-bot service account (generated via `argocd account generate-token`). When set, the local admin account is disabled and the argocd-config provider authenticates with this token; leave empty to keep admin login during bootstrap."
   type        = string
   default     = ""
+  sensitive   = true
 }
 
 variable "github_runner_token" {

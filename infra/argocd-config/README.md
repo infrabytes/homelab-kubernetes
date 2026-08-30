@@ -34,8 +34,12 @@ This avoids one outer app per chart.
 The argocd provider connects to the in-cluster server (ClusterIP) via
 port-forwarding, deriving the cluster connection from the kubeconfig the
 `cluster` unit writes (`../cluster/artifacts/kubeconfig` via `env.hcl`), and
-logs in with the plaintext `admin` password (`argocd_admin_password`) whose
-bcrypt the `addons` unit sets on the chart (so it matches on fresh installs).
+authenticates with the `tf-bot` service-account API token (`argocd_tf_token`,
+generated via `argocd account generate-token --account tf-bot`). While the
+token is unset (fresh bootstrap, before it lands in SOPS) it falls back to the
+plaintext `admin` password (`argocd_admin_password`), whose bcrypt the `addons`
+unit sets on the chart (so it matches on fresh installs); once the token is
+set, the addons unit disables the local admin account (SSO-only login).
 ArgoCD serves plain HTTP (`server.insecure`), so the provider uses
 `plain_text = true`.
 

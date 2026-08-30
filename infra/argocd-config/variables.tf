@@ -13,3 +13,10 @@ variable "argocd_admin_password" {
   type        = string
   sensitive   = true
 }
+
+variable "argocd_tf_token" {
+  description = "Long-lived API token for the tf-bot service account. Used by the argocd provider once the local admin login is disabled (SSO-only mode); falls back to the admin password while empty (bootstrap)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
