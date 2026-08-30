@@ -17,5 +17,17 @@ metadata:
   name: cilium-config
   namespace: gateway
 spec:
+  # Pass gRPC-web through unchanged instead of translating it to native
+  # gRPC. The default translation (grpcWebTranslation.enabled=true) injects
+  # Envoy's grpc_web filter, which converts application/grpc-web+proto to
+  # application/grpc and forwards it over HTTP/1.1 — argocd-server only
+  # serves gRPC-web on its own handler, so the converted request falls
+  # through to http.NotFound (CLI login: 404 grpc-status=12 "404 page not
+  # found"). With translation off, Envoy leaves gRPC-web untouched and
+  # argocd-server handles it natively (verified: same POST succeeds direct
+  # to the pod).
+  httpOptions:
+    grpcWebTranslation:
+      enabled: false
   service:
     type: LoadBalancer
