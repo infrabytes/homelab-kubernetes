@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sealed-secrets-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://bitnami.github.io/sealed-secrets
+    chart: sealed-secrets
+    targetRevision: 2.19.3
+    helm:
+      # kubeseal defaults to controller name sealed-secrets-controller
+      # in the release namespace; fullnameOverride pins it exactly.
+      releaseName: sealed-secrets-controller
+      values: |
+        fullnameOverride: sealed-secrets-controller
+  destination:
+    namespace: sealed-secrets
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
