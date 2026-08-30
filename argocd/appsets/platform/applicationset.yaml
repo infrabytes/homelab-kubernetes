@@ -45,3 +45,8 @@ spec:
           name: cluster-viewer
           jqPathExpressions:
             - .rules
+        - group: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: sealed-secrets-ui
+          jqPathExpressions:
+            - .rules

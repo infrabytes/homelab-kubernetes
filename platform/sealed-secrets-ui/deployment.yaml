@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sealed-secrets-ui
+  namespace: sealed-secrets
+  labels:
+    app.kubernetes.io/name: sealed-secrets-ui
+    app.kubernetes.io/instance: sealed-secrets-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sealed-secrets-ui
+      app.kubernetes.io/instance: sealed-secrets-ui
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sealed-secrets-ui
+        app.kubernetes.io/instance: sealed-secrets-ui
+    spec:
+      serviceAccountName: sealed-secrets-ui
+      containers:
+        - name: sealed-secrets-ui
+          image: alpheya/sealed-secrets-ui:0.3.3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SEALED_SECRETS_CONTROLLER_NAMESPACE
+              value: "sealed-secrets"
+            - name: SEALED_SECRETS_CONTROLLER_NAME
+              value: "sealed-secrets-controller"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 150m
+              memory: 192Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sealed-secrets-ui
+  namespace: sealed-secrets
+  labels:
+    app.kubernetes.io/name: sealed-secrets-ui
+    app.kubernetes.io/instance: sealed-secrets-ui
+spec:
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: sealed-secrets-ui
+  type: ClusterIP

@@ -1,0 +1,25 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: sealed-secrets-ui
+  namespace: sealed-secrets
+  annotations:
+    # Prevent external-dns from publishing the cluster's RFC1918 gateway IP for this route.
+    # The UI is not exposed via public DNS; access via port-forward or internal network.
+    external-dns.alpha.kubernetes.io/controller: "manual-dns"
+spec:
+  parentRefs:
+    - name: homelab
+      namespace: gateway
+      sectionName: sealed-secrets-ui-https
+    # Also serve on plain HTTP (port 80) via the LAN for port-forwarded /
+    # router-local-override access without TLS termination.
+    - name: homelab
+      namespace: gateway
+      sectionName: http
+  hostnames:
+    - sealed-secrets-ui.icaninto.space
+  rules:
+    - backendRefs:
+        - name: sealed-secrets-ui
+          port: 8080

@@ -54,3 +54,15 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: sealed-secrets-ui-https
+      hostname: sealed-secrets-ui.icaninto.space
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: sealed-secrets-ui-tls
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All
