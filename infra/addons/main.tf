@@ -52,6 +52,11 @@ resource "helm_release" "argo_cd" {
             # (ArgoCD hides local login when no account has the login
             # capability).
             "accounts.tf-bot" = "apiKey"
+            # Cap unauthenticated webhook request bodies (DDoS hardening, see
+            # https://argo-cd.readthedocs.io/en/stable/operator-manual/webhook/).
+            # The default is 50MB; GitHub push events carry commit metadata and
+            # stay far below 1MB.
+            "webhook.maxPayloadSizeMB" = "1"
           },
           # SSO-only login: disable the local admin account once the tf-bot
           # token exists (empty token = still bootstrapping with admin creds).
@@ -77,9 +82,17 @@ resource "helm_release" "argo_cd" {
           # Stable hash from state
           argocdServerAdminPassword      = terraform_data.argocd_admin_password_bcrypt.output
           argocdServerAdminPasswordMtime = "2026-08-08T00:00:00Z"
-          extra                          = var.github_oidc_client_secret != "" ? {
-            "dex.github.clientSecret" = var.github_oidc_client_secret
-          } : {}
+          # Both secrets are optional (empty while bootstrapping): the dex
+          # client secret enables SSO, the webhook secret makes the API server
+          # verify GitHub webhook signatures (X-Hub-Signature-256).
+          extra                          = merge(
+            var.github_oidc_client_secret != "" ? {
+              "dex.github.clientSecret" = var.github_oidc_client_secret
+            } : {},
+            var.argocd_webhook_secret != "" ? {
+              "webhook.github.secret" = var.argocd_webhook_secret
+            } : {}
+          )
         }
         # RBAC comes from env.hcl (`addons.argocd_rbac`): policy.default,
         # OIDC scopes, and the policy.csv lines. Only the mandatory tf-bot

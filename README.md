@@ -224,6 +224,10 @@ App changes: edit `platform/` or `apps/`, push to `main`. ArgoCD deploys. PRs
 touching `platform/` or `apps/` get a diff comment plus a preview deployment
 into the vCluster (see [PR preview](#pr-preview-vcluster)).
 
+Pushes to this repo also trigger an instant ArgoCD app refresh via a GitHub
+webhook (shared secret + payload cap; see
+[`infra/addons/README.md`](infra/addons/README.md#argocd-github-webhook)).
+
 Secrets: edit `infra/secrets.sops.yaml` with `sops` (re-encrypts on save). The
 age key is not in the repo; all units decrypt via `env.hcl`.
 

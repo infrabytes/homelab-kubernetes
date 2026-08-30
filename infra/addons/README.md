@@ -36,6 +36,44 @@ enabled account has the `login` capability).
   applied and the argocd provider switches to token auth; while it's empty the
   provider falls back to the admin password (fresh bootstrap).
 
+### **ArgoCD GitHub webhook**
+
+The API server accepts GitHub webhook events at
+`https://argocd.icaninto.space/api/webhook`, so a push to the gitops repo (or
+any other repo with a webhook pointing there) refreshes the matching
+Applications within seconds instead of waiting for the 3-minute poll.
+
+- **Shared secret** (required, the endpoint is publicly reachable):
+  `argocd_webhook_secret` (SOPS) is written into `argocd-secret` as
+  `webhook.github.secret` by this unit. GitHub signs every delivery with
+  `X-Hub-Signature-256`; ArgoCD rejects events with an invalid signature
+  (HTTP 401). Without a secret configured ArgoCD would still accept
+  unauthenticated events (they only trigger a refresh, but are an open
+  DDoS/refresh-flood surface).
+- **Payload cap**: `webhook.maxPayloadSizeMB = "1"` in `argocd-cm` — the
+  `/api/webhook` endpoint has no rate limiting, so request bodies are capped
+  well below the 50MB default (DDoS hardening; GitHub push payloads carry only
+  commit metadata and stay far below 1MB).
+
+GitHub side (repo → Settings → Webhooks → Add webhook):
+
+1. Payload URL: `https://argocd.icaninto.space/api/webhook`
+2. Content type: `application/json` (`x-www-form-urlencoded` is not supported
+   by the webhook library)
+3. Secret: the `argocd_webhook_secret` value from SOPS
+4. Events: *Pushes* (or "Let me select individual events")
+
+Rotating the secret: set the new value in SOPS (`argocd_webhook_secret`), apply
+this unit, then paste the same value into the GitHub webhook. The API server
+picks up the secret change automatically (no pod restart).
+
+Note: the committed `platform`/`apps`/`pdeu` ApplicationSets also refresh
+instantly on pushes to their repos (the API-server webhook matches on
+`repoURL`). Only the discovery of *new* app directories (the ApplicationSet
+git generator) still waits for the 3-minute poll — the ApplicationSet
+controller exposes a separate webhook server that would need its own hostname
++ HTTPRoute, which is not set up.
+
 ### **cert-manager + external-dns secrets**
 
 Secrets (kept out of git as SOPS-encrypted values in the shared

@@ -44,6 +44,13 @@ variable "github_oidc_client_secret" {
   sensitive   = true
 }
 
+variable "argocd_webhook_secret" {
+  description = "GitHub webhook shared secret. Written into argocd-secret as webhook.github.secret; the same value must be set on the GitHub repo webhook (Settings -> Webhooks). ArgoCD uses it to verify the X-Hub-Signature-256 of incoming webhook events (argocd.icaninto.space is publicly reachable)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "github_oidc_org" {
   description = "GitHub org whose members are allowed to log in to ArgoCD (Dex GitHub connector orgs restriction)."
   type        = string
