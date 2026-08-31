@@ -105,7 +105,7 @@ Verify renovate changes with `.github/scripts/test-renovate.py` before pushing (
 
 ## Rules & guardrails
 
-- **Never** push to `main`, force-push, or rewrite history. In a git worktree (`.worktrees/`), commit, push branches, and open PRs without asking. Outside a worktree, commit/push/PR only when the user explicitly asks — default: make the change and stop for diff review. Auth: gh CLI credential helper (`gh auth git-credential`, HTTPS, no SSH).
+- **Never** push to `main`, force-push, or rewrite history. All changes go through a branch + PR: create a dedicated git worktree under `.worktrees/` (or use the `github` tool's `pr_checkout`), commit there, push the branch, and open a PR to `main` — no direct commits to `main`, no asking first. Auth: gh CLI credential helper (`gh auth git-credential`, HTTPS, no SSH).
 - **Never** run `terragrunt apply` / `destroy` / `import` against the live cluster unless the user explicitly asks. These are destructive, real-world operations.
 - **Never** commit unencrypted secrets, private keys, or Terraform state. `.terraform/`, `.terragrunt-cache/`, `*.tfstate*`, and `artifacts/` are gitignored, so don't force-add them.
 - **Never** edit `infra/secrets.sops.yaml` as plaintext or decrypt it into a committed file. Re-encrypt with `sops -e -i` (CI rejects unencrypted `*.sops.yaml`).
