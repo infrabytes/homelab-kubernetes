@@ -33,7 +33,7 @@ Notes:
       only
     - renovate 44.x requires node ^24.11.0; the pre-commit node_env-lts node is
       tried first, then the system node
-    - .opencode, .terragrunt-cache, artifacts etc. are excluded (local tooling
+    - .terragrunt-cache, artifacts etc. are excluded (local tooling
       node_modules would otherwise be scanned as npm dependencies)
 """
 
@@ -137,7 +137,6 @@ def copy_working_tree(work_dir: Path) -> None:
         ".terragrunt-cache",
         "artifacts",
         ".terraform",
-        ".opencode",
     ):
         cmd += ["--exclude", exclude]
     cmd += [f"{REPO_ROOT}/", f"{work_dir}/"]
