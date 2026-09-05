@@ -25,8 +25,8 @@ jobs:
     env:
       VCLUSTER_VERSION: v0.36.1
       ARGOCD_DIFF_PREVIEW_VERSION: v0.2.14
-      GH_CLI_VERSION: v2.98.0
-      KIND_VERSION: v0.32.0
+      GH_CLI_VERSION: v2.100.0
+      KIND_VERSION: v0.33.0
     steps:
       - name: Checkout target branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,7 +45,7 @@ jobs:
 
       - uses: Azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5.1.0
         with:
-          version: 1.36.4 # keep in sync with kubernetes_version in infra/env.hcl
+          version: 1.37.0 # keep in sync with kubernetes_version in infra/env.hcl
 
       - uses: Azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
@@ -122,7 +122,7 @@ jobs:
           for attempt in 1 2 3; do
             if helm upgrade --install argocd-preview argo-cd \
                 --repo https://argoproj.github.io/argo-helm \
-                --version 10.4.0 \
+                --version 10.8.0 \
                 --namespace argocd-preview \
                 --create-namespace \
                 --values target-branch/.github/argocd-preview-values.yaml \
@@ -238,7 +238,7 @@ jobs:
 
       - uses: Azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5.1.0
         with:
-          version: 1.36.4 # keep in sync with kubernetes_version in infra/env.hcl
+          version: 1.37.0 # keep in sync with kubernetes_version in infra/env.hcl
 
       - name: Install vcluster CLI
         run: |
