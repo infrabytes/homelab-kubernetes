@@ -32,10 +32,10 @@ locals {
     cluster_endpoint = "https://192.168.0.67:6443"
 
     # Versions
-    talos_version            = "v1.13.9"
-    kubernetes_version       = "1.36.4"
+    talos_version            = "v1.14.0"
+    kubernetes_version       = "1.37.0"
     cilium_chart_version     = "1.20.1"
-    gateway_api_crds_version = "v1.6.1"
+    gateway_api_crds_version = "v1.6.2"
 
     # Image Factory (standard, non-secureboot metal ISO)
     talos_arch     = "amd64"
