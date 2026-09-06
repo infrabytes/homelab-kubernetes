@@ -188,7 +188,8 @@ The allowlist lives in `.github/scripts/pr-preview.py`.
 ### Prerequisites
 
 - [Terragrunt](https://terragrunt.com/) and [OpenTofu](https://opentofu.org/)
-- [talosctl](https://www.talos.dev/) (for cluster unit + day-2 node operations)
+- [talosctl](https://www.talos.dev/) (debugging and manual node operations;
+  cluster upgrades are provider-driven)
 - [sops](https://getsops.io/) + [age](https://github.com/FiloSottile/age) with the
   age key at `~/.config/sops/age/keys.txt` (or `SOPS_AGE_KEY_FILE`)
 - Proxmox API token (bpg provider; see `infra/cluster/README.md` for required
@@ -221,8 +222,15 @@ terragrunt apply --all    # apply them
 ```
 
 App changes: edit `platform/` or `apps/`, push to `main`. ArgoCD deploys. PRs
+
 touching `platform/` or `apps/` get a diff comment plus a preview deployment
 into the vCluster (see [PR preview](#pr-preview-vcluster)).
+
+Version bumps (Renovate PRs on the `env.hcl` pins) apply the same way:
+`terragrunt apply --all` upgrades Talos nodes in place (drain → reboot,
+controlplane first, workers one at a time) and rolls Kubernetes via Talos's
+`upgrade-k8s` — see
+[`infra/cluster/README.md`](infra/cluster/README.md#upgrades-talos--kubernetes).
 
 Pushes to this repo also trigger an instant ArgoCD app refresh via a GitHub
 webhook (shared secret + payload cap; see

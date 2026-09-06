@@ -16,7 +16,9 @@ infra/              Terragrunt/OpenTofu units: cluster -> viewer-kubeconfig, add
   env.hcl           ALL unit inputs centralized (versions, nodes, secrets)
   root.hcl          shared remote_state (S3 backend on SeaweedFS, pbkdf2-encrypted)
   secrets.sops.yaml single SOPS-encrypted secrets file (never plaintext)
-  cluster/          Talos cluster + Cilium; writes artifacts/kubeconfig + talosconfig
+  cluster/          Talos cluster + Cilium; talos_machine/talos_cluster drive
+                    in-place Talos + Kubernetes upgrades; writes
+                    artifacts/kubeconfig + talosconfig
   viewer-kubeconfig/ Mints the view-only client cert + kubeconfig (CSR API, no CA key extraction)
   addons/           Installs ArgoCD, cert-manager, external-dns, ARC namespaces
   grafana-cloud-config/

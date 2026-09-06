@@ -17,10 +17,12 @@ in the shared SOPS-encrypted `../secrets.sops.yaml`.
   schematic per node, baking in the system extensions and a static `ip=`
   kernel argument. The node's maintenance mode thus comes up directly at its
   configured IP.
-- **Talos side** (`siderolabs/talos`): generates machine secrets + machine
-  configs, applies them over the maintenance service, bootstraps the cluster
-  (the bootstrap resource retries internally while the controlplane finishes
-  installing), and writes out `artifacts/kubeconfig` and `artifacts/talosconfig`.
+- **Talos side** (`siderolabs/talos`): generates machine secrets + per-node
+  machine configs, applies them over the maintenance service (installing Talos
+  to disk), upgrades nodes in place when `talos_version` changes
+  (`talos_machine`), bootstraps the cluster and rolls Kubernetes when
+  `kubernetes_version` changes (`talos_cluster`), and writes out
+  `artifacts/kubeconfig` and `artifacts/talosconfig`.
 - **Cilium CNI** (`hashicorp/helm`): the Cilium Helm chart is rendered locally
   into a single manifest, disabled Talos's default Flannel
   (`cluster.network.cni.name: none`), and embeds the manifest as a controlplane
@@ -39,12 +41,14 @@ in the shared SOPS-encrypted `../secrets.sops.yaml`.
 | `main.tf`                | Composes the two modules                                      |
 | `locals.tf`              | Derived ISO URLs + per-module node field subsets              |
 | `modules/proxmox-node/`  | Reusable module: per-node ISO download + VM resources         |
-| `modules/talos-cluster/` | Reusable module: secrets, configs, apply, bootstrap           |
+| `modules/talos-cluster/` | Reusable module: secrets, per-node configs, `talos_machine` (apply + OS upgrade), `talos_cluster` (bootstrap + k8s upgrade) |
 | `terragrunt.hcl`         | Inputs (cluster/node/version settings; points at SOPS secret) |
 
 ## Prerequisites
 
-1. `talosctl`, `terragrunt`, and OpenTofu on the machine running this.
+1. `terragrunt` and OpenTofu (≥ 1.11) on the machine running this. `talosctl`
+   is only needed for debugging/manual node operations — upgrades and config
+   changes are provider-driven.
 2. A Proxmox API token. bpg provider needs (at least) `Datastore.AllocateTemplate`
    plus `Sys.Audit`/`Sys.Modify` for the ISO download, and VM permissions
    (`VM.Allocate`, `VM.Config.*`, `VM.PowerMgmt`, ...). See the provider's
@@ -101,10 +105,12 @@ The apply flow: machine secrets + machine configs are generated; per-node
 schematics bake system extensions and a static `ip=` kernel argument into each
 node's ISO (`schematics.tf`). Proxmox downloads the ISOs and creates the VMs.
 Each VM boots into maintenance mode **at its static IP** (kernel arg), the
-`talos_machine_configuration_apply` resource installs Talos to disk, and the
-node reboots into the cluster config. `talos_machine_bootstrap` (which retries
-internally for 10 minutes while the controlplane finishes installing) then
-boots etcd/controlplane, and the kubeconfig is written. VMs are left with
+`talos_machine` resource installs Talos to disk, and the
+node reboots into the cluster config. `talos_cluster` then bootstraps etcd
+(idempotent, retries while the controlplane finishes installing), waits for the
+etcd/apiserver layer, and the kubeconfig is written. On later applies
+`talos_machine` also upgrades the node's OS when the declared installer image
+changes (see [Upgrades](#upgrades-talos--kubernetes)). VMs are left with
 `boot_order = [scsi0, ide2]` so they boot from disk on reboot (the ISO only
 installs once).
 
@@ -135,40 +141,60 @@ for production, as an **inline manifest**:
   bootstrap, so **no manual `helm install`/`kubectl apply` window** is needed.
 
 Upgrade Cilium: bump `cilium_chart_version` → `terragrunt apply` (re-renders
-the manifest and re-applies the controlplane configs) → `talosctl upgrade-k8s`
-
+the manifest and re-applies the controlplane config).
 
 > Change only the values in `cilium.tf`'s `values` block to enable extras
 > (e.g. Hubble `hubble.enabled=true`, or kube-proxy-free), then re-apply.
 
-## Upgrading Talos
+## Upgrades (Talos & Kubernetes)
 
-1. **Existing running cluster:** Talos upgrades are in-place, so you don't need to
-   stage a new ISO on the nodes:
-   ```sh
-   talosctl --talosconfig artifacts/talosconfig upgrade -n <node> \
-     --image=factory.talos.dev/installer/<scheme-id>:<new-version>
-   ```
-   Only **adjacent minor upgrades** are supported. Go through each minor's
-   latest patch sequentially (e.g. v1.12.x -> v1.13.x).
-   Kubernetes itself is upgraded separately:
-   ```sh
-   talosctl --talosconfig artifacts/talosconfig upgrade-k8s -n <node>
-   ```
+Both upgrades are driven by the Terraform code: bump `talos_version` /
+`kubernetes_version` in `env.hcl` (Renovate does this) and the next
+`terragrunt apply` performs them. No manual `talosctl upgrade` /
+`upgrade-k8s` step, no new ISOs (upgrades are in-place; per-node ISOs are
+only for fresh installs and re-download automatically on version bumps).
 
-2. **Refresh for *new* node installs (IaC):** bump the variables so future
-   `terragrunt apply` uses the new image:
-   - `talos_version` (e.g. `v1.13.8 -> v1.14.2`)
-   - `kubernetes_version` (e.g. `1.36.0 -> 1.37.0`)
-   - `talos_scheme_id`: the Image Factory scheme is **version/arch specific**;
-     grab the matching ID from https://factory.talos.dev for the new version.
-   - Per-node ISOs re-download automatically: the version is part of both the
-     download URL and the ISO filename, so bumping `talos_version` changes the
-     filename and replaces the file (`overwrite = true`).
+- **Talos OS** — `talos_machine` (one per node) keeps the running version in
+  sync with the installer image: `image` = the node's `machine.install.image`,
+  both derived from `talos_version` + the node's schematic. When it changes,
+  the node is upgraded in place first (pull installer → install to disk →
+  cordon+drain → reboot → wait for health → uncordon) and only then the
+  regenerated machine config is applied — the *upgraded* node validates the
+  new config instead of the old one rejecting it. Controlplane nodes go
+  first, then workers one at a time (`-parallelism=1` is injected into `apply`
+  by the unit's `terragrunt.hcl`: parallel worker reboots would take all
+  Longhorn replicas down at once).
+- **Kubernetes** — `talos_cluster.kubernetes_version` runs Talos's
+  `upgrade-k8s` procedure: sequential control-plane component upgrades with
+  health gating, kubelet node-by-node, CoreDNS/kube-proxy manifests.
+  `ignore_kubernetes_upgrade_drift = true` on `talos_machine` keeps the
+  config-apply path out of the way (a `kubernetes_version` bump does not
+  re-apply machine configs; `talos_cluster` owns it). `kubernetes_version`
+  in `data.talos_machine_configuration` still pins the image tags **new nodes
+  bootstrap with** — keep both on the same value (they come from the same
+  `env.hcl` input). Bumping Talos and Kubernetes in the same apply (Renovate
+  may ship them together) is fine: OS upgrades land first, then the
+  Kubernetes rolling upgrade.
+- **Drift** — every plan/refresh reads each node's running Talos version and
+  applied-config hash. Manual `talosctl upgrade`/config edits surface as drift
+  and the next apply reconciles them to the declared version (up- *or*
+  downgrade).
 
-3. Because the installer image is part of the machine config (`machine.install.image`),
-   changing `talos_version` also flows into the applied per-node configs, so
-   freshly created nodes match the new version.
+Talos rules still apply: only **adjacent minor** OS upgrades (step through
+each minor's latest patch, don't skip minors), one Kubernetes minor at a time
+(`upgrade-k8s` validates the path), and a joining node's kubelet must not
+exceed the API server's minor.
+
+> **Why this exists:** the previous flow only patched `machine.install.image`
+> into the applied configs (`talos_machine_configuration_apply`) — which
+> upgrades nothing on a running node (the install image is only read at
+> install time). Nodes silently stayed on the old Talos until a Kubernetes
+> bump was rejected by the old OS with `version of Kubernetes ... is too new
+> to be used with Talos ...`.
+>
+> The provider is pinned to the `0.12.0-beta.0` beta line (the first with
+> `talos_machine`/`talos_cluster`); Renovate bumps the exact pin once a newer
+> stable release lands.
 
 ## QEMU guest agent (optional)
 
@@ -269,13 +295,15 @@ registry pulls and speeding up image distribution:
   released talos provider (image-factory < v1.3.3), so it is not used here;
   the `ip=` kernel argument achieves the same outcome through the officially
   supported `extraKernelArgs`.
-- **Config changes are managed by `talos_machine_configuration_apply`.** Edits
+- **Config changes and OS versions are managed by `talos_machine`.** Edits
   to node fields flow into the config patches and are re-applied to the running
-  nodes on the next `terragrunt apply`.
+  nodes on the next `terragrunt apply`. Each node's running Talos version and
+  applied-config hash are read on every refresh; anything changed
+  out-of-band is reconciled to the declared state on the next apply.
 - **Bootstrap pauses at phase 18/19 ("node not ready").** Expected with
   `cni: none`; nodes can't become Ready until a CNI runs. Because Cilium is an
   inline manifest, Talos applies it itself during bootstrap; the
-  `talos_machine_bootstrap` resource retries internally. If an apply still ends
+  `talos_cluster` resource retries internally. If an apply still ends
   not-ready, just re-run `terragrunt apply` (idempotent).
 - **`cilium connectivity test` vs PodSecurity.** Test pods violate the
   `baseline` policy (they need `NET_RAW` in capabilities). Workaround: label the
