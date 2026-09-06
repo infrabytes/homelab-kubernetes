@@ -202,8 +202,8 @@ data "talos_machine_configuration" "this" {
 
 # Admin kubeconfig derived straight from the machine secrets (no live call,
 # so it exists before bootstrap) for talos_machine's cordon+drain during OS
-# upgrades. Ephemeral + write-only: the kubeconfig never lands in state or
-# artifacts, only the on-disk artifact below is persisted.
+# upgrades. Ephemeral + write-only: never persisted to state or disk. The
+# artifacts/ kubeconfig comes from the talos_cluster_kubeconfig resource below.
 ephemeral "talos_cluster_kubeconfig" "drain" {
   cluster_name    = var.cluster_name
   machine_secrets = talos_machine_secrets.this.machine_secrets
@@ -211,23 +211,23 @@ ephemeral "talos_cluster_kubeconfig" "drain" {
 }
 
 # talos_machine replaces the old talos_machine_configuration_apply flow: it
-# applies the machine configuration AND keeps the running Talos version in
+# applies the machine configuration and keeps the running Talos version in
 # sync with `image` (= the machine.install.image patch above). When the
-# installer image changes, the node is upgraded in place FIRST (pull ->
-# install -> cordon+drain -> reboot -> wait for health -> uncordon) and only
-# then the new configuration is applied — the upgraded node accepts the new
-# kubelet version instead of the old node rejecting it (the old flow never
-# upgraded the OS, so machine configs crept ahead of the running Talos and
-# apply eventually failed with "version of Kubernetes ... is too new to be
-# used with Talos ...").
+# installer image changes, the node is upgraded in place first (pull ->
+# install -> cordon+drain -> reboot -> wait for health -> uncordon), and only
+# then the new configuration is applied, so the upgraded node accepts the
+# new kubelet version instead of the old node rejecting it (the old flow
+# never upgraded the OS, so machine configs crept ahead of the running Talos
+# and apply eventually failed with "version of Kubernetes ... is too new to
+# be used with Talos ...").
 # ignore_kubernetes_upgrade_drift keeps the Kubernetes component image tags
 # (owned by talos_cluster's upgrade-k8s procedure) out of the config-drift
 # hash, so a kubernetes_version bump is applied by talos_cluster with its
 # sequencing, not by re-applying configs to all nodes at once.
 # Controlplane and worker are separate resources so controlplane nodes are
 # always installed and upgraded before workers; workers serialize among
-# themselves via `tofu apply -parallelism=1` (see the unit's terragrunt.hcl),
-# which Longhorn replica availability needs anyway.
+# themselves via `tofu apply -parallelism=1` (see the unit's terragrunt.hcl
+# for why).
 resource "talos_machine" "controlplane" {
   for_each = { for k, v in var.nodes : k => v if v.role == "controlplane" }
 
@@ -260,7 +260,7 @@ locals {
 }
 
 # talos_cluster replaces talos_machine_bootstrap: it bootstraps etcd
-# (idempotent — AlreadyExists is success) and owns Kubernetes upgrades: a
+# (idempotent: AlreadyExists is success) and owns Kubernetes upgrades. A
 # kubernetes_version change runs Talos's upgrade-k8s procedure (sequential
 # control-plane component upgrades with health gating, kubelet
 # node-by-node, CoreDNS/kube-proxy manifests).

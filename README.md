@@ -222,15 +222,14 @@ terragrunt apply --all    # apply them
 ```
 
 App changes: edit `platform/` or `apps/`, push to `main`. ArgoCD deploys. PRs
-
 touching `platform/` or `apps/` get a diff comment plus a preview deployment
 into the vCluster (see [PR preview](#pr-preview-vcluster)).
 
 Version bumps (Renovate PRs on the `env.hcl` pins) apply the same way:
 `terragrunt apply --all` upgrades Talos nodes in place (drain → reboot,
 controlplane first, workers one at a time) and rolls Kubernetes via Talos's
-`upgrade-k8s` — see
-[`infra/cluster/README.md`](infra/cluster/README.md#upgrades-talos--kubernetes).
+`upgrade-k8s` (see
+[`infra/cluster/README.md`](infra/cluster/README.md#upgrades-talos--kubernetes)).
 
 Pushes to this repo also trigger an instant ArgoCD app refresh via a GitHub
 webhook (shared secret + payload cap; see

@@ -47,7 +47,7 @@ in the shared SOPS-encrypted `../secrets.sops.yaml`.
 ## Prerequisites
 
 1. `terragrunt` and OpenTofu (≥ 1.11) on the machine running this. `talosctl`
-   is only needed for debugging/manual node operations — upgrades and config
+   is only needed for debugging/manual node operations; upgrades and config
    changes are provider-driven.
 2. A Proxmox API token. bpg provider needs (at least) `Datastore.AllocateTemplate`
    plus `Sys.Audit`/`Sys.Modify` for the ISO download, and VM permissions
@@ -150,17 +150,18 @@ the manifest and re-applies the controlplane config).
 
 Both upgrades are driven by the Terraform code: bump `talos_version` /
 `kubernetes_version` in `env.hcl` (Renovate does this) and the next
-`terragrunt apply` performs them. No manual `talosctl upgrade` /
-`upgrade-k8s` step, no new ISOs (upgrades are in-place; per-node ISOs are
-only for fresh installs and re-download automatically on version bumps).
+`terragrunt apply` performs them. There is no manual `talosctl upgrade` /
+`upgrade-k8s` step, and upgrades need no new ISOs: they are in-place, and
+per-node ISOs are only for fresh installs (they re-download automatically on
+version bumps).
 
 - **Talos OS** — `talos_machine` (one per node) keeps the running version in
   sync with the installer image: `image` = the node's `machine.install.image`,
   both derived from `talos_version` + the node's schematic. When it changes,
   the node is upgraded in place first (pull installer → install to disk →
   cordon+drain → reboot → wait for health → uncordon) and only then the
-  regenerated machine config is applied — the *upgraded* node validates the
-  new config instead of the old one rejecting it. Controlplane nodes go
+  regenerated machine config is applied, so the upgraded node validates
+  the new config instead of the old one rejecting it. Controlplane nodes go
   first, then workers one at a time (`-parallelism=1` is injected into `apply`
   by the unit's `terragrunt.hcl`: parallel worker reboots would take all
   Longhorn replicas down at once).
@@ -170,15 +171,14 @@ only for fresh installs and re-download automatically on version bumps).
   `ignore_kubernetes_upgrade_drift = true` on `talos_machine` keeps the
   config-apply path out of the way (a `kubernetes_version` bump does not
   re-apply machine configs; `talos_cluster` owns it). `kubernetes_version`
-  in `data.talos_machine_configuration` still pins the image tags **new nodes
-  bootstrap with** — keep both on the same value (they come from the same
+  in `data.talos_machine_configuration` still pins the image tags that new
+  nodes bootstrap with; keep both on the same value (they come from the same
   `env.hcl` input). Bumping Talos and Kubernetes in the same apply (Renovate
   may ship them together) is fine: OS upgrades land first, then the
   Kubernetes rolling upgrade.
 - **Drift** — every plan/refresh reads each node's running Talos version and
   applied-config hash. Manual `talosctl upgrade`/config edits surface as drift
-  and the next apply reconciles them to the declared version (up- *or*
-  downgrade).
+  and the next apply reconciles them to the declared version, up or down.
 
 Talos rules still apply: only **adjacent minor** OS upgrades (step through
 each minor's latest patch, don't skip minors), one Kubernetes minor at a time
@@ -186,7 +186,7 @@ each minor's latest patch, don't skip minors), one Kubernetes minor at a time
 exceed the API server's minor.
 
 > **Why this exists:** the previous flow only patched `machine.install.image`
-> into the applied configs (`talos_machine_configuration_apply`) — which
+> into the applied configs (`talos_machine_configuration_apply`), which
 > upgrades nothing on a running node (the install image is only read at
 > install time). Nodes silently stayed on the old Talos until a Kubernetes
 > bump was rejected by the old OS with `version of Kubernetes ... is too new
