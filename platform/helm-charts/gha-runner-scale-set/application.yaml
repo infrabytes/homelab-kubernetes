@@ -38,8 +38,8 @@ spec:
                   sizeLimit: 10Gi
             containers:
               - name: runner
-                image: ghcr.io/actions/actions-runner:latest
-                # Best-effort hydration from the seed tarballs (UID derived at runtime: image tag is mutable).
+                image: ghcr.io/actions/actions-runner:2.337.0
+                # Best-effort hydration from the seed tarballs (UID derived at runtime: image content changes across versions).
                 command:
                   - /bin/sh
                   - -c
