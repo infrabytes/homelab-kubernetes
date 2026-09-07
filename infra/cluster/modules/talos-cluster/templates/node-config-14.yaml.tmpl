@@ -1,0 +1,53 @@
+# Talos >= 1.14 node identity patches. 1.14 moved install/network/kubelet
+# settings out of the v1alpha1 document into per-concern documents, and a
+# v1alpha1 patch for those fields conflicts with the generated documents.
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+installer:
+  # Must match the node's own schematic (extensions), not the static base
+  # scheme — otherwise a fresh reinstall would silently drop extensions like
+  # Longhorn's iscsi-tools.
+  image: ${install_img}
+provisioning:
+  # Always set the selector explicitly: Expression.Merge overwrites the
+  # generated value with the patch value even when the patch omits it.
+  diskSelector:
+    match: 'disk.dev_path == "${install_disk}"'
+---
+apiVersion: v1alpha1
+kind: LinkConfig
+name: ${interface_name}
+addresses:
+  - address: ${ip_address}
+routes:
+  # No destination: creates the default route for the gateway's address family.
+  - gateway: ${gateway}
+---
+apiVersion: v1alpha1
+kind: ResolverConfig
+nameservers:
+%{ for ns in dns_servers ~}
+  - address: ${ns}
+%{ endfor ~}
+%{ if length(node_labels) > 0 || length(node_taints) > 0 }
+---
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+%{ if length(node_labels) > 0 }
+labels:
+%{ for k, v in node_labels ~}
+  ${k}: ${v}
+%{ endfor ~}
+%{ endif }
+%{ if length(node_taints) > 0 }
+taints:
+%{ for t in node_taints ~}
+  ${t}: NoSchedule
+%{ endfor ~}
+%{ endif }
+%{ endif }
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+hostname: ${hostname}
+auto: off

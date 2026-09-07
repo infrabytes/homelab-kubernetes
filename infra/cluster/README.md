@@ -185,6 +185,13 @@ each minor's latest patch, don't skip minors), one Kubernetes minor at a time
 (`upgrade-k8s` validates the path), and a joining node's kubelet must not
 exceed the API server's minor.
 
+> **Config patch format:** Talos 1.14 moved install, network, kubelet, CNI and
+> kube-proxy settings into separate config documents; the module's per-node
+> patches target those documents from `talos_version` 1.14 on (legacy
+> v1alpha1 fields for the same settings conflict with the generated
+> documents and are rejected). The switch is gated on the version in
+> `env.hcl`, so a 1.13 cluster keeps the legacy patch set until the bump.
+
 > **Why this exists:** the previous flow only patched `machine.install.image`
 > into the applied configs (`talos_machine_configuration_apply`), which
 > upgrades nothing on a running node (the install image is only read at
