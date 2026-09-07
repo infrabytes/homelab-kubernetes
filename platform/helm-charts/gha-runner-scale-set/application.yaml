@@ -30,7 +30,12 @@ spec:
                 persistentVolumeClaim:
                   claimName: gha-runner-tool-cache
               - name: tool-cache-local
-                emptyDir: {}
+                # Hard backstop: the warm workflow keeps the seed a pure
+                # function of the current pins (~1.7 GB hydrated), so a pod
+                # exceeding this means something regressed — evict instead of
+                # silently eating node disk.
+                emptyDir:
+                  sizeLimit: 3Gi
             containers:
               - name: runner
                 image: ghcr.io/actions/actions-runner:latest
