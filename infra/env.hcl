@@ -47,11 +47,6 @@ locals {
     talos_log_enabled = true
     talos_log_port    = 5140
 
-    # Drain nodes (cordon + evict pods) before rebooting during OS upgrades.
-    # Requires a healthy Kubernetes API; set to false to recover nodes when
-    # the cluster is down (the upgrade then skips the drain).
-    drain_on_upgrade = true
-
     # System extensions baked into every node image (qemu-guest-agent is
     # appended automatically). iscsi-tools + util-linux-tools are required by
     # Longhorn on every node.
@@ -79,6 +74,9 @@ locals {
         memory         = 4096
         disk_size      = 40
         swap_disk_size = 4
+        # Single controlplane: no drain before OS upgrades (nothing to evict,
+        # and a drain can block the upgrade when the cluster is degraded).
+        drain_on_upgrade = false
       }
       "192.168.0.68" = {
         role               = "worker"

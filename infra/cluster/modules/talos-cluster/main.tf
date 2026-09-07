@@ -251,7 +251,7 @@ resource "talos_machine" "controlplane" {
   machine_configuration           = data.talos_machine_configuration.this[each.key].machine_configuration
   client_configuration            = talos_machine_secrets.this.client_configuration
   kubeconfig_wo                   = ephemeral.talos_cluster_kubeconfig.drain.kubeconfig_raw
-  drain_on_upgrade                = var.drain_on_upgrade
+  drain_on_upgrade                = each.value.drain_on_upgrade
   ignore_kubernetes_upgrade_drift = true
 }
 
@@ -265,7 +265,7 @@ resource "talos_machine" "worker" {
   machine_configuration           = data.talos_machine_configuration.this[each.key].machine_configuration
   client_configuration            = talos_machine_secrets.this.client_configuration
   kubeconfig_wo                   = ephemeral.talos_cluster_kubeconfig.drain.kubeconfig_raw
-  drain_on_upgrade                = var.drain_on_upgrade
+  drain_on_upgrade                = each.value.drain_on_upgrade
   ignore_kubernetes_upgrade_drift = true
 }
 

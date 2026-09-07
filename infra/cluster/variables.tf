@@ -122,12 +122,6 @@ variable "talos_log_port" {
   default     = 5140
 }
 
-variable "drain_on_upgrade" {
-  description = "Drain nodes (cordon + evict pods) before rebooting during OS upgrades. Requires a healthy Kubernetes API; disable to recover nodes when the cluster is down."
-  type        = bool
-  default     = true
-}
-
 variable "talos_system_extensions" {
   description = "Official Image Factory system extensions baked into every node image (besides the QEMU guest agent, which follows enable_qemu_guest_agent)."
   type        = list(string)
