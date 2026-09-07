@@ -59,7 +59,7 @@ which are deployed by `infra/cluster` via Terraform/Talos rather than
 ArgoCD; the VPA objects are plain CRs and recommend regardless of who
 deploys the target), kubelet-serving-cert-approver,
 Longhorn (longhorn-manager, longhorn-driver-deployer, longhorn-ui,
-longhorn-csi-plugin), spegel, vcluster, ARC controller (arc-systems).
+longhorn-csi-plugin), spegel, vcluster, ARC controller (arc-systems), CloudNativePG operator (cnpg-system).
 
 Deliberately not covered: ARC runner pods (StatefulSet generated at runtime
 from the `AutoscalingRunnerSet`; runner resources belong in the

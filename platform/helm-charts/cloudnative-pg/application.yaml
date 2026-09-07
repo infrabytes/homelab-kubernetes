@@ -1,0 +1,33 @@
+# CloudNativePG operator (https://cloudnative-pg.io). Operator only; no
+# Cluster (database) resources yet. The chart's CRDs render as regular
+# manifests (templates/crds/crds.yaml); the Cluster (653KB) and OperatorConfig
+# (464KB) CRDs exceed the 256KB annotation limit of client-side apply, so the
+# app must sync with server-side apply (same as prometheus-operator-crds-app).
+# The operator self-generates its webhook certificates (cnpg-webhook-cert
+# secret); no cert-manager involvement. It runs non-root with seccomp and
+# dropped capabilities, so cnpg-system needs no privileged PSA label.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudnative-pg-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://cloudnative-pg.github.io/charts
+    chart: cloudnative-pg
+    targetRevision: 0.29.0
+    helm:
+      releaseName: cloudnative-pg
+      values: |
+        monitoring:
+          podMonitorEnabled: true
+  destination:
+    namespace: cnpg-system
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
