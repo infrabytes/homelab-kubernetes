@@ -97,6 +97,23 @@ spec:
                 - "http_.*"
                 - "argocd_kubectl_(request_duration_seconds|rate_limiter_duration_seconds|response_size_bytes|request_size_bytes|requests_total).*"
                 - "controller_runtime_.*"
+          # PodMonitors have their own tuning section (the serviceMonitors
+          # list above does not apply to them). The CloudNativePG operator
+          # ships a PodMonitor; without this mirror its runtime internals
+          # (controller-runtime, workqueue, rest_client, leader election)
+          # would hit the series budget.
+          podMonitors:
+            metricsTuning:
+              excludeMetrics:
+                - "grpc_server_.*"
+                - "go_.*"
+                - "process_.*"
+                - "libp2p_.*"
+                - "longhorn_rest_client_.*"
+                - "longhorn_workqueue_.*"
+                - "http_.*"
+                - "argocd_kubectl_(request_duration_seconds|rate_limiter_duration_seconds|response_size_bytes|request_size_bytes|requests_total).*"
+                - "controller_runtime_.*"
 
         telemetryServices:
           kube-state-metrics:

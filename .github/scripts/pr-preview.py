@@ -76,6 +76,10 @@ ALLOWLIST = {
         "Cloudflare token, writes DNS only for preview-local resources "
         "(accepted)"
     ),
+    "platform/helm-charts/cloudnative-pg": (
+        "chart-mirror: CRDs installed by the chart in-cluster (server-side "
+        "apply); webhook + operator health is the test, no host deps"
+    ),
 }
 
 # Chart apps deployed via mirrored Application manifests (directory apps
@@ -84,6 +88,7 @@ CHART_APPS = {
     "platform/helm-charts/cert-manager",
     "platform/helm-charts/vpa",
     "platform/helm-charts/external-dns",
+    "platform/helm-charts/cloudnative-pg",
 }
 
 # CRDs a preview app needs that no chart installs inside the vCluster,
