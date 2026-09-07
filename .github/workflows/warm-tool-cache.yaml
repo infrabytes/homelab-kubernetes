@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/warm-tool-cache.yaml"
       - ".github/workflows/pre-commit.yaml"
+      - ".pre-commit-config.yaml" # hook rev bumps re-warm the seed immediately
   schedule:
     - cron: "23 3 * * *"
   workflow_dispatch:
@@ -21,10 +22,16 @@ permissions:
 jobs:
   warm:
     runs-on: homelab-runner
-    timeout-minutes: 30
+    # Full rebuild (wipe + re-download + hook env builds) needs more headroom.
+    timeout-minutes: 45
     steps:
-      - name: Prepare cache directories
+      - name: Reset cache directories
         run: |
+          # The seed must be a pure function of the current pins: wipe the
+          # pod-local trees first — setup actions and pre-commit never prune
+          # old versions, so every pin/rev bump would otherwise accumulate in
+          # the published seed forever.
+          sudo rm -rf /opt/tool-cache/local/runner /opt/tool-cache/local/mise /opt/tool-cache/local/pre-commit
           # The image tag is mutable, so the UID is derived at runtime.
           sudo mkdir -p /opt/tool-cache/local/runner /opt/tool-cache/local/mise /opt/tool-cache/local/pre-commit
           sudo chown -R "$(id -u):$(id -g)" /opt/tool-cache/local
