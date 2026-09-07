@@ -26,6 +26,7 @@ module "talos_cluster" {
   artifacts_dir      = var.artifacts_dir
   talos_log_enabled  = var.talos_log_enabled
   talos_log_port     = var.talos_log_port
+  drain_on_upgrade   = var.drain_on_upgrade
 
   cilium_inline_manifest = data.helm_template.cilium.manifest
 

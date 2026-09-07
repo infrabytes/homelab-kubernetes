@@ -64,3 +64,9 @@ variable "talos_log_port" {
   type        = number
   default     = 5140
 }
+
+variable "drain_on_upgrade" {
+  description = "Drain the node (cordon + evict pods) before rebooting during OS upgrades. Requires a healthy Kubernetes API; disable to recover a node when the cluster is down (the upgrade then skips the drain)."
+  type        = bool
+  default     = true
+}
