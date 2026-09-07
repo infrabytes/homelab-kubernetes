@@ -17,10 +17,12 @@ spec:
         longhornUI:
           replicas: 1
         csi:
-          attacherReplicaCount: 1
-          provisionerReplicaCount: 1
-          resizerReplicaCount: 1
-          snapshotterReplicaCount: 1
+          # 2 replicas each: with 1, the attacher/provisioner PDBs (minAvailable 1)
+          # allow zero disruptions forever, so node drains hang on those pods.
+          attacherReplicaCount: 2
+          provisionerReplicaCount: 2
+          resizerReplicaCount: 2
+          snapshotterReplicaCount: 2
         defaultSettings:
           defaultDataPath: /var/mnt/longhorn
           createDefaultDiskLabeledNodes: true
