@@ -1,13 +1,10 @@
 resource "talos_machine_secrets" "this" {}
 
 locals {
-  # Talos >= 1.14 generates a multi-document machine config: install, network,
+  # Talos 1.14+ generates a multi-document machine config: install, network,
   # kubelet, CNI and kube-proxy settings live in separate documents, and
-  # v1alpha1 patches for those fields conflict with them. Node-specific
-  # patches target the new documents from 1.14 on; older versions keep the
-  # legacy fields.
-  version_parts = [for part in split(".", trimprefix(var.talos_version, "v")) : try(tonumber(part), 0)]
-  talos_14      = length(local.version_parts) >= 2 && local.version_parts[0] == 1 && local.version_parts[1] >= 14
+  # v1alpha1 patches for those fields conflict with them. All patches target
+  # the new documents.
 
   # Per-node config patches, applied when the machine configuration is
   # generated (data.talos_machine_configuration) so each node's rendered
@@ -15,31 +12,28 @@ locals {
   config_patches = {
     for key, node in var.nodes : key => concat(
       [
-        templatefile(
-          local.talos_14 ? "${path.module}/templates/node-config-14.yaml.tmpl" : "${path.module}/templates/node-config.yaml.tmpl",
-          {
-            hostname       = node.hostname
-            # Fall back to /dev/sda (the provider's generate default) so the
-            # 1.14 UnattendedInstallConfig selector is always set.
-            install_disk   = node.install_disk == null || node.install_disk == "" ? "/dev/sda" : node.install_disk
-            # machine.install.image must match the node's own schematic
-            # (extensions), not the static base scheme — otherwise a fresh
-            # reinstall would silently drop extensions like Longhorn's
-            # iscsi-tools.
-            install_img    = node.install_img
-            ip_address     = format("%s/%d", node.ipv4_address, node.ipv4_prefix)
-            gateway        = node.ipv4_gateway
-            dns_servers    = node.dns_servers
-            interface_name = node.mac_address != "" ? format("enx%s", lower(replace(node.mac_address, ":", ""))) : "eth0"
-            node_labels    = node.node_labels
-            node_taints    = node.node_taints
-          }
-        )
+        templatefile("${path.module}/templates/node-config.yaml.tmpl", {
+          hostname       = node.hostname
+          # Fall back to /dev/sda (the provider's generate default) so the
+          # UnattendedInstallConfig selector is always set.
+          install_disk   = node.install_disk == null || node.install_disk == "" ? "/dev/sda" : node.install_disk
+          # The installer image must match the node's own schematic
+          # (extensions), not the static base scheme — otherwise a fresh
+          # reinstall would silently drop extensions like Longhorn's
+          # iscsi-tools.
+          install_img    = node.install_img
+          ip_address     = format("%s/%d", node.ipv4_address, node.ipv4_prefix)
+          gateway        = node.ipv4_gateway
+          dns_servers    = node.dns_servers
+          interface_name = node.mac_address != "" ? format("enx%s", lower(replace(node.mac_address, ":", ""))) : "eth0"
+          node_labels    = node.node_labels
+          node_taints    = node.node_taints
+        })
       ],
       # Stream Talos service logs (machined, apid, containerd, kubelet,
       # kernel, ...) as json_lines over TCP to the node's own IP, where the
       # k8s-monitoring Alloy DaemonSet listens (hostNetwork).
-      # https://docs.siderolabs.com/talos/v1.13/configure-your-talos-cluster/logging-and-telemetry/logging
+      # https://docs.siderolabs.com/talos/v1.14/configure-your-talos-cluster/logging-and-telemetry/logging
       var.talos_log_enabled ? [
         yamlencode({
           machine = {
@@ -58,21 +52,10 @@ locals {
       # Disable Talos's built-in CNI (Flannel) so Cilium (installed as an
       # inline manifest on controlplane nodes) is the only CNI, and disable
       # kube-proxy: Cilium runs with kubeProxyReplacement=true (required for
-      # L2 announcements). On 1.14+ both live in controlplane-only documents
-      # (deleting the Flannel document disables the built-in CNI; the
-      # generated config has neither on workers).
-      !local.talos_14 ? [
-        yamlencode({
-          cluster = {
-            network = {
-              cni = { name = "none" }
-            }
-            proxy = {
-              disabled = true
-            }
-          }
-        })
-      ] : (node.role == "controlplane" ? [
+      # L2 announcements). Both live in controlplane-only documents: deleting
+      # the Flannel document disables the built-in CNI; the generated config
+      # has neither on workers.
+      node.role == "controlplane" ? [
         yamlencode({
           apiVersion = "v1alpha1"
           kind       = "KubeFlannelCNIConfig"
@@ -83,26 +66,16 @@ locals {
           kind       = "KubeProxyConfig"
           enabled    = false
         })
-      ] : []),
+      ] : [],
       # Kubelet serving-cert rotation so kubelets get CA-signed serving certs
       # (no --kubelet-insecure-tls for metrics-server):
       # https://docs.siderolabs.com/kubernetes-guides/monitoring-and-observability/deploy-metrics-server
-      local.talos_14 ? [
+      [
         yamlencode({
           apiVersion = "v1alpha1"
           kind       = "KubeletConfig"
           extraArgs = {
             "rotate-server-certificates" = "true"
-          }
-        })
-      ] : [
-        yamlencode({
-          machine = {
-            kubelet = {
-              extraArgs = {
-                "rotate-server-certificates" = "true"
-              }
-            }
           }
         })
       ],
@@ -124,7 +97,7 @@ locals {
       ],
       # Encrypted swap device on the dedicated scsi2 disk (entire disk is used as
       # swap — no minSize/maxSize) + zswap compressed swap cache, on all nodes.
-      # https://docs.siderolabs.com/talos/v1.13/configure-your-talos-cluster/storage-and-disk-management/swap
+      # https://docs.siderolabs.com/talos/v1.14/configure-your-talos-cluster/storage-and-disk-management/swap
       [
         yamlencode({
           apiVersion = "v1alpha1"
@@ -161,26 +134,14 @@ locals {
         })
       ],
       # Let the kubelet use swap:
-      # https://docs.siderolabs.com/talos/v1.13/configure-your-talos-cluster/storage-and-disk-management/swap#kubernetes-and-swap
-      local.talos_14 ? [
+      # https://docs.siderolabs.com/talos/v1.14/configure-your-talos-cluster/storage-and-disk-management/swap#kubernetes-and-swap
+      [
         yamlencode({
           apiVersion = "v1alpha1"
           kind       = "KubeletConfig"
           config = {
             memorySwap = {
               swapBehavior = "LimitedSwap"
-            }
-          }
-        })
-      ] : [
-        yamlencode({
-          machine = {
-            kubelet = {
-              extraConfig = {
-                memorySwap = {
-                  swapBehavior = "LimitedSwap"
-                }
-              }
             }
           }
         })
@@ -206,52 +167,34 @@ locals {
       #  1. Gateway API CRDs — must exist before the Cilium gateway controller
       #     starts (Cilium 1.20 requires Gateway API v1.6.1 CRDs).
       #  2. Cilium (with kube-proxy replacement, L2 announcements, Gateway API).
-      # Identical content on every controlplane (per the Sidero docs).
-      # 1.14+ renders each manifest as its own KubeInlineManifestConfig
-      # document; the etcd metrics extraArgs stay in the v1alpha1 document.
-      node.role == "controlplane" ? (
-        local.talos_14 ? [
-          yamlencode({
-            cluster = {
-              # Expose the etcd metrics endpoint for monitoring scrapes:
-              # https://docs.siderolabs.com/kubernetes-guides/monitoring-and-observability/etcd-metrics
-              etcd = {
-                extraArgs = {
-                  "listen-metrics-urls" = "http://0.0.0.0:2381"
-                }
+      # Identical content on every controlplane (per the Sidero docs). Each
+      # manifest is its own KubeInlineManifestConfig document; the etcd
+      # metrics extraArgs stay in the v1alpha1 document.
+      node.role == "controlplane" ? [
+        yamlencode({
+          cluster = {
+            # Expose the etcd metrics endpoint for monitoring scrapes:
+            # https://docs.siderolabs.com/kubernetes-guides/monitoring-and-observability/etcd-metrics
+            etcd = {
+              extraArgs = {
+                "listen-metrics-urls" = "http://0.0.0.0:2381"
               }
             }
-          }),
-          yamlencode({
-            apiVersion = "v1alpha1"
-            kind       = "KubeInlineManifestConfig"
-            name       = "gateway-api-crds"
-            manifest   = var.gateway_api_inline_manifest
-          }),
-          yamlencode({
-            apiVersion = "v1alpha1"
-            kind       = "KubeInlineManifestConfig"
-            name       = "cilium"
-            manifest   = var.cilium_inline_manifest
-          }),
-        ] : [
-          yamlencode({
-            cluster = {
-              # Expose the etcd metrics endpoint for monitoring scrapes:
-              # https://docs.siderolabs.com/kubernetes-guides/monitoring-and-observability/etcd-metrics
-              etcd = {
-                extraArgs = {
-                  "listen-metrics-urls" = "http://0.0.0.0:2381"
-                }
-              }
-              inlineManifests = [
-                { name = "gateway-api-crds", contents = var.gateway_api_inline_manifest },
-                { name = "cilium", contents = var.cilium_inline_manifest },
-              ]
-            }
-          })
-        ]
-      ) : []
+          }
+        }),
+        yamlencode({
+          apiVersion = "v1alpha1"
+          kind       = "KubeInlineManifestConfig"
+          name       = "gateway-api-crds"
+          manifest   = var.gateway_api_inline_manifest
+        }),
+        yamlencode({
+          apiVersion = "v1alpha1"
+          kind       = "KubeInlineManifestConfig"
+          name       = "cilium"
+          manifest   = var.cilium_inline_manifest
+        }),
+      ] : []
     )
   }
 }
@@ -284,7 +227,7 @@ ephemeral "talos_cluster_kubeconfig" "drain" {
 
 # talos_machine replaces the old talos_machine_configuration_apply flow: it
 # applies the machine configuration and keeps the running Talos version in
-# sync with `image` (= the machine.install.image patch above). When the
+# sync with `image` (= the UnattendedInstallConfig installer image above). When the
 # installer image changes, the node is upgraded in place first (pull ->
 # install -> cordon+drain -> reboot -> wait for health -> uncordon), and only
 # then the new configuration is applied, so the upgraded node accepts the
