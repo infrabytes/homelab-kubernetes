@@ -133,7 +133,7 @@ Runner pods keep their caches pod-local and hydrate them from a shared
 Longhorn RWX seed volume (`gha-runner-tool-cache` PVC in `arc-runners`, from
 `platform/gha-runner-scale-set/`):
 
-- `local/` (emptyDir, `sizeLimit: 3Gi` — a pod exceeding it is evicted
+- `local/` (emptyDir, `sizeLimit: 10Gi` — a pod exceeding it is evicted
   instead of silently eating node disk) — the pod's own working cache:
   `runner/`
   (`RUNNER_TOOL_CACHE` for `Azure/setup-kubectl`, `Azure/setup-helm`,
