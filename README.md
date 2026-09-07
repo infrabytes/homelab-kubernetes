@@ -146,9 +146,12 @@ Longhorn RWX seed volume (`gha-runner-tool-cache` PVC in `arc-runners`, from
   rebuilding, so the seed is a pure function of the repo's current pins —
   setup actions and pre-commit never prune old versions, and without the
   wipe every Renovate pin/rev bump would accumulate in the seed forever
-  (measured: 5.5 GB of dead hook envs, 1.45 GB seed). At every pod start the
-  runner command extracts them into the emptyDir (best-effort: a missing or
-  torn archive means a cold start with downloads).
+  (measured: 5.5 GB of dead hook envs, 1.45 GB seed). The terragrunt-action
+  restores its own GitHub-cache snapshot of the mise tree (jdx/mise-action
+  cache, not exposed as an input), so the warm workflow additionally rebuilds
+  the mise installs from the pins after the action runs. At every pod start
+  the runner command extracts them into the emptyDir (best-effort: a missing
+  or torn archive means a cold start with downloads).
 
 Caches are per-pod by design, so jobs run fully concurrent: setup actions
 only ever write pod-local paths and never race each other on the shared

@@ -59,6 +59,16 @@ jobs:
           tg_version: 1.1.4
           tofu_version: 1.12.6
 
+      # The terragrunt-action restores a GitHub-cache snapshot of the mise
+      # tree (jdx/mise-action cache, not exposed as an input), which can
+      # resurrect versions from before the wipe. Rebuild the installs from
+      # the pins so the seed carries exactly the current versions.
+      - name: Rebuild mise installs without cache
+        run: |
+          sudo rm -rf /opt/tool-cache/local/mise/installs
+          cd "$GITHUB_WORKSPACE" # .tool-versions written by the terragrunt-action
+          /opt/tool-cache/local/mise/bin/mise install
+
       - name: Verify cached tools
         run: |
           kubectl version --client
