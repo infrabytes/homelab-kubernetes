@@ -32,6 +32,7 @@ variable "nodes" {
     mac_address  = string
     node_labels  = map(string)
     node_taints  = list(string)
+    drain_on_upgrade = optional(bool, true)
   }))
 }
 
@@ -63,10 +64,4 @@ variable "talos_log_port" {
   description = "TCP port each node pushes machine logs to."
   type        = number
   default     = 5140
-}
-
-variable "drain_on_upgrade" {
-  description = "Drain the node (cordon + evict pods) before rebooting during OS upgrades. Requires a healthy Kubernetes API; disable to recover a node when the cluster is down (the upgrade then skips the drain)."
-  type        = bool
-  default     = true
 }

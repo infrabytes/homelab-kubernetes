@@ -44,6 +44,10 @@ locals {
       mac_address  = v.mac_address
       node_labels  = v.node_labels
       node_taints  = v.node_taints
+      # Single controlplane: no drain (nothing to evict, and a drain can
+      # block the upgrade when the cluster is degraded). Workers drain for
+      # graceful pod eviction (Longhorn safety).
+      drain_on_upgrade = v.drain_on_upgrade
     }
   }
 }

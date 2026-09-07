@@ -20,6 +20,7 @@ variable "nodes" {
     cpu_type           = optional(string, "host")
     node_labels        = optional(map(string), {})
     node_taints        = optional(list(string), [])
+    drain_on_upgrade   = optional(bool, true)
   }))
   default = {
     "10.0.0.10" = {
