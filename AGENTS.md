@@ -56,7 +56,7 @@ Agent environment: OMP sessions run directly on the host (no sandbox). Tools and
 
 ## Validation & pre-commit
 
-Every change must pass `.pre-commit-config.yaml`; CI runs it on push/PR on the self-hosted `homelab-runner` (`.github/workflows/pre-commit.yaml`, pinned tool versions, tools served from the pod-local cache hydrated from the shared seed volume; see `README.md`). Jobs run fully concurrent (per-pod emptyDir caches; only the warm workflow writes the seed, atomically). Notable hooks:
+Every change must pass `.pre-commit-config.yaml`; CI runs it on push/PR on the self-hosted `homelab-runner` (`.github/workflows/pre-commit.yaml`, pinned tool versions, tools served from the pod-local cache hydrated from the shared seed volume; see `README.md`). PR runs are diff-scoped (`--from-ref`/`--to-ref`); pushes to `main` and PRs touching hook config run the full `--all-files` sweep. Jobs run fully concurrent (per-pod emptyDir caches; only the warm workflow writes the seed, atomically — it wipes the pod-local trees before rebuilding, so the seed never accumulates old versions). Notable hooks:
 
 - `terragrunt_fmt` + `terraform_tflint` (config: `infra/cluster/.tflint.hcl`) for `infra/`
 - local `terragrunt-validate` hook (`.github/scripts/terragrunt-validate.sh`): `terragrunt validate --all` on `infra/`; skips without the SOPS age key (e.g. CI), enforcing locally where secrets decrypt

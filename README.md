@@ -142,16 +142,21 @@ Longhorn RWX seed volume (`gha-runner-tool-cache` PVC in `arc-runners`, from
 - `seed/` (RWX volume) — tarballs of the warmed `runner`, `mise` and
   `pre-commit` (hook environments) trees, published by the
   `.github/workflows/warm-tool-cache.yaml` workflow (the only writer,
-  atomic `tar` + `mv`). At every pod start the runner command extracts
-  them into the emptyDir (best-effort: a missing or torn archive means a
-  cold start with downloads).
+  atomic `tar` + `mv`). The warm workflow wipes the pod-local trees before
+  rebuilding, so the seed is a pure function of the repo's current pins —
+  setup actions and pre-commit never prune old versions, and without the
+  wipe every Renovate pin/rev bump would accumulate in the seed forever
+  (measured: 5.5 GB of dead hook envs, 1.45 GB seed). At every pod start the
+  runner command extracts them into the emptyDir (best-effort: a missing or
+  torn archive means a cold start with downloads).
 
 Caches are per-pod by design, so jobs run fully concurrent: setup actions
 only ever write pod-local paths and never race each other on the shared
 volume. The scale set runs `minRunners: 1` so one pod is always alive with
 warm caches; extra pods scale up under backlog and hydrate in seconds. The
 warming workflow runs nightly, on `workflow_dispatch`, and on pushes to its
-own file or `pre-commit.yaml` (Renovate version bumps re-warm automatically).
+own file, `pre-commit.yaml` or `.pre-commit-config.yaml` (Renovate version
+bumps re-warm automatically).
 
 These directories must be writable by the job user for the setup actions to
 populate them, and the tool-cache actions trust cache hits without
@@ -161,10 +166,16 @@ authors: code running in a PR's own job already has the same-run exposure
 (runner SA token, vcluster kubeconfig).
 
 `pre-commit.yaml` runs on this self-hosted runner (like `pr-preview.yaml`),
-so the warmed tools are consumed by every push/PR. One exception: kubeconform
-— `bmuschko/setup-kubeconform` cannot use the tool cache (it always
-downloads), and we deliberately do not hand-download binaries into the cache,
-so it stays uncached (~5 MB per run, same cost as before on `ubuntu-latest`).
+so the warmed tools are consumed by every push/PR. PR runs are diff-scoped
+(`pre-commit run --from-ref <base> --to-ref HEAD` — only files changed by the
+PR are checked, so a docs-only PR skips the chart renders and tflint/kubeconform
+passes); pushes to `main` always run the full `--all-files` sweep, as do PRs
+whose diff touches hook config (`.pre-commit-config.yaml`, `.yamllint.yaml`,
+`.secrets.baseline`, `infra/cluster/.tflint.hcl`, the local hook scripts). One
+exception: kubeconform — `bmuschko/setup-kubeconform` cannot use the tool
+cache (it always downloads), and we deliberately do not hand-download
+binaries into the cache, so it stays uncached (~5 MB per run, same cost as
+before on `ubuntu-latest`).
 
 The seed volume uses a dedicated StorageClass (`longhorn-rwx-cache`, see
 `platform/gha-runner-scale-set/storage-class.yaml`) that tunes the NFS mount

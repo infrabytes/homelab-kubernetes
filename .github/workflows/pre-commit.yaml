@@ -15,6 +15,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history so the PR base sha is always present for --from-ref.
+          fetch-depth: 0
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
@@ -32,4 +35,23 @@ jobs:
       - uses: bmuschko/setup-kubeconform@e5d264ec1eafe2314e750c429a9da7639dd5a003 # v1.1.0
         with:
           kubeconform-version: 0.8.0
+      - name: Determine pre-commit range
+        id: range
+        run: |
+          args="--all-files" # push to main: authoritative full run
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            # Full run when the base sha is unavailable or the diff touches
+            # hook config (a changed-file run would otherwise lint nothing).
+            config_files='\.pre-commit-config\.yaml|\.yamllint\.yaml|\.secrets\.baseline|infra/cluster/\.tflint\.hcl'
+            hook_scripts='\.github/scripts/(check-argocd-apps|terragrunt-validate|check-sops-encryption)\.(py|sh)'
+            if git cat-file -e "$base^{commit}" 2>/dev/null \
+               && ! git diff --name-only "$base" HEAD | grep -qxE "$config_files|$hook_scripts" \
+               ; then
+              args="--from-ref $base --to-ref HEAD"
+            fi
+          fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
       - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+        with:
+          extra_args: ${{ steps.range.outputs.args }}
