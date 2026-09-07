@@ -24,9 +24,10 @@ in the shared SOPS-encrypted `../secrets.sops.yaml`.
   `kubernetes_version` changes (`talos_cluster`), and writes out
   `artifacts/kubeconfig` and `artifacts/talosconfig`.
 - **Cilium CNI** (`hashicorp/helm`): the Cilium Helm chart is rendered locally
-  into a single manifest, disabled Talos's default Flannel
-  (`cluster.network.cni.name: none`), and embeds the manifest as a controlplane
-  **inline manifest** that Talos applies automatically during bootstrap.
+  into a single manifest, disables Talos's default Flannel (the
+  `KubeFlannelCNIConfig` document is deleted from controlplane configs), and
+  embeds the manifest as a controlplane **inline manifest** that Talos applies
+automatically during bootstrap.
 
 ## Layout
 
@@ -129,15 +130,16 @@ is delivered the way the
 [Sidero docs recommend](https://docs.siderolabs.com/kubernetes-guides/cni/deploying-cilium)
 for production, as an **inline manifest**:
 
-- `cluster.network.cni.name: none` is patched into **every** node's machine
-  config, so Talos never installs Flannel.
+- The `KubeFlannelCNIConfig` document is deleted from controlplane configs
+  (`$patch: delete`), so Talos never installs Flannel; `KubeProxyConfig` is
+  set to `enabled: false` (Cilium runs with kubeProxyReplacement).
 - `cilium.tf` renders the Cilium Helm chart locally with `data.helm_template`
   from `hashicorp/helm`. This is a `ClientOnly` dry-run render (like
   `helm template`). The chart version is pinned by `cilium_chart_version` in
   `terragrunt.hcl`, and `kube_version` is set to the cluster's Kubernetes
   version so the chart's `kubeVersion` check passes pre-bootstrap.
 - The rendered manifest becomes a controlplane **inline manifest**
-  (`cluster.inlineManifests[].cilium`). Talos applies it itself during
+  (`KubeInlineManifestConfig` document). Talos applies it itself during
   bootstrap, so **no manual `helm install`/`kubectl apply` window** is needed.
 
 Upgrade Cilium: bump `cilium_chart_version` → `terragrunt apply` (re-renders
@@ -156,8 +158,9 @@ per-node ISOs are only for fresh installs (they re-download automatically on
 version bumps).
 
 - **Talos OS** — `talos_machine` (one per node) keeps the running version in
-  sync with the installer image: `image` = the node's `machine.install.image`,
-  both derived from `talos_version` + the node's schematic. When it changes,
+  sync with the installer image: `image` = the node's
+  `UnattendedInstallConfig` installer image, both derived from
+  `talos_version` + the node's schematic. When it changes,
   the node is upgraded in place first (pull installer → install to disk →
   cordon+drain → reboot → wait for health → uncordon) and only then the
   regenerated machine config is applied, so the upgraded node validates
@@ -187,10 +190,8 @@ exceed the API server's minor.
 
 > **Config patch format:** Talos 1.14 moved install, network, kubelet, CNI and
 > kube-proxy settings into separate config documents; the module's per-node
-> patches target those documents from `talos_version` 1.14 on (legacy
-> v1alpha1 fields for the same settings conflict with the generated
-> documents and are rejected). The switch is gated on the version in
-> `env.hcl`, so a 1.13 cluster keeps the legacy patch set until the bump.
+> patches target those documents (legacy v1alpha1 fields for the same settings
+> conflict with the generated documents and are rejected).
 
 > **Why this exists:** the previous flow only patched `machine.install.image`
 > into the applied configs (`talos_machine_configuration_apply`), which
@@ -212,9 +213,9 @@ agent must be enabled on the VM.
 1. Set `enable_qemu_guest_agent = true`. This appends
    `siderolabs/qemu-guest-agent` to `talos_system_extensions`, which get baked
    into every node's schematic/ISO. The *installed* system also needs the
-   extension. It comes from the installer image written into
-   `machine.install.image`, which is built from `talos_scheme_id`; make sure
-   that scheme includes the extension too.
+   extension. It comes from the installer image written into the
+   `UnattendedInstallConfig` document, which is built from `talos_scheme_id`;
+   make sure that scheme includes the extension too.
 2. Add any other official extensions to `talos_system_extensions`
    (default: `["siderolabs/intel-ucode"]`).
 3. `terragrunt apply`, then reprovision nodes whose images need the

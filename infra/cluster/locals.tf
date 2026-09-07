@@ -33,7 +33,7 @@ locals {
       role         = v.role
       hostname     = v.hostname
       install_disk = v.install_disk
-      # machine.install.image must match the node's own schematic (extensions),
+      # The installer image must match the node's own schematic (extensions),
       # not the static base scheme — otherwise a fresh reinstall would silently
       # drop extensions like Longhorn's iscsi-tools.
       install_img  = "factory.talos.dev/installer/${talos_image_factory_schematic.node[k].id}:${var.talos_version}"
