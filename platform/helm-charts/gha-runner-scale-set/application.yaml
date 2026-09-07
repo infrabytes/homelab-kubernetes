@@ -30,12 +30,12 @@ spec:
                 persistentVolumeClaim:
                   claimName: gha-runner-tool-cache
               - name: tool-cache-local
-                # Hard backstop: the warm workflow keeps the seed a pure
-                # function of the current pins (~1.7 GB hydrated), so a pod
-                # exceeding this means something regressed — evict instead of
-                # silently eating node disk.
+                # Capacity ceiling: the warm workflow keeps the seed a pure
+                # function of the current pins (~1.7 GB hydrated), so 10 Gi
+                # leaves ample headroom for future tool/env growth; a pod
+                # exceeding it is evicted instead of eating node disk.
                 emptyDir:
-                  sizeLimit: 3Gi
+                  sizeLimit: 10Gi
             containers:
               - name: runner
                 image: ghcr.io/actions/actions-runner:latest
