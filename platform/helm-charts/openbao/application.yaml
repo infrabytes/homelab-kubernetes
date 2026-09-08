@@ -49,14 +49,16 @@ spec:
                 storage "raft" {
                   path = "/openbao/data"
                   # Auto-join the raft cluster after openbao-0 is initialized.
+                  # API address (http, tls_disable=1): the cluster port 8201
+                  # rejects the bootstrap challenge with a TLS error.
                   retry_join {
-                    leader_api_addr = "https://openbao-0.openbao-internal:8201"
+                    leader_api_addr = "http://openbao-0.openbao-internal:8200"
                   }
                   retry_join {
-                    leader_api_addr = "https://openbao-1.openbao-internal:8201"
+                    leader_api_addr = "http://openbao-1.openbao-internal:8200"
                   }
                   retry_join {
-                    leader_api_addr = "https://openbao-2.openbao-internal:8201"
+                    leader_api_addr = "http://openbao-2.openbao-internal:8200"
                   }
                 }
 
