@@ -14,6 +14,14 @@ spec:
       values: |
         spegel:
           containerdRegistryConfigPath: /etc/cri/conf.d/hosts
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        # Overrides the chart default (128Mi request = limit).
+        resources:
+          requests:
+            cpu: 30m
+            memory: 48Mi
+          limits:
+            memory: 72Mi
         serviceMonitor:
           enabled: true
   destination:

@@ -152,11 +152,39 @@ data "helm_template" "cilium" {
           client:
             cert: ${base64encode(tls_locally_signed_cert.hubble_relay_client.cert_pem)}
             key: ${base64encode(tls_private_key.hubble_relay_client.private_key_pem)}
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 80Mi
+          limits:
+            memory: 120Mi
     # Leader-election client rate limit for L2 announcement leases
     # (docs sizing: #services / leaseRenewDeadline; homelab small -> 16/32).
     k8sClientRateLimit:
       qps: 16
       burst: 32
+    # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+    resources:
+      requests:
+        cpu: 125m
+        memory: 448Mi
+      limits:
+        memory: 672Mi
+    operator:
+      resources:
+        requests:
+          cpu: 20m
+          memory: 192Mi
+        limits:
+          memory: 288Mi
+    envoy:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          memory: 96Mi
     securityContext:
       capabilities:
         ciliumAgent:

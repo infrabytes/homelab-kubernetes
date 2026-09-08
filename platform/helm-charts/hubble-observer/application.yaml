@@ -47,12 +47,13 @@ spec:
             type: RuntimeDefault
 
         # Only DROPPED flows are logged to Loki (free-tier log budget).
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
         resources:
           requests:
-            cpu: 10m
+            cpu: 20m
             memory: 32Mi
           limits:
-            memory: 128Mi
+            memory: 48Mi
 
         cf2cnp:
           enabled: true
@@ -70,12 +71,13 @@ spec:
             paths:
               - path: /
                 pathType: PathPrefix
+          # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
           resources:
             requests:
               cpu: 10m
               memory: 32Mi
             limits:
-              memory: 128Mi
+              memory: 48Mi
   destination:
     namespace: hubble-observer
     server: https://kubernetes.default.svc

@@ -26,18 +26,53 @@ resource "helm_release" "argo_cd" {
         service = { type = "ClusterIP" }
         ingress = { enabled = false }
         metrics = { enabled = true }
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        resources = {
+          requests = { cpu = "10m", memory = "128Mi" }
+          limits   = { memory = "192Mi" }
+        }
       }
       applicationSet = {
         enabled = true
         metrics = { enabled = true }
+        resources = {
+          requests = { cpu = "10m", memory = "64Mi" }
+          limits   = { memory = "96Mi" }
+        }
       }
       # Expose the /metrics endpoints as Services so the k8s-monitoring
       # ServiceMonitors in platform/helm-charts/grafana-cloud can scrape them.
       controller = {
         metrics = { enabled = true }
+        resources = {
+          requests = { cpu = "100m", memory = "608Mi" }
+          limits   = { memory = "912Mi" }
+        }
       }
       repoServer = {
         metrics = { enabled = true }
+        resources = {
+          requests = { cpu = "10m", memory = "192Mi" }
+          limits   = { memory = "288Mi" }
+        }
+      }
+      dex = {
+        resources = {
+          requests = { cpu = "10m", memory = "80Mi" }
+          limits   = { memory = "120Mi" }
+        }
+      }
+      notifications = {
+        resources = {
+          requests = { cpu = "10m", memory = "32Mi" }
+          limits   = { memory = "48Mi" }
+        }
+      }
+      redis = {
+        resources = {
+          requests = { cpu = "10m", memory = "32Mi" }
+          limits   = { memory = "48Mi" }
+        }
       }
       configs = {
         params = {
