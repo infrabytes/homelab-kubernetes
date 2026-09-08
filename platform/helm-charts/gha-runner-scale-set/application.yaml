@@ -15,7 +15,8 @@ spec:
         githubConfigUrl: "https://github.com/infrabytes/"
         githubConfigSecret: arc-runner-auth
         controllerServiceAccount:
-          name: gha-runner-scale-set-controller-app-gha-rs-controller
+          # Must match the controller chart's SA (named after its helm release name); a mismatch breaks runner registration secret reads.
+          name: gha-runner-scale-set-controller-gha-rs-controller
           namespace: arc-systems
         runnerScaleSetName: homelab-runner
         runnerGroup: homelab
