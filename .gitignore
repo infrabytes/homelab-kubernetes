@@ -19,4 +19,6 @@ __pycache__/
 
 # Locally generated artifacts
 artifacts/
+# Worktree symlink to the main checkout's artifacts dir (terragrunt needs the kubeconfig)
+infra/cluster/artifacts
 .worktrees/
