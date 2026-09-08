@@ -7,14 +7,11 @@ spec:
   parentRefs:
     # LAN only: the A record points at the gateway L2 IP (RFC1918, unroutable
     # publicly; keep the Cloudflare record DNS-only). TLS is terminated at the
-    # gateway's openbao-https listener (cert-manager DNS-01, like argocd); the
-    # http parentRef keeps plaintext LAN access working.
+    # gateway's openbao-https listener (cert-manager DNS-01, like argocd);
+    # plaintext http is redirected to https by redirect.yaml.
     - name: homelab
       namespace: gateway
       sectionName: openbao-https
-    - name: homelab
-      namespace: gateway
-      sectionName: http
   hostnames:
     - bao.icaninto.space
   rules:
