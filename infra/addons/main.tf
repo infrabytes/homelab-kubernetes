@@ -184,6 +184,36 @@ resource "kubernetes_secret_v1" "external_dns_cloudflare" {
 }
 
 ###
+# OpenBao
+###
+
+resource "kubernetes_namespace_v1" "openbao" {
+  metadata { name = "openbao" }
+}
+
+# Static seal key for the built-in auto-unseal (seal "static" stanza, read via
+# file:// from the pod). The value in the Secret is the raw 32-byte key; the
+# openbao chart (platform/helm-charts/openbao) mounts it at
+# /openbao/seal/current.key read-only. Key rotation: write the new key as
+# current.key with a previous_key/previous_key_id stanza (see the app README).
+resource "kubernetes_secret_v1" "openbao_seal" {
+  metadata {
+    name      = "openbao-seal"
+    namespace = kubernetes_namespace_v1.openbao.metadata[0].name
+  }
+  binary_data = {
+    "current.key" = base64decode(var.openbao_seal_key)
+  }
+}
+
+# State-held copy of the bootstrap root token (SOPS -> env.hcl -> addons
+# inputs). Nothing in the cluster consumes it; the value is kept so recovery/
+# rotation workflows never need the token re-typed.
+resource "terraform_data" "openbao_root_token" {
+  input = var.openbao_root_token
+}
+
+###
 # Grafana Cloud
 ###
 

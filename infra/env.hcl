@@ -186,6 +186,11 @@ locals {
     grafana_cloud_prometheus_token    = local.secrets.grafana_cloud_prometheus_token
     grafana_cloud_loki_username       = local.secrets.grafana_cloud_loki_username
     grafana_cloud_loki_token          = local.secrets.grafana_cloud_loki_token
+
+    # OpenBao static seal key (32 random bytes, base64) and the root token
+    # (filled in once, after the one-time `bao operator init` bootstrap).
+    openbao_seal_key   = local.secrets.openbao_seal_key
+    openbao_root_token = local.secrets.openbao_root_token
   }
 
   # ---------------------------------------------------------------------------
