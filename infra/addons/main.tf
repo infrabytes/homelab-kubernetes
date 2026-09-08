@@ -85,6 +85,10 @@ resource "helm_release" "argo_cd" {
             # (infra/argocd-config). apiKey capability only (no login), so
             # the login page stays SSO-only.
             "accounts.tf-bot" = "apiKey"
+            # Local service account for the PR validation workflow
+            # (argocd-dry-run.py). apiKey capability only (no login);
+            # scoped to default/* applications via the RBAC policy.csv.
+            "accounts.preview-bot" = "apiKey"
             # Cap unauthenticated webhook request bodies (DDoS hardening;
             # default 50MB, GitHub push events stay far below 1MB).
             "webhook.maxPayloadSizeMB" = "1"
@@ -234,5 +238,20 @@ resource "kubernetes_secret_v1" "arc_runner_auth" {
   }
   data = {
     "github_token" = var.github_runner_token
+  }
+}
+
+# ArgoCD API token for the preview-bot account, consumed by the PR
+# validation workflow (argocd-dry-run.py reads it via the runner SA).
+# Created only once the token exists in SOPS (bootstrap order: the account
+# must exist in argocd-cm before the token can be generated).
+resource "kubernetes_secret_v1" "preview_bot_auth" {
+  count = var.argocd_preview_bot_token != "" ? 1 : 0
+  metadata {
+    name      = "preview-bot-auth"
+    namespace = kubernetes_namespace_v1.arc_runners.metadata[0].name
+  }
+  data = {
+    "argocd_token" = var.argocd_preview_bot_token
   }
 }

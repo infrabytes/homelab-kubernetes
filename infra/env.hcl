@@ -165,6 +165,12 @@ locals {
         "p, dhaustein, repositories, create, pdeu/*, allow",
         "p, dhaustein, repositories, update, pdeu/*, allow",
         "p, dhaustein, repositories, delete, pdeu/*, allow",
+        # preview-bot (PR validation dry-run syncs): create/get/sync/delete
+        # Applications in the default project, nothing else.
+        "p, preview-bot, applications, create, default/*, allow",
+        "p, preview-bot, applications, get, default/*, allow",
+        "p, preview-bot, applications, sync, default/*, allow",
+        "p, preview-bot, applications, delete, default/*, allow",
       ]
     }
     # ArgoCD SSO-only login: once the tf-bot API token is added below, the
@@ -172,6 +178,9 @@ locals {
     # authenticates with the token instead of the admin password.
     argocd_tf_token     = try(local.secrets.argocd_tf_token, "")
     github_runner_token = local.secrets.github_runner_token
+    # API token for the preview-bot account (PR validation dry-run syncs),
+    # written into the preview-bot-auth Secret in arc-runners.
+    argocd_preview_bot_token = try(local.secrets.argocd_preview_bot_token, "")
     # ArgoCD GitHub webhook shared secret (argocd-secret: webhook.github.secret).
     # The same value goes into the GitHub repo webhook (Settings -> Webhooks);
     # ArgoCD rejects events whose X-Hub-Signature-256 does not match.

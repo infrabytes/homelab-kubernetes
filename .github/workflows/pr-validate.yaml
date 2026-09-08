@@ -1,0 +1,118 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - "platform/**"
+      - "apps/**"
+
+concurrency:
+  group: pr-validate-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    if: github.event.action != 'closed'
+    runs-on: homelab-runner
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      ARGOCD_VERSION: v3.5.2
+      GH_CLI_VERSION: v2.100.0
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/pull/${{ github.event.number }}/merge
+          path: target-branch
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: base-branch
+          persist-credentials: false
+
+      # Installed per-run from the *_VERSION pins; not part of the persisted tool cache.
+      - name: Install argocd CLI
+        run: |
+          set -eu
+          curl -fSL --retry 3 -o /tmp/argocd-linux-amd64 \
+            "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_VERSION}/argocd-linux-amd64"
+          chmod +x /tmp/argocd-linux-amd64
+          sudo mv /tmp/argocd-linux-amd64 /usr/local/bin/argocd
+          argocd version --client
+
+      - name: Install gh CLI
+        run: |
+          set -eu
+          curl -fSL --retry 3 -o /tmp/gh.tar.gz \
+            "https://github.com/cli/cli/releases/download/${GH_CLI_VERSION}/gh_${GH_CLI_VERSION#v}_linux_amd64.tar.gz"
+          tar -xzf /tmp/gh.tar.gz -C /tmp
+          sudo mv "/tmp/gh_${GH_CLI_VERSION#v}_linux_amd64/bin/gh" /usr/local/bin/gh
+          gh --version
+
+      # The runner image ships python3 but no pip/PyYAML; argocd-dry-run.py needs PyYAML to mirror chart Applications (same setup as pre-commit.yaml).
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Install PyYAML
+        run: python3 -m pip install pyyaml==6.0.3
+
+      # Run the tooling from the base checkout, not the merge ref: refs/pull/N/merge is recomputed lazily, so the target-branch script can be stale on re-runs.
+      - name: Run dry-run validation
+        run: |
+          python3 base-branch/.github/scripts/argocd-dry-run.py \
+            --repo-url https://github.com/${{ github.repository }} \
+            --pr ${{ github.event.number }} \
+            --base-dir base-branch \
+            --target-dir target-branch \
+            --output output/validation-report.md
+
+      - name: Comment validation
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p output
+          if [ ! -s output/validation-report.md ]; then
+            echo "No validation report was generated." > output/validation-report.md
+          fi
+          gh pr comment ${{ github.event.number }} --repo ${{ github.repository }} --body-file output/validation-report.md --edit-last || \
+          gh pr comment ${{ github.event.number }} --repo ${{ github.repository }} --body-file output/validation-report.md
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: homelab-runner
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      ARGOCD_VERSION: v3.5.2
+    steps:
+      # The script lives on main; the PR head may predate it.
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Install argocd CLI
+        run: |
+          set -eu
+          curl -fSL --retry 3 -o /tmp/argocd-linux-amd64 \
+            "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_VERSION}/argocd-linux-amd64"
+          chmod +x /tmp/argocd-linux-amd64
+          sudo mv /tmp/argocd-linux-amd64 /usr/local/bin/argocd
+          argocd version --client
+
+      # Safety net for cancelled runs: delete leftover dryrun-pr-<N>-* apps by label.
+      - name: Delete leftover dry-run applications
+        run: |
+          python3 .github/scripts/argocd-dry-run.py --cleanup --pr ${{ github.event.number }}

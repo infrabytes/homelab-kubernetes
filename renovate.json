@@ -83,7 +83,7 @@
       "customType": "regex",
       "description": "Helm CLI version pinned in the CI workflows",
       "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/(pre-commit|pr-preview|warm-tool-cache)\\.ya?ml$/"
+        "/^\\.github\\/workflows\\/(pre-commit|warm-tool-cache)\\.ya?ml$/"
       ],
       "matchStrings": [
         "\\n\\s*version:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
@@ -94,9 +94,9 @@
     },
     {
       "customType": "regex",
-      "description": "kubectl version pinned in the PR preview and tool-cache workflows (matches kubernetes_version in env.hcl)",
+      "description": "kubectl version pinned in the tool-cache workflow (matches kubernetes_version in env.hcl)",
       "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/(pr-preview|warm-tool-cache)\\.ya?ml$/"
+        "/^\\.github\\/workflows\\/warm-tool-cache\\.ya?ml$/"
       ],
       "matchStrings": [
         "\\n\\s*version:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)"
@@ -120,68 +120,28 @@
     },
     {
       "customType": "regex",
-      "description": "argocd-diff-preview binary version pinned in the PR preview workflow",
+      "description": "argocd CLI version pinned in the PR validation workflow",
       "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/pr-preview\\.ya?ml$/"
+        "/^\\.github\\/workflows\\/pr-validate\\.ya?ml$/"
       ],
       "matchStrings": [
-        "ARGOCD_DIFF_PREVIEW_VERSION:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
+        "ARGOCD_VERSION:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
       ],
-      "depNameTemplate": "dag-andersen/argocd-diff-preview",
+      "depNameTemplate": "argoproj/argo-cd",
       "datasourceTemplate": "github-releases",
       "versioningTemplate": "semver"
     },
     {
       "customType": "regex",
-      "description": "GitHub CLI version pinned in the PR preview workflow",
+      "description": "GitHub CLI version pinned in the PR validation workflow",
       "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/pr-preview\\.ya?ml$/"
+        "/^\\.github\\/workflows\\/pr-validate\\.ya?ml$/"
       ],
       "matchStrings": [
         "GH_CLI_VERSION:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
       ],
       "depNameTemplate": "cli/cli",
       "datasourceTemplate": "github-releases",
-      "versioningTemplate": "semver"
-    },
-    {
-      "customType": "regex",
-      "description": "kind binary version pinned in the PR preview workflow",
-      "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/pr-preview\\.ya?ml$/"
-      ],
-      "matchStrings": [
-        "KIND_VERSION:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
-      ],
-      "depNameTemplate": "kubernetes-sigs/kind",
-      "datasourceTemplate": "github-releases",
-      "versioningTemplate": "semver"
-    },
-    {
-      "customType": "regex",
-      "description": "vcluster CLI version pinned in the PR preview workflow",
-      "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/pr-preview\\.ya?ml$/"
-      ],
-      "matchStrings": [
-        "VCLUSTER_VERSION:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
-      ],
-      "depNameTemplate": "loft-sh/vcluster",
-      "datasourceTemplate": "github-releases",
-      "versioningTemplate": "semver"
-    },
-    {
-      "customType": "regex",
-      "description": "Argo CD Helm chart version installed in the PR preview vCluster",
-      "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/pr-preview\\.ya?ml$/"
-      ],
-      "matchStrings": [
-        "--version\\s+(?<currentValue>\\d+\\.\\d+\\.\\d+)"
-      ],
-      "depNameTemplate": "argo-cd",
-      "datasourceTemplate": "helm",
-      "registryUrlTemplate": "https://argoproj.github.io/argo-helm/",
       "versioningTemplate": "semver"
     },
     {

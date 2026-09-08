@@ -81,6 +81,13 @@ variable "github_runner_token" {
   sensitive   = true
 }
 
+variable "argocd_preview_bot_token" {
+  description = "Long-lived API token for the preview-bot ArgoCD service account (generated via `argocd account generate-token --account preview-bot`). Written into the preview-bot-auth Secret in arc-runners; the PR validation workflow uses it for dry-run syncs. Leave empty while bootstrapping (the account exists without a token)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "grafana_cloud_prometheus_username" {
   description = "Grafana Cloud Prometheus instance ID (basic-auth username for remote-write)."
   type        = string

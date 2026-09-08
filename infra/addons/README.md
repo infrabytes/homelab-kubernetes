@@ -35,6 +35,16 @@ enabled account has the `login` capability).
   `../secrets.sops.yaml`. When it's set, the `admin.enabled=false` flip is
   applied and the argocd provider switches to token auth; while it's empty the
   provider falls back to the admin password (fresh bootstrap).
+- **`preview-bot`**: second local account (`apiKey` capability only), used by
+  the PR validation workflow (`.github/workflows/pr-validate.yaml`) to run
+  dry-run syncs on the host ArgoCD. RBAC-scoped in `../env.hcl`
+  (`addons.argocd_rbac.policy_csv`) to `default/*` applications
+  create/get/sync/delete. Its token (`argocd_preview_bot_token` in SOPS,
+  generated with `argocd account generate-token --account preview-bot`) is
+  written into the `preview-bot-auth` Secret in `arc-runners`; the runner SA
+  reads it (see `platform/homelab-runner/rbac.yaml`). The Secret is created
+  only once the token is set, so a fresh bootstrap applies the account first
+  and the token in a second apply.
 
 ### **ArgoCD GitHub webhook**
 

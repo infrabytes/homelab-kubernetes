@@ -4,38 +4,12 @@ metadata:
   name: arc-runner
   namespace: arc-runners
 ---
+# Read access to the preview-bot ArgoCD API token (PR validation dry-run syncs).
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: arc-runner-diff-preview
-  namespace: argocd-diff-preview
-rules:
-  - apiGroups: ["*"]
-    resources: ["*"]
-    verbs: ["*"]
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: arc-runner-diff-preview
-  namespace: argocd-diff-preview
-subjects:
-  - kind: ServiceAccount
-    name: arc-runner
-    namespace: arc-runners
-roleRef:
-  kind: Role
-  name: arc-runner-diff-preview
-  apiGroup: rbac.authorization.k8s.io
----
-# Read access to the external-dns namespace secrets so the PR preview
-# workflow can copy the Cloudflare API token data into the vCluster for
-# the preview external-dns instance.
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: arc-runner-preview-secrets
-  namespace: external-dns
+  name: arc-runner-preview-bot
+  namespace: arc-runners
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -44,69 +18,36 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: arc-runner-preview-secrets
-  namespace: external-dns
+  name: arc-runner-preview-bot
+  namespace: arc-runners
 subjects:
   - kind: ServiceAccount
     name: arc-runner
     namespace: arc-runners
 roleRef:
   kind: Role
-  name: arc-runner-preview-secrets
+  name: arc-runner-preview-bot
   apiGroup: rbac.authorization.k8s.io
 ---
-# Read access to CRD definitions so pr-preview.py can copy the CRDs a
-# preview app needs (gateway API, VPA, ServiceMonitor) from the host into
-# the vCluster. Definitions only - no CR instances, read-only.
+# Namespace existence check for the dry-run validation supplement (the ArgoCD dry-run misses a missing destination namespace).
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: arc-runner-preview-crds
+  name: arc-runner-namespace-read
 rules:
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
     verbs: ["get"]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: arc-runner-preview-crds
+  name: arc-runner-namespace-read
 subjects:
   - kind: ServiceAccount
     name: arc-runner
     namespace: arc-runners
 roleRef:
   kind: ClusterRole
-  name: arc-runner-preview-crds
-  apiGroup: rbac.authorization.k8s.io
----
-# Read access to the vcluster namespace so `vcluster connect` can discover
-# the vcluster workload and read the exported kubeconfig Secret
-# (vc-vcluster) that the PR preview workflow uses to reach the
-# virtual cluster.
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: arc-runner-vcluster-connect
-  namespace: vcluster
-rules:
-  - apiGroups: [""]
-    resources: ["secrets", "pods"]
-    verbs: ["get", "list"]
-  - apiGroups: ["apps"]
-    resources: ["statefulsets", "deployments"]
-    verbs: ["get", "list"]
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: arc-runner-vcluster-connect
-  namespace: vcluster
-subjects:
-  - kind: ServiceAccount
-    name: arc-runner
-    namespace: arc-runners
-roleRef:
-  kind: Role
-  name: arc-runner-vcluster-connect
+  name: arc-runner-namespace-read
   apiGroup: rbac.authorization.k8s.io
