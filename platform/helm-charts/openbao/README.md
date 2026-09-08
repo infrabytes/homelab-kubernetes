@@ -7,7 +7,9 @@ per worker — with Longhorn PVCs and the built-in static-key auto-unseal.
 - Namespace + seal-key Secret (`openbao-seal`): created by Terraform
   (`infra/addons/main.tf`) from `infra/secrets.sops.yaml` — keys never appear
   in manifests.
-- LAN-only access: `apps/openbao/route.yaml` (SWAG forwarding, no public path).
+- LAN-only access: `apps/openbao/route.yaml` (gateway `openbao-https` listener,
+  cert-manager DNS-01 cert like argocd; plaintext `http` parentRef kept for LAN
+  clients).
 - Metrics: chart ServiceMonitor scraped by the k8s-monitoring stack.
 
 ## How auto-unseal works

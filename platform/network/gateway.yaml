@@ -30,6 +30,18 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: openbao-https
+      hostname: bao.icaninto.space
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: openbao-tls
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All
     - name: longhorn-https
       hostname: longhorn.icaninto.space
       port: 443
