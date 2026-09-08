@@ -11,7 +11,7 @@ spec:
     # http parentRef keeps plaintext LAN access working.
     - name: homelab
       namespace: gateway
-      sectionName: https
+      sectionName: openbao-https
     - name: homelab
       namespace: gateway
       sectionName: http
