@@ -27,6 +27,18 @@ spec:
           defaultDataPath: /var/mnt/longhorn
           createDefaultDiskLabeledNodes: true
           storageMinimalAvailablePercentage: "10"
+          # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+          # Applies to the runtime-created csi-plugin DaemonSet containers
+          # (longhorn-csi-plugin, node-driver-registrar, longhorn-liveness-probe).
+          systemManagedCSIComponentsResourceLimits: '{"longhorn-csi-plugin": {"requests": {"cpu": "10m", "memory": "48Mi"}, "limits": {"memory": "72Mi"}}, "node-driver-registrar": {"requests": {"cpu": "10m", "memory": "32Mi"}, "limits": {"memory": "48Mi"}}, "longhorn-liveness-probe": {"requests": {"cpu": "10m", "memory": "32Mi"}, "limits": {"memory": "48Mi"}}}'
+        longhornManager:
+          # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+          resources:
+            requests:
+              cpu: 40m
+              memory: 256Mi
+            limits:
+              memory: 384Mi
         persistence:
           defaultClass: true
           defaultClassReplicaCount: 2

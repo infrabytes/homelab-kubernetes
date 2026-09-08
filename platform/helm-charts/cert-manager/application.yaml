@@ -15,6 +15,27 @@ spec:
         config:
           gatewayAPI:
             enabled: true
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 48Mi
+          limits:
+            memory: 72Mi
+        cainjector:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 112Mi
+            limits:
+              memory: 168Mi
+        webhook:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 96Mi
       parameters:
         - name: installCRDs
           value: "true"

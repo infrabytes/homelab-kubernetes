@@ -118,14 +118,58 @@ spec:
         telemetryServices:
           kube-state-metrics:
             deploy: true
+            # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+            resources:
+              requests:
+                cpu: 10m
+                memory: 48Mi
+              limits:
+                memory: 72Mi
           node-exporter:
             deploy: true
+            # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 48Mi
 
         collectors:
           alloy-metrics:
             presets: [clustered, statefulset]
+            # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+            alloy:
+              resources:
+                requests:
+                  cpu: 30m
+                  memory: 448Mi
+                limits:
+                  memory: 672Mi
+            configReloader:
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 48Mi
+                limits:
+                  memory: 72Mi
           alloy-logs:
             presets: [daemonset, filesystem-log-reader]
+            # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+            alloy:
+              resources:
+                requests:
+                  cpu: 30m
+                  memory: 448Mi
+                limits:
+                  memory: 672Mi
+            configReloader:
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 48Mi
+                limits:
+                  memory: 72Mi
             alloy:
               stabilityLevel: experimental
               hostNetwork: true

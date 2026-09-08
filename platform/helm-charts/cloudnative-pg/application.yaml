@@ -22,6 +22,13 @@ spec:
       values: |
         monitoring:
           podMonitorEnabled: true
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 48Mi
+          limits:
+            memory: 72Mi
   destination:
     namespace: cnpg-system
     server: https://kubernetes.default.svc

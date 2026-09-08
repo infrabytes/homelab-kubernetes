@@ -14,6 +14,17 @@ spec:
       values: |
         telemetry:
           enabled: false
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        controlPlane:
+          statefulSet:
+            resources:
+              requests:
+                cpu: 250m
+                memory: 960Mi
+                ephemeral-storage: 1Gi
+              limits:
+                memory: 1440Mi
+                ephemeral-storage: 10Gi
         # Serve the metrics API inside the vCluster by proxying the host
         # metrics-server (read-only), so the preview VPA recommender and
         # any HPA can work.

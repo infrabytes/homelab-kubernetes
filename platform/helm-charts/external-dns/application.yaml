@@ -21,6 +21,13 @@ spec:
         policy: sync
         registry: txt
         txtOwnerId: homelab
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 80Mi
+          limits:
+            memory: 120Mi
         serviceMonitor:
           enabled: true
         env:

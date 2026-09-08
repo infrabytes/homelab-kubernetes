@@ -177,12 +177,12 @@ spec:
             port: health
           initialDelaySeconds: 3
         resources:
-          limits:
-            cpu: 250m
-            memory: 32Mi
+          # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
           requests:
             cpu: 10m
-            memory: 16Mi
+            memory: 32Mi
+          limits:
+            memory: 48Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
