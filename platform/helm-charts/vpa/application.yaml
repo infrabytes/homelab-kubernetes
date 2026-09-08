@@ -21,12 +21,12 @@ spec:
           image:
             tag: "1.7.1"
           resources:
-            limits:
-              cpu: 200m
-              memory: 1000Mi
+            # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
             requests:
-              cpu: 50m
-              memory: 500Mi
+              cpu: 10m
+              memory: 48Mi
+            limits:
+              memory: 72Mi
           podDisruptionBudget:
             enabled: false
         containerSecurityContext:

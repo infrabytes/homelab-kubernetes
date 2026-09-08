@@ -9,6 +9,16 @@ spec:
     repoURL: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller
     targetRevision: 0.14.2
     path: .
+    helm:
+      releaseName: gha-runner-scale-set-controller
+      values: |
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 48Mi
+          limits:
+            memory: 72Mi
   destination:
     namespace: arc-systems
     server: https://kubernetes.default.svc

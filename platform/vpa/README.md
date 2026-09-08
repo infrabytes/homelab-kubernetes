@@ -146,16 +146,44 @@ VPA does not cover PVCs. Sizing data is already in Grafana Cloud:
   `longhorn_volume_capacity_bytes` (provisioned size), for snapshot-aware
   sizing decisions.
 
-## Follow-up workflow (this PR does NOT set any requests/limits)
+## Resource policy (requests/limits)
 
-1. Let the recommender accumulate ≥ 8 days of history.
-2. Set `resources.requests` from each container's `target` (round up
-   sensibly, e.g. 50m/10Mi steps), and `limits` from `upperBound` where a
-   limit is sensible (be careful with CPU limits; they throttle).
-3. Keep the VPA objects running (`updateMode: Off`) as a continuous drift
-   monitor: a VPA whose `target` consistently stays below the set request is
-   a candidate for a reduction; one above it suggests raising.
-4. Size PVCs from the Grafana Cloud storage queries above.
-5. ARC runners: set `template.spec.resources` in the
+Workload resources are set from Grafana Cloud usage data with this policy (applied
+Aug 2026; see the `feat/resource-requests` PR for the full table):
+
+- **CPU: requests only, no limits.** CPU limits cause CFS throttling and
+  provide no OOM protection; requests alone guarantee scheduling.
+- **Memory: request + limit, limit = 1.5x request exactly.** Requests are
+  the 14-day p95 of `container_memory_working_set_bytes` (1-minute
+  granularity, via Grafana Cloud), rounded up, with a 32Mi floor; where the
+  14-day max exceeds 1.5x the p95, the request is raised so the limit still
+  covers the worst observed usage (no OOM regression vs. the previous
+  no-limit state).
+- The VPA objects stay `updateMode: Off` as a continuous drift monitor:
+  when `status.recommendation` grows past the configured values, bump the
+  resources in the chart values / manifests, not the VPA objects.
+
+Where the values live: chart `Application` values under
+`platform/helm-charts/` (argocd via `infra/addons/main.tf`), raw manifests
+(`platform/metrics-server`, `platform/kubelet-serving-cert-approver`), and
+the cluster unit for Cilium (`infra/cluster/cilium.tf`).
+
+Known exceptions (not configurable / deliberately left):
+
+- **coredns** (Talos bootstrap manifest): Talos machine config only supports
+  `cluster.coreDNS.enabled`/`image`; the deployment keeps Talos's tuned
+  defaults (100m/70Mi request, 170Mi limit).
+- **longhorn-driver-deployer, longhorn-ui, pre-pull-share-manager-image**: the
+  longhorn chart 1.12.1 exposes no resources for these (only
+  `longhornManager.resources` and the
+  `systemManagedCSIComponentsResourceLimits` setting).
+- **ARC runner pods, Longhorn engine-image/InstanceManager/csi sidecar
+  Deployments**: runtime-generated; resources belong in chart values/settings
+  (see above), not here.
+
+## Follow-up workflow
+
+1. Size PVCs from the Grafana Cloud storage queries above.
+2. ARC runners: set `template.spec.resources` in the
    `gha-runner-scale-set` Application values instead of a VPA (the runner
    StatefulSet is generated at runtime and cannot be targeted by a VPA).
