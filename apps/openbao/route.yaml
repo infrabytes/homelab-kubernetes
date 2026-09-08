@@ -5,12 +5,13 @@ metadata:
   namespace: openbao
 spec:
   parentRefs:
-    # LAN only: SWAG terminates https://bao.icaninto.space and forwards to this
-    # route; no https parentRef → no public path. external-dns (gateway-httproute
-    # source, policy=sync) publishes the A record from the http listener ->
-    # cluster gateway L2 IP (RFC1918, unroutable publicly; keep the Cloudflare
-    # record DNS-only). Unlike ArgoCD, no manual-dns annotation: the record
-    # must point at the private gateway IP.
+    # LAN only: the A record points at the gateway L2 IP (RFC1918, unroutable
+    # publicly; keep the Cloudflare record DNS-only). TLS is terminated at the
+    # gateway's openbao-https listener (cert-manager DNS-01, like argocd); the
+    # http parentRef keeps plaintext LAN access working.
+    - name: homelab
+      namespace: gateway
+      sectionName: https
     - name: homelab
       namespace: gateway
       sectionName: http
