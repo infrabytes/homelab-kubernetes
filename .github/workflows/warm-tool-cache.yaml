@@ -28,7 +28,7 @@ jobs:
       - name: Reset cache directories
         run: |
           # The seed must be a pure function of the current pins: wipe the
-          # pod-local trees first — setup actions and pre-commit never prune
+          # pod-local trees first; setup actions and pre-commit never prune
           # old versions, so every pin/rev bump would otherwise accumulate in
           # the published seed forever.
           sudo rm -rf /opt/tool-cache/local/runner /opt/tool-cache/local/mise /opt/tool-cache/local/pre-commit

@@ -49,7 +49,7 @@ variable "cilium_inline_manifest" {
 }
 
 variable "gateway_api_inline_manifest" {
-  description = "Gateway API CRD bundle (pinned release's standard-install.yaml) embedded as a Talos inline manifest on controlplane nodes — listed before the Cilium manifest."
+  description = "Gateway API CRD bundle (pinned release's standard-install.yaml) embedded as a Talos inline manifest on controlplane nodes, listed before the Cilium manifest."
   type        = string
   sensitive   = true
 }

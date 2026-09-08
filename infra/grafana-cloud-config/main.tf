@@ -331,7 +331,7 @@ resource "grafana_rule_group" "capacity" {
     exec_err_state = "Alerting"
 
     annotations = {
-      summary = "Active series count exceeds 9000 — approaching the 10K free-tier limit"
+      summary = "Active series count exceeds 9000, approaching the 10K free-tier limit"
     }
     labels = {
       severity = "warning"

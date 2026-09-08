@@ -129,7 +129,7 @@ variable "talos_system_extensions" {
 }
 
 variable "talos_maintenance_device" {
-  description = "Interface name Talos should configure in maintenance mode via the `ip=` kernel argument. Must be the name the NIC has at initramfs parse time — the kernel default `eth0` (udev renames it to ens18 only later; `ens18`/`enx<mac>` don't exist yet and an empty device picks the wrong link)."
+  description = "Interface name Talos should configure in maintenance mode via the `ip=` kernel argument. Must be the name the NIC has at initramfs parse time: the kernel default `eth0` (udev renames it to ens18 only later; `ens18`/`enx<mac>` don't exist yet and an empty device picks the wrong link)."
   type        = string
   default     = "eth0"
 }
