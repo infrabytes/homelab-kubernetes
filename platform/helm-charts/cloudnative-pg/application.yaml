@@ -20,8 +20,6 @@ spec:
     helm:
       releaseName: cloudnative-pg
       values: |
-        monitoring:
-          podMonitorEnabled: true
         # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
         resources:
           requests:
