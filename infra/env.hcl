@@ -166,11 +166,13 @@ locals {
         "p, dhaustein, repositories, update, pdeu/*, allow",
         "p, dhaustein, repositories, delete, pdeu/*, allow",
         # preview-bot (PR validation dry-run syncs): create/get/sync/delete
-        # Applications in the default project, nothing else.
+        # Applications in the default project, nothing else. projects get is
+        # required by the argocd CLI to resolve an app's project.
         "p, preview-bot, applications, create, default/*, allow",
         "p, preview-bot, applications, get, default/*, allow",
         "p, preview-bot, applications, sync, default/*, allow",
         "p, preview-bot, applications, delete, default/*, allow",
+        "p, preview-bot, projects, get, default, allow",
       ]
     }
     # ArgoCD SSO-only login: once the tf-bot API token is added below, the
