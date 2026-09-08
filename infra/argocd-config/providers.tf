@@ -10,7 +10,7 @@ provider "argocd" {
   # Prefer the tf-bot service-account token (SSO-only mode disables the local
   # admin login); fall back to the admin password while the token is unset
   # (fresh bootstrap, before the token is generated and stored in SOPS).
-  # auth_token must be null (not "") when unused — the provider rejects
+  # auth_token must be null (not "") when unused: the provider rejects
   # auth_token combined with password even for an empty token.
   auth_token                  = var.argocd_tf_token != "" ? var.argocd_tf_token : null
   username                    = var.argocd_tf_token != "" ? null : "admin"

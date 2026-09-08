@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""test-renovate.py — local Renovate dry-run.
+"""test-renovate.py: local Renovate dry-run.
 
 Verifies that the Renovate configuration extracts the expected dependencies
 and computes the expected updates, WITHOUT touching GitHub (no branches, no PRs).
@@ -14,9 +14,9 @@ Requirements:
 What it does:
     1. copies the working tree (incl. uncommitted changes) into a temp dir
     2. installs the exact renovate version pinned in .pre-commit-config.yaml
-       (never trusts the npx cache — stale cached versions are a known trap)
+       (never trusts the npx cache: stale cached versions are a known trap)
     3. runs renovate with platform=local in the temp copy (dryRun=lookup:
-       extract + lookup, no writes — the local platform forces this)
+       extract + lookup, no writes; the local platform forces this)
     4. prints the extraction stats and, for every detected dependency, the
        detected current version and the proposed update (if any)
     5. fails when nothing was extracted (a config that silently matches
@@ -24,7 +24,7 @@ What it does:
 
 Notes:
     - platform=local scans the current working directory, so the script
-      chdir's into the temp copy — it is safe to invoke from anywhere
+      chdir's into the temp copy, so it is safe to invoke from anywhere
     - platform=local has no platform, so the GitHub token must be injected via
       RENOVATE_HOST_RULES; RENOVATE_TOKEN alone is not enough
     - the local platform forces dryRun to 'lookup' (values other than
@@ -270,7 +270,7 @@ def main() -> None:
             )
             fail(
                 f"no compatible node for renovate@{version} (engines: {engines}) "
-                "— the pre-commit node_env-lts node works"
+                "; the pre-commit node_env-lts node works"
             )
         if run_status != 0:
             keep = True
@@ -302,7 +302,7 @@ def main() -> None:
         config = parse_updates_section(log_text)
         if config is None:
             keep = True
-            fail("update section not found in log — extraction failed")
+            fail("update section not found in log: extraction failed")
         total_deps = 0
         for manager, files in config.items():
             for f in files:
@@ -325,7 +325,7 @@ def main() -> None:
                     )
         if total_deps == 0:
             keep = True
-            fail("no dependencies extracted — check the manager fileMatch patterns")
+            fail("no dependencies extracted; check the manager fileMatch patterns")
     finally:
         if keep:
             print(f"[renovate-test] workspace kept at: {tmp_dir} (log: {log_file})")
