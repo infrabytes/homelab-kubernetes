@@ -7,7 +7,7 @@ locals {
 }
 
 # Serialize applies: in-place node upgrades (cordon+drain -> reboot) must not
-# run in parallel — workers would take every Longhorn replica down at once,
+# run in parallel: workers would take every Longhorn replica down at once,
 # controlplanes would risk etcd quorum. -parallelism=1 applies one resource
 # at a time: controlplanes first (module depends_on), then workers one by one.
 terraform {

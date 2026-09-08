@@ -145,7 +145,7 @@ locals {
     github_oidc_org           = "infrabytes"
     # ArgoCD RBAC (argocd-rbac-cm): policy.default, OIDC scopes, raw policy.csv
     # lines. Bindings use the SSO *username* (GitHub login, preferred_username
-    # scope) — Dex returns no groups claim for the GitHub connector. The tf-bot
+    # scope): Dex returns no groups claim for the GitHub connector. The tf-bot
     # service-account line is NOT listed here: the addons unit always prepends
     # `p, tf-bot, *, *, *, allow` (the argocd-config provider needs it; keeping
     # it enforced prevents a mis-edit from locking out Terraform bootstrap).
