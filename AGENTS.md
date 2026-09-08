@@ -20,7 +20,7 @@ infra/              Terragrunt/OpenTofu units: cluster -> viewer-kubeconfig, add
                     in-place Talos + Kubernetes upgrades; writes
                     artifacts/kubeconfig + talosconfig
   viewer-kubeconfig/ Mints the view-only client cert + kubeconfig (CSR API, no CA key extraction)
-  addons/           Installs ArgoCD, cert-manager, external-dns, ARC namespaces
+  addons/           Installs ArgoCD, cert-manager, external-dns, OpenBao namespace + seal Secret, ARC namespaces
   grafana-cloud-config/
                     Grafana Cloud as code (grafana/grafana provider):
                     dashboards, alerting, org preferences; no cluster dependency

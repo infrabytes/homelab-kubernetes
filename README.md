@@ -16,6 +16,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | ArgoCD                       | GitOps delivery: `platform`/`apps`/`pdeu` ApplicationSets committed in `argocd/appsets/`, applied by a Terraform-managed bootstrap ApplicationSet; UI at argocd.icaninto.space |
 | cert-manager                 | TLS via Let's Encrypt DNS-01 (Cloudflare), ClusterIssuer `letsencrypt-dns01` |
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
+| OpenBao                      | Cluster secrets manager (Vault fork): HA raft (3 replicas, Longhorn), static-key auto-unseal, KV v2 + Kubernetes auth; UI at bao.icaninto.space (LAN only) |
 | Longhorn                     | Block storage on the worker nodes (dedicated disk labels); UI at longhorn.icaninto.space |
 | Grafana Cloud (free tier)    | Metrics (Prometheus remote-write) + logs (Loki), via the `k8s-monitoring` Helm chart; also ingests Talos syslog (port 5140) |
 | Hubble Observer + CF2CNP     | Streams Cilium Hubble flows (DROPPED verdicts) to Loki; Grafana dashboard "Cilium Flows - Hubble Observer" (grafana.com #23862) in the Grafana Cloud stack; CF2CNP web UI generates CiliumNetworkPolicies from flows at cf2cnp.icaninto.space |
@@ -37,7 +38,7 @@ infra/              Terragrunt/OpenTofu units: cluster -> viewer-kubeconfig, add
   secrets.sops.yaml single SOPS-encrypted secrets file (never plaintext)
   cluster/          Talos cluster + Cilium; writes artifacts/kubeconfig + talosconfig
   viewer-kubeconfig/ Mints the view-only client cert + kubeconfig (CSR API, no CA key extraction)
-  addons/           Installs ArgoCD, cert-manager, external-dns, ARC namespaces
+  addons/           Installs ArgoCD, cert-manager, external-dns, OpenBao namespace + seal Secret, ARC namespaces
   argocd-config/    ArgoCD bootstrap ApplicationSet (app-of-appsets)
 argocd/appsets/     committed ApplicationSets (platform, apps, pdeu), applied via the
                     Terraform bootstrap ApplicationSet
@@ -47,7 +48,7 @@ platform/           ArgoCD-managed cluster-level resources (network, issuer,
   helm-charts/      one parent ArgoCD app (app-of-apps) for the Helm chart
                     Applications (cert-manager, external-dns, hubble-observer,
                     grafana-cloud, longhorn, prometheus-operator-crds, spegel,
-                    vcluster, argocd-diff-preview, gha-runner-scale-set,
+                    openbao, vcluster, argocd-diff-preview, gha-runner-scale-set,
                     gha-runner-scale-set-controller)
 apps/               ArgoCD-managed applications (one subdir per app)
 .github/            CI workflows + scripts (pre-commit, PR preview diff)

@@ -1,0 +1,22 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: openbao
+  namespace: openbao
+spec:
+  parentRefs:
+    # LAN only: SWAG terminates https://bao.icaninto.space and forwards to this
+    # route; no https parentRef → no public path. external-dns (gateway-httproute
+    # source, policy=sync) publishes the A record from the http listener ->
+    # cluster gateway L2 IP (RFC1918, unroutable publicly; keep the Cloudflare
+    # record DNS-only). Unlike ArgoCD, no manual-dns annotation: the record
+    # must point at the private gateway IP.
+    - name: homelab
+      namespace: gateway
+      sectionName: http
+  hostnames:
+    - bao.icaninto.space
+  rules:
+    - backendRefs:
+        - name: openbao-active
+          port: 8200

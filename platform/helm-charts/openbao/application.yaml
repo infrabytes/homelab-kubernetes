@@ -1,0 +1,105 @@
+# OpenBao cluster secrets manager (CNCF sandbox, Vault fork). HA raft: 3
+# replicas (one per worker via the chart's required podAntiAffinity), Longhorn
+# PVCs, static-key auto-unseal (seal "static" stanza reading the
+# Terraform-created openbao-seal Secret from /openbao/seal/current.key). The
+# retry_join stanzas make followers join+unseal after the one-time init on
+# openbao-0; authDelegator is the chart's own binding to system:auth-delegator
+# (k8s auth TokenReview); LAN-only exposure via apps/openbao. Bootstrap:
+# README.md in this directory.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openbao-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://openbao.github.io/openbao-helm
+    chart: openbao
+    targetRevision: 0.29.4
+    helm:
+      releaseName: openbao
+      values: |
+        injector:
+          enabled: false
+        server:
+          authDelegator:
+            # Chart-rendered ClusterRoleBinding (openbao-server-binding →
+            # system:auth-delegator); enables k8s auth's TokenReview call.
+            enabled: true
+          ha:
+            enabled: true
+            replicas: 3
+            raft:
+              enabled: true
+              setNodeId: true
+              config: |
+                ui = true
+
+                listener "tcp" {
+                  tls_disable = 1
+                  address = "[::]:8200"
+                  cluster_address = "[::]:8201"
+                  # Unauthenticated metrics for the ServiceMonitor (cluster-network only).
+                  telemetry {
+                    unauthenticated_metrics_access = "true"
+                  }
+                }
+
+                storage "raft" {
+                  path = "/openbao/data"
+                  # Auto-join the raft cluster after openbao-0 is initialized.
+                  retry_join {
+                    leader_api_addr = "https://openbao-0.openbao-internal:8201"
+                  }
+                  retry_join {
+                    leader_api_addr = "https://openbao-1.openbao-internal:8201"
+                  }
+                  retry_join {
+                    leader_api_addr = "https://openbao-2.openbao-internal:8201"
+                  }
+                }
+
+                seal "static" {
+                  current_key_id = "openbao-seal-1"
+                  current_key = "file:///openbao/seal/current.key"
+                }
+
+                service_registration "kubernetes" {}
+
+                telemetry {
+                  prometheus_retention_time = "30s"
+                  disable_hostname = true
+                }
+          dataStorage:
+            size: 5Gi
+            storageClass: longhorn
+          volumes:
+            - name: openbao-seal
+              secret:
+                secretName: openbao-seal
+          volumeMounts:
+            - name: openbao-seal
+              mountPath: /openbao/seal
+              readOnly: true
+          # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 192Mi
+        serverTelemetry:
+          serviceMonitor:
+            enabled: true
+        ui:
+          enabled: true
+  destination:
+    namespace: openbao
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
