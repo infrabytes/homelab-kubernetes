@@ -477,7 +477,9 @@ def main() -> int:
     parser.add_argument("--base-dir", help="base (main) checkout")
     parser.add_argument("--target-dir", help="target branch checkout")
     parser.add_argument(
-        "--argocd-server", default="https://argocd-server.argocd.svc:443"
+        "--argocd-server",
+        default="argocd-server.argocd.svc:443",
+        help="ArgoCD server address (no scheme; the CLI adds https:// with --insecure)",
     )
     parser.add_argument(
         "--token-secret",
