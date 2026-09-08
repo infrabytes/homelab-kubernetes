@@ -5,10 +5,8 @@ locals {
   #   .../image/<schematic_id>/<version>/<image_name>.iso
   talos_iso_name = var.talos_iso_name != "" ? var.talos_iso_name : "metal-${var.talos_arch}"
 
-  # Extensions baked into the per-node images.
   talos_system_extensions = var.enable_qemu_guest_agent ? concat(var.talos_system_extensions, ["siderolabs/qemu-guest-agent"]) : var.talos_system_extensions
 
-  # Field subsets passed to each module.
   proxmox_nodes = {
     for k, v in var.nodes : k => {
       proxmox_node       = v.proxmox_node

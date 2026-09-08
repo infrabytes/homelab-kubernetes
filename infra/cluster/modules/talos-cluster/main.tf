@@ -6,9 +6,8 @@ locals {
   # v1alpha1 patches for those fields conflict with them. All patches target
   # the new documents.
 
-  # Per-node config patches, applied when the machine configuration is
-  # generated (data.talos_machine_configuration) so each node's rendered
-  # configuration is complete before it reaches talos_machine.
+  # Per-node config patches, applied at machine-config generation time so each
+  # node's rendered configuration is complete before it reaches talos_machine.
   config_patches = {
     for key, node in var.nodes : key => concat(
       [
@@ -17,10 +16,6 @@ locals {
           # Fall back to /dev/sda (the provider's generate default) so the
           # UnattendedInstallConfig selector is always set.
           install_disk   = node.install_disk == null || node.install_disk == "" ? "/dev/sda" : node.install_disk
-          # The installer image must match the node's own schematic
-          # (extensions), not the static base scheme — otherwise a fresh
-          # reinstall would silently drop extensions like Longhorn's
-          # iscsi-tools.
           install_img    = node.install_img
           ip_address     = format("%s/%d", node.ipv4_address, node.ipv4_prefix)
           gateway        = node.ipv4_gateway
@@ -30,9 +25,8 @@ locals {
           node_taints    = node.node_taints
         })
       ],
-      # Stream Talos service logs (machined, apid, containerd, kubelet,
-      # kernel, ...) as json_lines over TCP to the node's own IP, where the
-      # k8s-monitoring Alloy DaemonSet listens (hostNetwork).
+      # Stream Talos service logs as json_lines over TCP to the node's own IP,
+      # where the k8s-monitoring Alloy DaemonSet listens (hostNetwork).
       # https://docs.siderolabs.com/talos/v1.14/configure-your-talos-cluster/logging-and-telemetry/logging
       var.talos_log_enabled ? [
         yamlencode({
@@ -49,12 +43,11 @@ locals {
           }
         })
       ] : [],
-      # Disable Talos's built-in CNI (Flannel) so Cilium (installed as an
-      # inline manifest on controlplane nodes) is the only CNI, and disable
-      # kube-proxy: Cilium runs with kubeProxyReplacement=true (required for
-      # L2 announcements). Both live in controlplane-only documents: deleting
-      # the Flannel document disables the built-in CNI; the generated config
-      # has neither on workers.
+      # Disable Talos's built-in CNI (Flannel) and kube-proxy: Cilium (inline
+      # manifest on controlplanes) is the only CNI with
+      # kubeProxyReplacement=true (required for L2 announcements). Both live
+      # in controlplane-only documents; the generated config has neither on
+      # workers.
       node.role == "controlplane" ? [
         yamlencode({
           apiVersion = "v1alpha1"
@@ -163,13 +156,10 @@ locals {
           }
         })
       ] : [],
-      # Controlplane-only inline manifests, applied in order:
-      #  1. Gateway API CRDs — must exist before the Cilium gateway controller
-      #     starts (Cilium 1.20 requires Gateway API v1.6.1 CRDs).
-      #  2. Cilium (with kube-proxy replacement, L2 announcements, Gateway API).
-      # Identical content on every controlplane (per the Sidero docs). Each
-      # manifest is its own KubeInlineManifestConfig document; the etcd
-      # metrics extraArgs stay in the v1alpha1 document.
+      # Controlplane-only inline manifests, applied in order: Gateway API CRDs
+      # (must exist before the Cilium gateway controller starts) then Cilium.
+      # Identical content on every controlplane (per the Sidero docs); each
+      # manifest is its own KubeInlineManifestConfig document.
       node.role == "controlplane" ? [
         yamlencode({
           cluster = {
@@ -199,10 +189,8 @@ locals {
   }
 }
 
-# One rendered machine configuration per node (base config + per-node
-# patches). kubernetes_version bakes the component image tags new nodes
-# bootstrap with; upgrading Kubernetes on running nodes is owned by
-# talos_cluster.
+# kubernetes_version bakes the component image tags new nodes bootstrap
+# with; upgrading Kubernetes on running nodes is owned by talos_cluster.
 data "talos_machine_configuration" "this" {
   for_each = var.nodes
 
@@ -225,24 +213,15 @@ ephemeral "talos_cluster_kubeconfig" "drain" {
   endpoint        = var.cluster_endpoint
 }
 
-# talos_machine replaces the old talos_machine_configuration_apply flow: it
-# applies the machine configuration and keeps the running Talos version in
-# sync with `image` (= the UnattendedInstallConfig installer image above). When the
-# installer image changes, the node is upgraded in place first (pull ->
-# install -> cordon+drain -> reboot -> wait for health -> uncordon), and only
-# then the new configuration is applied, so the upgraded node accepts the
-# new kubelet version instead of the old node rejecting it (the old flow
-# never upgraded the OS, so machine configs crept ahead of the running Talos
-# and apply eventually failed with "version of Kubernetes ... is too new to
-# be used with Talos ...").
-# ignore_kubernetes_upgrade_drift keeps the Kubernetes component image tags
-# (owned by talos_cluster's upgrade-k8s procedure) out of the config-drift
-# hash, so a kubernetes_version bump is applied by talos_cluster with its
-# sequencing, not by re-applying configs to all nodes at once.
-# Controlplane and worker are separate resources so controlplane nodes are
-# always installed and upgraded before workers; workers serialize among
-# themselves via `tofu apply -parallelism=1` (see the unit's terragrunt.hcl
-# for why).
+# talos_machine applies the machine config and keeps the running Talos in
+# sync with `image`: on an image change it upgrades the OS in place first
+# (pull -> install -> cordon+drain -> reboot -> wait -> uncordon), then
+# applies the new config, so the upgraded node accepts the new kubelet
+# version. ignore_kubernetes_upgrade_drift keeps the Kubernetes component
+# image tags (owned by talos_cluster) out of the config-drift hash.
+# Controlplane and worker are separate resources so controlplanes always
+# install/upgrade before workers; workers serialize via -parallelism=1
+# (see terragrunt.hcl).
 resource "talos_machine" "controlplane" {
   for_each = { for k, v in var.nodes : k => v if v.role == "controlplane" }
 
@@ -274,11 +253,10 @@ locals {
   first_controlplane_ip = local.controlplane_ips[0]
 }
 
-# talos_cluster replaces talos_machine_bootstrap: it bootstraps etcd
-# (idempotent: AlreadyExists is success) and owns Kubernetes upgrades. A
-# kubernetes_version change runs Talos's upgrade-k8s procedure (sequential
-# control-plane component upgrades with health gating, kubelet
-# node-by-node, CoreDNS/kube-proxy manifests).
+# talos_cluster replaces talos_machine_bootstrap: bootstraps etcd
+# (idempotent: AlreadyExists is success) and owns Kubernetes upgrades via
+# Talos's upgrade-k8s procedure (sequential control-plane upgrades with
+# health gating, kubelet node-by-node, CoreDNS/kube-proxy manifests).
 resource "talos_cluster" "this" {
   depends_on = [
     talos_machine.controlplane,

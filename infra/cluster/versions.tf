@@ -33,12 +33,4 @@ terraform {
       version = "~> 4.0"
     }
   }
-
-  # Optional: point at your state backend (S3/GCS/Azure/SOPS-encrypted local).
-  # By default Terraform uses local state in ./terraform.tfstate.
-  # backend "s3" {
-  #   bucket = "my-homelab-terraform-state"
-  #   key    = "homelab-kubernetes/terraform.tfstate"
-  #   region = "eu-west-1"
-  # }
 }

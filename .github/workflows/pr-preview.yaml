@@ -111,12 +111,7 @@ jobs:
           echo "KUBECONFIG=/tmp/vcluster-kubeconfig.yaml" >> "$GITHUB_ENV"
 
       # Idempotent: converges the in-vcluster ArgoCD instance on every run.
-      # --force-conflicts: the vcluster syncer owns the helm.sh/chart label on
-      # the instance Services (its toHost service sync manages the labels it
-      # copied from the original install), so a chart version bump SSA-apply
-      # conflicts forever without it (every attempt fails; the old release
-      # never advances). Helm force-taking the field converges on the first
-      # run; later runs re-apply the same value with no conflicts.
+      # --force-conflicts: the vcluster syncer owns the helm.sh/chart label on the instance Services, so a chart bump SSA-apply conflicts forever without it.
       - name: Ensure ArgoCD in vcluster
         run: |
           for attempt in 1 2 3; do

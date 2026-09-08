@@ -45,8 +45,7 @@ resource "proxmox_virtual_environment_vm" "node" {
     ssd          = var.disk_ssd
   }
 
-  # Dedicated Longhorn storage disk (per-node, on local-lvm thin pool). Only
-  # added for nodes with longhorn_disk_size > 0.
+  # Dedicated Longhorn storage disk (per-node, on local-lvm thin pool).
   dynamic "disk" {
     for_each = each.value.longhorn_disk_size > 0 ? [each.value] : []
 
@@ -61,9 +60,8 @@ resource "proxmox_virtual_environment_vm" "node" {
     }
   }
 
-  # Dedicated swap disk (per-node, on local-lvm thin pool). Talos provisions the
-  # entire disk as an encrypted swap volume (SwapVolumeConfig). Only added for
-  # nodes with swap_disk_size > 0.
+  # Dedicated swap disk (per-node, on local-lvm thin pool). Talos provisions
+  # the entire disk as an encrypted swap volume (SwapVolumeConfig).
   dynamic "disk" {
     for_each = each.value.swap_disk_size > 0 ? [each.value] : []
 

@@ -3,10 +3,6 @@
 # release and embedded as a Talos controlplane inline manifest (applied at
 # bootstrap, before the Cilium manifest). Fetching each CRD individually keeps
 # the machine config far smaller than the full standard-install bundle.
-#
-# Post-bootstrap GitOps addons (ArgoCD, ApplicationSets, secrets) live in the
-# separate root ../terraform-addons — resources there can only be planned
-# against a running cluster, so they must not be part of this root's apply.
 locals {
   gateway_api_crd_kinds = [
     "gatewayclasses",

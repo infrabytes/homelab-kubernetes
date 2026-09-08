@@ -16,5 +16,4 @@ provider "talos" {}
 # Used only by data.helm_template to render the Cilium chart locally. No
 # kubernetes block is needed: helm_template is a ClientOnly dry-run render and
 # never contacts a cluster, so it works before the cluster is bootstrapped.
-# Post-bootstrap GitOps addons live in ../terraform-addons (separate state).
 provider "helm" {}

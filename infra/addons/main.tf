@@ -46,16 +46,12 @@ resource "helm_release" "argo_cd" {
         cm = merge(
           {
             url = "https://argocd.icaninto.space"
-            # Local service account used by the Terraform argocd provider
-            # (infra/argocd-config). apiKey capability only — no login — so it
-            # can mint tokens but cannot log in; the login page stays SSO-only
-            # (ArgoCD hides local login when no account has the login
-            # capability).
+            # Local service account for the Terraform argocd provider
+            # (infra/argocd-config). apiKey capability only — no login — so
+            # the login page stays SSO-only.
             "accounts.tf-bot" = "apiKey"
-            # Cap unauthenticated webhook request bodies (DDoS hardening, see
-            # https://argo-cd.readthedocs.io/en/stable/operator-manual/webhook/).
-            # The default is 50MB; GitHub push events carry commit metadata and
-            # stay far below 1MB.
+            # Cap unauthenticated webhook request bodies (DDoS hardening;
+            # default 50MB, GitHub push events stay far below 1MB).
             "webhook.maxPayloadSizeMB" = "1"
           },
           # SSO-only login: disable the local admin account once the tf-bot

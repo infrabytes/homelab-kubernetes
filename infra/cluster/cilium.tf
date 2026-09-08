@@ -107,15 +107,12 @@ data "helm_template" "cilium" {
   # omits; the Talos inline manifest must include them so policies can apply.
   include_crds = true
 
-  # Talos-specific values (Sidero docs, "without kube-proxy" variant):
-  #   - ipam.mode=kubernetes (required by Talos)
-  #   - kubeProxyReplacement=true + KubePrism (localhost:7445, default on)
-  #   - l2announcements.enabled=true (LAN VIP advertisement via ARP)
-  #   - gatewayAPI.enabled (Envoy-based Gateway API controller)
-  #   - SYS_MODULE deliberately absent (Talos doesn't allow workload module loading)
-  #   - cgroup already mounted by Talos (no automount, hostRoot=/sys/fs/cgroup)
-  # Note: cluster.proxy.disabled=true is patched into the machine config (module
-  # talos-cluster) — kube-proxy is fully replaced by Cilium.
+  # Talos-specific values (Sidero docs, "without kube-proxy" variant): ipam
+  # kubernetes (required by Talos), kubeProxyReplacement + KubePrism
+  # (localhost:7445), L2 announcements, Gateway API. SYS_MODULE deliberately
+  # absent (Talos forbids workload module loading); cgroup already mounted by
+  # Talos. kube-proxy is fully replaced (cluster.proxy.disabled patched into
+  # the machine config in module talos-cluster).
   values = [<<-EOT
     ipam:
       mode: kubernetes
