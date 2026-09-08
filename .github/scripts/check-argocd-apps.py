@@ -2,18 +2,14 @@
 """check-argocd-apps.py - validate ArgoCD Application helm sources.
 
 Reproduces what the ArgoCD repo-server does to generate manifests for a
-Helm-source Application: resolve the chart revision, pull it (or shallow-clone
-the git repo for git-sourced charts), and render it with `helm template
---include-crds` (matching ArgoCD's default; opt-out via `helm.skipCrds`)
-using the exact release name, namespace, and values from the Application
-manifest. Catches wrong OCI repo paths, missing versions, typoed values, and
-template errors before they reach the cluster.
+Helm-source Application: resolve the chart revision, pull it, and render it
+with `helm template --include-crds` (matching ArgoCD's default; opt-out via
+`helm.skipCrds`) using the exact release name, namespace, and values from
+the Application manifest. Catches wrong OCI repo paths, missing versions,
+typoed values, and template errors before they reach the cluster.
 
-Two source kinds are rendered:
+One source kind is rendered:
 - "helm": chart/OCI sources (repoURL is a chart repo or OCI registry).
-- "git": git sources whose path contains a Helm chart (Chart.yaml present,
-  e.g. the vpa chart app pointing into kubernetes/autoscaler), cloned
-  shallowly at targetRevision.
 
 Usage: check-argocd-apps.py <application.yaml>...
 """
@@ -41,9 +37,8 @@ def run(cmd, **kwargs):
 def helm_sources(doc):
     """Yield (app_name, source, dest_namespace, kind) for helm-rendered sources.
 
-    kind is "helm" for chart/OCI registry sources and "git" for git sources
-    whose path is expected to contain a Helm chart. Sources with neither a
-    chart nor a path (plain manifest apps) are skipped.
+    kind is always "helm" (chart or OCI registry sources). Sources with
+    neither a chart nor a path (plain manifest apps) are skipped.
     """
     spec = doc.get("spec") or {}
     dest_ns = (spec.get("destination") or {}).get("namespace") or "default"
@@ -55,10 +50,6 @@ def helm_sources(doc):
         is_oci = repo.startswith("oci://")
         if src.get("chart") or is_oci:
             yield (doc.get("metadata") or {}).get("name", "?"), src, dest_ns, "helm"
-        elif src.get("path") and repo.startswith(
-            ("https://", "http://", "git@", "ssh://")
-        ):
-            yield (doc.get("metadata") or {}).get("name", "?"), src, dest_ns, "git"
 
 
 def pull_args(source):
@@ -113,57 +104,6 @@ def template_args(work_dir, release, source, dest_ns, helm_block):
     return args
 
 
-def git_chart_args(tmp, app, source, dest_ns, helm_block):
-    """Shallow-clone a git-source chart; return (release, rev, helm argv).
-
-    Returns None when the path contains no Chart.yaml and the source carries
-    no helm block (a plain directory app, not chart-rendered).
-    """
-    if not shutil.which("git"):
-        raise RuntimeError("git not found (required for git-source charts)")
-    repo = source["repoURL"]
-    path = source.get("path") or "."
-    rev = source.get("targetRevision") or "HEAD"
-    clone_dir = tmp / "repo"
-    if rev != "HEAD":
-        res = run(
-            [
-                "git",
-                "clone",
-                "--depth",
-                "1",
-                "--single-branch",
-                "--branch",
-                rev,
-                repo,
-                str(clone_dir),
-            ]
-        )
-    else:
-        res = run(["git", "clone", "--depth", "1", repo, str(clone_dir)])
-    if res.returncode != 0:
-        raise RuntimeError(f"git clone failed:\n{res.stderr.strip()}")
-    chart_dir = clone_dir / path
-    if not (chart_dir / "Chart.yaml").is_file():
-        if helm_block:
-            raise RuntimeError(f"no Chart.yaml at {path} (helm block present)")
-        return None
-    release = helm_block.get("releaseName") or app
-    args = [
-        "helm",
-        "template",
-        release,
-        str(chart_dir),
-        "--namespace",
-        dest_ns,
-    ]
-    # ArgoCD renders charts with --include-crds unless helm.skipCrds is set.
-    if not helm_block.get("skipCrds"):
-        args += ["--include-crds"]
-    args += values_args(tmp, helm_block)
-    return release, rev, args
-
-
 def check_file(path: Path) -> int:
     assert yaml is not None, "PyYAML is required"
     docs = yaml.safe_load_all(path.read_text())
@@ -178,27 +118,13 @@ def check_file(path: Path) -> int:
             with tempfile.TemporaryDirectory(prefix="argocd-apps.") as tmp:
                 tmp = Path(tmp)
                 try:
-                    if kind == "git":
-                        rendered = git_chart_args(tmp, app, source, dest_ns, helm_block)
-                        if rendered is None:
-                            log(
-                                f"SKIP {path}: {app} ({source['repoURL']}@{rev}):"
-                                " no Chart.yaml, not chart-rendered"
-                            )
-                            continue
-                        release, rev, args = rendered
-                    else:
-                        release = helm_block.get("releaseName") or source.get(
-                            "chart", ""
-                        )
-                        pull, default_release = pull_args(source)
-                        res = run(pull + ["--destination", str(tmp)])
-                        if res.returncode != 0:
-                            raise RuntimeError(
-                                f"helm pull failed:\n{res.stderr.strip()}"
-                            )
-                        release = release or default_release
-                        args = template_args(tmp, release, source, dest_ns, helm_block)
+                    release = helm_block.get("releaseName") or source.get("chart", "")
+                    pull, default_release = pull_args(source)
+                    res = run(pull + ["--destination", str(tmp)])
+                    if res.returncode != 0:
+                        raise RuntimeError(f"helm pull failed:\n{res.stderr.strip()}")
+                    release = release or default_release
+                    args = template_args(tmp, release, source, dest_ns, helm_block)
                     res = run(args)
                     if res.returncode != 0:
                         raise RuntimeError(
