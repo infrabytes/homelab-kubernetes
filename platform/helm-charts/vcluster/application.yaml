@@ -25,18 +25,11 @@ spec:
               limits:
                 memory: 1440Mi
                 ephemeral-storage: 10Gi
-        # Serve the metrics API inside the vCluster by proxying the host
-        # metrics-server (read-only), so the preview VPA recommender and
-        # any HPA can work.
+        # Proxies the host metrics-server (read-only) - no metrics server is deployed in the vCluster.
         integrations:
           metricsServer:
             enabled: true
-        # Note: generic sync.fromHost.customResources (e.g. exposing the
-        # host Gateway API objects to the preview external-dns/cert-manager)
-        # is a vCluster.Pro feature on chart 0.36.1 - the OSS vCluster
-        # ignores it. Instead, pr-preview.py copies the required CRD
-        # definitions from the host into the vCluster before deploying
-        # apps that need them.
+        # sync.fromHost.customResources is vCluster.Pro - OSS (chart 0.36.1) silently ignores it.
   destination:
     namespace: vcluster
     server: https://kubernetes.default.svc
