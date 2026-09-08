@@ -43,7 +43,6 @@ locals {
 
     enable_qemu_guest_agent = true
 
-    # Talos machine log forwarding
     talos_log_enabled = true
     talos_log_port    = 5140
 
@@ -144,25 +143,16 @@ locals {
     github_oidc_client_id     = local.secrets.github_oidc_client_id
     github_oidc_client_secret = local.secrets.github_oidc_client_secret
     github_oidc_org           = "infrabytes"
-    # ArgoCD RBAC (argocd-rbac-cm), configured here rather than in the addons
-    # unit: policy.default, the OIDC scopes to read for RBAC, and the raw
-    # policy.csv lines (any ArgoCD RBAC syntax is expressible).
-    #
-    # Bindings must use the SSO *username* (GitHub login, from the
-    # preferred_username scope): Dex returns no groups claim for the GitHub
-    # connector, so an org-name binding would never match with
-    # policy.default = "". Note bbayrakt's account kept its name when the repo
-    # moved to the infrabytes org.
-    #
-    # The tf-bot service-account line is NOT listed here — the addons unit
-    # always prepends `p, tf-bot, *, *, *, allow` (the argocd-config provider
-    # needs it to authenticate; keeping it enforced prevents a mis-edit from
-    # locking out Terraform bootstrap).
+    # ArgoCD RBAC (argocd-rbac-cm): policy.default, OIDC scopes, raw policy.csv
+    # lines. Bindings use the SSO *username* (GitHub login, preferred_username
+    # scope) — Dex returns no groups claim for the GitHub connector. The tf-bot
+    # service-account line is NOT listed here: the addons unit always prepends
+    # `p, tf-bot, *, *, *, allow` (the argocd-config provider needs it; keeping
+    # it enforced prevents a mis-edit from locking out Terraform bootstrap).
     argocd_rbac = {
       policy_default = ""
       scopes         = "[groups, preferred_username]"
       policy_csv = [
-        # bbayrakt: cluster admin.
         "g, bbayrakt, role:admin",
         # dhaustein (pdeu-discord-bot repo owner): read-only everywhere,
         # plus full admin of the pdeu project.

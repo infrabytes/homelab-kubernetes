@@ -1,6 +1,4 @@
 terraform {
-  # talos_machine/talos_cluster (ephemeral drain kubeconfig + write-only
-  # attributes) need OpenTofu >= 1.11.
   required_version = ">= 1.11"
 
   required_providers {

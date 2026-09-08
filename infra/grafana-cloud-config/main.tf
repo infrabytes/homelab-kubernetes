@@ -12,12 +12,10 @@ locals {
   stack_slug = regex("^https://([a-z0-9-]+)\\.grafana\\.net/?$", var.grafana_cloud_stack_url)[0]
 }
 
-# Managed Prometheus datasource, referenced by all alert rule queries.
 data "grafana_data_source" "prom" {
   name = "grafanacloud-${local.stack_slug}-prom"
 }
 
-# Managed Logs datasource, referenced by the Hubble observer dashboard.
 data "grafana_data_source" "logs" {
   name = "grafanacloud-${local.stack_slug}-logs"
 }
@@ -60,7 +58,7 @@ resource "grafana_dashboard" "cilium_hubble_flows" {
 # Import: terragrunt import 'grafana_rule_group.<name>' "<folderUID>:<groupName>"
 # ---------------------------------------------------------------------------
 
-# Cluster availability (60s evaluation).
+# Cluster availability.
 resource "grafana_rule_group" "critical" {
   name             = "critical"
   folder_uid       = grafana_folder.talos.uid
@@ -319,7 +317,7 @@ resource "grafana_rule_group" "critical" {
   }
 }
 
-# Capacity / lifecycle (300s evaluation: full-cardinality and slow-moving checks).
+# Capacity / lifecycle: full-cardinality and slow-moving checks.
 resource "grafana_rule_group" "capacity" {
   name             = "capacity"
   folder_uid       = grafana_folder.talos.uid
