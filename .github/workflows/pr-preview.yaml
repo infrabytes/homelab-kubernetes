@@ -18,7 +18,7 @@ jobs:
   preview:
     if: github.event.action != 'closed'
     runs-on: homelab-runner
-    timeout-minutes: 40
+    timeout-minutes: 25
     permissions:
       contents: read
       pull-requests: write
@@ -145,26 +145,6 @@ jobs:
           kubectl -n argocd-preview label secret pr-preview-repo \
             argocd.argoproj.io/secret-type=repository --overwrite
 
-      # The preview external-dns instance uses the same Cloudflare
-      # credentials as the host one, so copy the secret data-only into the
-      # vCluster (host read via KUBECONFIG_HOST, apply into the vCluster).
-      # Idempotent; the copy persists after PR close (same trust domain as
-      # host pods).
-      - name: Copy preview secrets
-        env:
-          KUBECONFIG_HOST: /tmp/host-kubeconfig.yaml
-        run: |
-          set -eu
-          kubectl --kubeconfig "${KUBECONFIG_HOST}" get secret \
-            cloudflare-api-token -n external-dns \
-            -o jsonpath='{.data.cloudflare-api-token}' | base64 -d \
-            > /tmp/cloudflare-api-token
-          kubectl create namespace external-dns \
-            --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic cloudflare-api-token -n external-dns \
-            --from-file=cloudflare-api-token=/tmp/cloudflare-api-token \
-            --dry-run=client -o yaml | kubectl apply -f -
-
       - name: Generate diff
         run: |
           argocd-diff-preview \
@@ -174,93 +154,14 @@ jobs:
             --argocd-namespace=argocd-preview \
             --create-cluster=false
 
-      # The runner image (ghcr.io/actions/actions-runner) ships python3 but
-      # no pip and no PyYAML; pr-preview.py needs PyYAML to mirror chart
-      # Applications (it fails with a RuntimeError without it). Same pinned
-      # setup as the pre-commit workflow.
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.14"
-      - name: Install PyYAML
-        run: python3 -m pip install pyyaml==6.0.3
-
-      - name: Deploy preview apps and check health
-        run: |
-          # Run the preview tooling from the base checkout, not the PR's
-          # merge ref: GitHub recomputes refs/pull/N/merge lazily, so the
-          # target-branch script can be stale (missing merged fixes) when a
-          # PR is re-run. The PR content under test still comes in via
-          # --target-dir; only the script itself is main's.
-          python3 base-branch/.github/scripts/pr-preview.py \
-            --repo-url https://github.com/${{ github.repository }} \
-            --pr ${{ github.event.number }} \
-            --base-dir base-branch \
-            --target-dir target-branch \
-            --argocd-namespace=argocd-preview \
-            --timeout 600 \
-            --output output/preview-report.md
-
-      - name: Comment preview
+      - name: Comment diff
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p output
-          if [ -f output/diff.md ]; then cat output/diff.md > output/comment.md; fi
-          if [ -f output/preview-report.md ]; then cat output/preview-report.md >> output/comment.md; fi
-          if [ ! -s output/comment.md ]; then
-            echo "No diff or preview report was generated." > output/comment.md
+          if [ ! -s output/diff.md ]; then
+            echo "No diff was generated." > output/diff.md
           fi
-          gh pr comment ${{ github.event.number }} --repo ${{ github.repository }} --body-file output/comment.md --edit-last || \
-          gh pr comment ${{ github.event.number }} --repo ${{ github.repository }} --body-file output/comment.md
-
-  cleanup:
-    if: github.event.action == 'closed'
-    runs-on: homelab-runner
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    env:
-      VCLUSTER_VERSION: v0.36.1 # keep in sync with the preview job
-    steps:
-      # The host kubeconfig lives in the repo; use the PR head ref so cleanup
-      # works even when the PR was closed without merging.
-      - name: Checkout PR head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: refs/pull/${{ github.event.number }}/head
-          persist-credentials: false
-
-      - uses: Azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5.1.0
-        with:
-          version: 1.37.0 # keep in sync with kubernetes_version in infra/env.hcl
-
-      - name: Install vcluster CLI
-        run: |
-          set -eu
-          curl -fSL --retry 3 -o /tmp/vcluster-linux-amd64 \
-            "https://github.com/loft-sh/vcluster/releases/download/${VCLUSTER_VERSION}/vcluster-linux-amd64"
-          chmod +x /tmp/vcluster-linux-amd64
-          sudo mv /tmp/vcluster-linux-amd64 /usr/local/bin/vcluster
-          vcluster version
-
-      - name: Prepare host kubeconfig
-        run: |
-          cp .github/host-kubeconfig.yaml /tmp/host-kubeconfig.yaml
-          echo "KUBECONFIG_HOST=/tmp/host-kubeconfig.yaml" >> "$GITHUB_ENV"
-
-      - name: Connect to vcluster
-        env:
-          KUBECONFIG: /tmp/host-kubeconfig.yaml
-        run: |
-          vcluster connect vcluster -n vcluster \
-            --server https://vcluster.vcluster.svc:443 \
-            --insecure \
-            --print > /tmp/vcluster-kubeconfig.yaml
-          echo "KUBECONFIG=/tmp/vcluster-kubeconfig.yaml" >> "$GITHUB_ENV"
-
-      - name: Delete preview applications
-        run: |
-          kubectl -n argocd-preview delete applications \
-            -l preview.homelab/pr=${{ github.event.number }} \
-            --wait=false --ignore-not-found
+          gh pr comment ${{ github.event.number }} --repo ${{ github.repository }} --body-file output/diff.md --edit-last || \
+          gh pr comment ${{ github.event.number }} --repo ${{ github.repository }} --body-file output/diff.md
