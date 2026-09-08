@@ -64,7 +64,18 @@ Notes:
 
 - `token_reviewer_jwt` is the OpenBao SA's own JWT — the chart's
   `openbao-server-binding` ClusterRoleBinding (system:auth-delegator) authorizes
-  the TokenReview call.
+  the TokenReview call. It is a projected SA token: **every StatefulSet pod
+  roll invalidates it**, breaking k8s-auth logins (`permission denied`) until
+  the config is refreshed:
+
+  ```sh
+  kubectl exec -n openbao openbao-0 -- sh -c '
+    export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=<root-token>
+    bao write auth/kubernetes/config \
+      kubernetes_host=https://kubernetes.default.svc \
+      token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+  '
+  ```
 - `openbao-admin` is deliberately root-equivalent (single-admin homelab);
   consumers later get least-privilege roles.
 - The route is LAN-only; `bao.icaninto.space` resolves to the cluster gateway
