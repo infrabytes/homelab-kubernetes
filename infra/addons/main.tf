@@ -47,7 +47,7 @@ resource "helm_release" "argo_cd" {
           {
             url = "https://argocd.icaninto.space"
             # Local service account for the Terraform argocd provider
-            # (infra/argocd-config). apiKey capability only — no login — so
+            # (infra/argocd-config). apiKey capability only (no login), so
             # the login page stays SSO-only.
             "accounts.tf-bot" = "apiKey"
             # Cap unauthenticated webhook request bodies (DDoS hardening;
@@ -92,7 +92,7 @@ resource "helm_release" "argo_cd" {
         }
         # RBAC comes from env.hcl (`addons.argocd_rbac`): policy.default,
         # OIDC scopes, and the policy.csv lines. Only the mandatory tf-bot
-        # service-account policy is fixed here — the argocd-config provider
+        # service-account policy is fixed here: the argocd-config provider
         # needs it to authenticate, so it must survive any env.hcl edit.
         rbac = var.argocd_rbac != null ? {
           "policy.default" = var.argocd_rbac.policy_default

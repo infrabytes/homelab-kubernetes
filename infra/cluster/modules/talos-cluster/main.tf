@@ -89,7 +89,7 @@ locals {
         })
       ],
       # Encrypted swap device on the dedicated scsi2 disk (entire disk is used as
-      # swap — no minSize/maxSize) + zswap compressed swap cache, on all nodes.
+      # swap, no minSize/maxSize) + zswap compressed swap cache, on all nodes.
       # https://docs.siderolabs.com/talos/v1.14/configure-your-talos-cluster/storage-and-disk-management/swap
       [
         yamlencode({

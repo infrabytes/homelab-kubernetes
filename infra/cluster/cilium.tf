@@ -1,4 +1,4 @@
-# Cilium CNI — rendered locally into a single manifest and embedded as a Talos
+# Cilium CNI, rendered locally into a single manifest and embedded as a Talos
 # controlplane inline manifest. Talos applies it automatically during bootstrap.
 # See https://docs.siderolabs.com/kubernetes-guides/cni/deploying-cilium/
 #

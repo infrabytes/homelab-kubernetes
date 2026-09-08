@@ -1,4 +1,4 @@
-# Gateway API CRDs — the subset Cilium 1.20 requires (see Cilium docs). These
+# Gateway API CRDs: the subset Cilium 1.20 requires (see Cilium docs). These
 # are bootstrap-time cluster resources: fetched from a pinned gateway-api
 # release and embedded as a Talos controlplane inline manifest (applied at
 # bootstrap, before the Cilium manifest). Fetching each CRD individually keeps
