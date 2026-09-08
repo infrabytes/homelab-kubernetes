@@ -202,9 +202,6 @@ resource "kubernetes_secret_v1" "openbao_seal" {
     namespace = kubernetes_namespace_v1.openbao.metadata[0].name
   }
   binary_data = {
-    # base64 string passes through to the Secret's data field; Kubernetes
-    # decodes it when writing the mounted file, so current.key holds the raw
-    # 32-byte key (base64decode() would fail: the bytes aren't valid UTF-8).
     "current.key" = var.openbao_seal_key
   }
 }
