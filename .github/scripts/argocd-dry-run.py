@@ -14,9 +14,10 @@ The PR validation workflow checks out the base (main) and target
    stay verbatim from the PR branch); directory apps get a generated
    manifest with the same shape as the ApplicationSet template
 3. runs `argocd app sync --dry-run` and polls the operation to a terminal
-   phase. Render errors surface at create time (ArgoCD validates the spec
-   by rendering the manifests); missing CRDs surface in the sync result
-   ("<Kind>.<group> not found")
+   phase. The create skips ArgoCD's spec validation (--validate=false: its
+   repo connectivity test is broken for ghcr.io OCI repos), so render
+   errors surface in the sync as a ComparisonError and missing CRDs in the
+   sync result ("<Kind>.<group> not found")
 4. supplements the dry-run with a namespace check: every namespace the
    app targets must exist on the host or be created by the app (the
    dry-run itself does not catch a missing destination namespace)
@@ -249,12 +250,19 @@ class ArgoCD:
     """Thin wrapper around the argocd CLI (preview-bot API token)."""
 
     def __init__(self, server: str, token: str):
+        # The CLI mangles a scheme in the server address (strips colons); pass the bare host:port and pick the TLS mode. The in-cluster service is plain HTTP (server.insecure=true).
+        if server.startswith("https://"):
+            self.tls_flags = ["--insecure"]
+            server = server[len("https://"):]
+        else:
+            self.tls_flags = ["--plaintext"]
+            server = server.removeprefix("http://")
         self.env = dict(os.environ)
         self.env["ARGOCD_SERVER"] = server
         self.env["ARGOCD_AUTH_TOKEN"] = token
 
     def run(self, *args: str) -> subprocess.CompletedProcess:
-        return run(["argocd", "--insecure", "--grpc-web", *args], env=self.env)
+        return run(["argocd", *self.tls_flags, "--grpc-web", *args], env=self.env)
 
     @staticmethod
     def cli_error(res: subprocess.CompletedProcess) -> str:
@@ -271,16 +279,19 @@ class ArgoCD:
     def create(self, manifest: str) -> str | None:
         """Create an app from a manifest; returns an error message or None.
 
-        ArgoCD validates the spec by rendering the manifests, so render
-        errors (bad values, unresolvable chart/revision) surface here and
-        the app is never created.
+        --validate=false skips the create-time repo connectivity test, which
+        is broken for ghcr.io OCI repos (the oras ping uses a placeholder
+        scope that ghcr rejects with 403 even for public charts). The dry-run
+        sync is the real validation: it renders the manifests (render errors
+        surface there as a ComparisonError) and diffs against the live
+        cluster.
         """
         with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
             f.write(manifest)
             path = f.name
         try:
             for attempt in range(3):
-                res = self.run("app", "create", "-f", path)
+                res = self.run("app", "create", "-f", path, "--validate=false")
                 if res.returncode == 0:
                     return None
                 err = self.cli_error(res)
@@ -478,8 +489,8 @@ def main() -> int:
     parser.add_argument("--target-dir", help="target branch checkout")
     parser.add_argument(
         "--argocd-server",
-        default="argocd-server.argocd.svc:443",
-        help="ArgoCD server address (no scheme; the CLI adds https:// with --insecure)",
+        default="argocd-server.argocd.svc:80",
+        help="ArgoCD server address (scheme optional; https:// -> --insecure, else --plaintext)",
     )
     parser.add_argument(
         "--token-secret",
