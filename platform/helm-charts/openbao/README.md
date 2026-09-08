@@ -8,8 +8,8 @@ per worker — with Longhorn PVCs and the built-in static-key auto-unseal.
   (`infra/addons/main.tf`) from `infra/secrets.sops.yaml` — keys never appear
   in manifests.
 - LAN-only access: `apps/openbao/route.yaml` (gateway `openbao-https` listener,
-  cert-manager DNS-01 cert like argocd; plaintext `http` parentRef kept for LAN
-  clients).
+  cert-manager DNS-01 cert like argocd); plaintext http redirects to https
+  (`apps/openbao/redirect.yaml`).
 - Metrics: chart ServiceMonitor scraped by the k8s-monitoring stack.
 
 ## How auto-unseal works
