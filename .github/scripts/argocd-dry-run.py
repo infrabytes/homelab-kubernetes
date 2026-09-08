@@ -43,7 +43,6 @@ import argparse
 import base64
 import json
 import os
-import re
 import ssl
 import subprocess
 import sys
@@ -335,7 +334,8 @@ def namespaces_in_app_dir(target_dir: Path, app: str) -> set[str]:
     for f in sorted((target_dir / app).glob("namespace.yaml")):
         try:
             doc = yaml.safe_load(f.read_text())
-        except Exception:
+        except (OSError, yaml.YAMLError) as err:
+            log(f"WARN unparsable namespace.yaml {f}: {err}")
             continue
         if doc and doc.get("kind") == "Namespace":
             name = (doc.get("metadata") or {}).get("name")

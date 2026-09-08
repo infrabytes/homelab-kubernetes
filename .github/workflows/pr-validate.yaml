@@ -65,10 +65,12 @@ jobs:
       - name: Install PyYAML
         run: python3 -m pip install pyyaml==6.0.3
 
-      # Run the tooling from the base checkout, not the merge ref: refs/pull/N/merge is recomputed lazily, so the target-branch script can be stale on re-runs.
+      # Run the tooling from the base checkout, not the merge ref: refs/pull/N/merge is recomputed lazily, so the target-branch script can be stale on re-runs. Fall back to the PR's own script while main lacks it (first run after this workflow lands).
       - name: Run dry-run validation
         run: |
-          python3 base-branch/.github/scripts/argocd-dry-run.py \
+          SCRIPT=base-branch/.github/scripts/argocd-dry-run.py
+          [ -f "$SCRIPT" ] || SCRIPT=target-branch/.github/scripts/argocd-dry-run.py
+          python3 "$SCRIPT" \
             --repo-url https://github.com/${{ github.repository }} \
             --pr ${{ github.event.number }} \
             --base-dir base-branch \
