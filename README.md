@@ -17,6 +17,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | cert-manager                 | TLS via Let's Encrypt DNS-01 (Cloudflare), ClusterIssuer `letsencrypt-dns01` |
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
 | OpenBao                      | Cluster secrets manager (Vault fork): HA raft (3 replicas, Longhorn), static-key auto-unseal, KV v2 + Kubernetes auth; UI at bao.icaninto.space (LAN only) |
+| Dex (standalone)             | OIDC provider for OpenBao GitHub SSO (`sso-admin`/`sso-user` roles, org-restricted GitHub connector); LAN only at dex.icaninto.space |
 | External Secrets Operator   | Syncs Secrets from OpenBao (ClusterSecretStore `openbao`, k8s auth, least-privilege role); e.g. the ARC runner PAT (`arc-runner-auth`) |
 | Longhorn                     | Block storage on the worker nodes (dedicated disk labels); UI at longhorn.icaninto.space |
 | Grafana Cloud (free tier)    | Metrics (Prometheus remote-write) + logs (Loki), via the `k8s-monitoring` Helm chart; also ingests Talos syslog (port 5140) |
@@ -39,7 +40,7 @@ infra/              Terragrunt/OpenTofu units: cluster -> viewer-kubeconfig, add
   secrets.sops.yaml single SOPS-encrypted secrets file (never plaintext)
   cluster/          Talos cluster + Cilium; writes artifacts/kubeconfig + talosconfig
   viewer-kubeconfig/ Mints the view-only client cert + kubeconfig (CSR API, no CA key extraction)
-  addons/           Installs ArgoCD, cert-manager, external-dns, OpenBao namespace + seal Secret, ARC namespaces (runner PAT now synced by ESO from OpenBao)
+  addons/           Installs ArgoCD, cert-manager, external-dns, OpenBao namespace + seal Secret, dex namespace + dex/openbao-oidc Secrets, ARC namespaces (runner PAT now synced by ESO from OpenBao)
   argocd-config/    ArgoCD bootstrap ApplicationSet (app-of-appsets)
 argocd/appsets/     committed ApplicationSets (platform, apps, pdeu), applied via the
                     Terraform bootstrap ApplicationSet
@@ -49,7 +50,7 @@ platform/           ArgoCD-managed cluster-level resources (network, issuer,
   helm-charts/      one parent ArgoCD app (app-of-apps) for the Helm chart
                     Applications (cert-manager, external-dns, hubble-observer,
                     grafana-cloud, longhorn, prometheus-operator-crds, spegel,
-                    openbao, vcluster, argocd-diff-preview, gha-runner-scale-set,
+                    openbao, dex, vcluster, argocd-diff-preview, gha-runner-scale-set,
                     gha-runner-scale-set-controller)
 apps/               ArgoCD-managed applications (one subdir per app)
 .github/            CI workflows + scripts (pre-commit, PR preview diff)
