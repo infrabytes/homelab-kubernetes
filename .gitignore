@@ -22,3 +22,5 @@ artifacts/
 .worktrees/
 goals/
 plans/
+.pi/
+
