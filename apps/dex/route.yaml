@@ -1,0 +1,20 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: dex
+  namespace: dex
+spec:
+  parentRefs:
+    # LAN only: the A record points at the gateway L2 IP (RFC1918, unroutable
+    # publicly; keep the Cloudflare record DNS-only). TLS is terminated at the
+    # gateway's dex-https listener (cert-manager DNS-01, like openbao);
+    # plaintext http is redirected to https by redirect.yaml.
+    - name: homelab
+      namespace: gateway
+      sectionName: dex-https
+  hostnames:
+    - dex.icaninto.space
+  rules:
+    - backendRefs:
+        - name: dex
+          port: 5556

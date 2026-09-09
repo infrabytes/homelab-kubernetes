@@ -42,6 +42,18 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: dex-https
+      hostname: dex.icaninto.space
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: dex-tls
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All
     - name: longhorn-https
       hostname: longhorn.icaninto.space
       port: 443
