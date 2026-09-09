@@ -26,10 +26,12 @@ repos:
       - id: yamllint
         args: [-c, .yamllint.yaml]
 
-  - repo: https://github.com/zrootorg/kubeconform-precommit-hook
-    rev: v0.0.1
+  - repo: local
     hooks:
       - id: kubeconform
+        name: Run Kubeconform on yaml files
+        entry: .github/scripts/kubeconform.sh
+        language: script
         files: ^(platform|apps|argocd)/.*\.(ya?ml)$
 
   - repo: https://github.com/Yelp/detect-secrets
