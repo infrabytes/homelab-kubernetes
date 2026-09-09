@@ -9,10 +9,10 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 
 | Component                    | Role                                                                 |
 |------------------------------|----------------------------------------------------------------------|
-| Talos Linux (v1.13.8)        | Immutable OS; machines built from Image Factory schematics (system extensions: intel-ucode, iscsi-tools, util-linux-tools) with static-IP kernel args |
-| Kubernetes (1.36.3)          | Cluster on Proxmox VE (4 nodes), LAN 192.168.0.0/24                  |
+| Talos Linux (v1.14.0)        | Immutable OS; machines built from Image Factory schematics (system extensions: intel-ucode, iscsi-tools, util-linux-tools) with static-IP kernel args |
+| Kubernetes (1.37.0)          | Cluster on Proxmox VE (4 nodes), LAN 192.168.0.0/24                  |
 | Terragrunt + OpenTofu        | Infrastructure provisioning: `cluster -> addons -> argocd-config`    |
-| Cilium (1.20.0)              | CNI, kube-proxy-free, L2 LB (LB-IPAM 192.168.0.200-219), Gateway API (Gateway `homelab` at 192.168.0.200), WireGuard encryption, Hubble |
+| Cilium (1.20.1)              | CNI, kube-proxy-free, L2 LB (LB-IPAM 192.168.0.200-219), Gateway API (Gateway `homelab` at 192.168.0.200), WireGuard encryption, Hubble |
 | ArgoCD                       | GitOps delivery: `platform`/`apps`/`pdeu` ApplicationSets committed in `argocd/appsets/`, applied by a Terraform-managed bootstrap ApplicationSet; UI at argocd.icaninto.space |
 | cert-manager                 | TLS via Let's Encrypt DNS-01 (Cloudflare), ClusterIssuer `letsencrypt-dns01` |
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
