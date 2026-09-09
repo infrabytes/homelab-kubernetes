@@ -1,4 +1,3 @@
-# TFLint configuration for this Terraform project.
 # Docs: https://github.com/terraform-linters/tflint
 #       https://github.com/terraform-linters/tflint-ruleset-terraform
 #

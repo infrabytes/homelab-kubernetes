@@ -1,7 +1,3 @@
-###
-# ArgoCD
-###
-
 resource "terraform_data" "argocd_admin_password_bcrypt" {
   input = bcrypt(var.argocd_admin_password)
 
@@ -147,10 +143,6 @@ resource "helm_release" "argo_cd" {
   ]
 }
 
-###
-# Cert-Manager
-###
-
 resource "kubernetes_namespace_v1" "cert_manager" {
   metadata { name = "cert-manager" }
 }
@@ -165,10 +157,6 @@ resource "kubernetes_secret_v1" "cert_manager_cloudflare" {
   }
 }
 
-###
-# External-DNS
-###
-
 resource "kubernetes_namespace_v1" "external_dns" {
   metadata { name = "external-dns" }
 }
@@ -182,10 +170,6 @@ resource "kubernetes_secret_v1" "external_dns_cloudflare" {
     "cloudflare-api-token" = var.cloudflare_api_token
   }
 }
-
-###
-# OpenBao
-###
 
 resource "kubernetes_namespace_v1" "openbao" {
   metadata { name = "openbao" }
@@ -213,10 +197,6 @@ resource "terraform_data" "openbao_root_token" {
   input = var.openbao_root_token
 }
 
-###
-# Grafana Cloud
-###
-
 resource "kubernetes_namespace_v1" "grafana_cloud" {
   metadata {
     name = "grafana-cloud"
@@ -240,10 +220,6 @@ resource "kubernetes_secret_v1" "grafana_cloud_credentials" {
     "loki-token"          = var.grafana_cloud_loki_token
   }
 }
-
-###
-# Action Runner Controller (ARC) namespaces and secrets
-###
 
 resource "kubernetes_namespace_v1" "arc_systems" {
   metadata { name = "arc-systems" }

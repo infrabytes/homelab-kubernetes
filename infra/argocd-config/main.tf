@@ -1,7 +1,3 @@
-###
-# ArgoCD bootstrap ApplicationSet (app-of-appsets)
-###
-
 resource "argocd_application_set" "bootstrap" {
   metadata {
     name      = "bootstrap"

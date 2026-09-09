@@ -20,19 +20,12 @@ data "grafana_data_source" "logs" {
   name = "grafanacloud-${local.stack_slug}-logs"
 }
 
-# ---------------------------------------------------------------------------
-# Folders
-# ---------------------------------------------------------------------------
 # Alerting rule groups must live in a folder. Dashboards can be adopted into
 # this folder later (see the adopt-workflow in README.md).
 resource "grafana_folder" "talos" {
   title = "Talos"
   uid   = "talos"
 }
-
-# ---------------------------------------------------------------------------
-# Dashboards
-# ---------------------------------------------------------------------------
 
 # Cilium Flows - Hubble Observer (grafana.com #23862), managed here instead of
 # the chart's grafanaDashboard (that needs the grafana-operator CRD, which this
@@ -53,12 +46,8 @@ resource "grafana_dashboard" "cilium_hubble_flows" {
   )
 }
 
-# ---------------------------------------------------------------------------
-# Alerting: rule groups (unified alerting)
 # Import: terragrunt import 'grafana_rule_group.<name>' "<folderUID>:<groupName>"
-# ---------------------------------------------------------------------------
 
-# Cluster availability.
 resource "grafana_rule_group" "critical" {
   name             = "critical"
   folder_uid       = grafana_folder.talos.uid

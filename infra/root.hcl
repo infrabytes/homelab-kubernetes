@@ -25,7 +25,6 @@ remote_state {
     skip_region_validation      = true
     force_path_style            = true
 
-    # Credentials from secrets.sops.yaml
     access_key = local.secrets.seaweedfs_access_key
     secret_key = local.secrets.seaweedfs_secret_key
   }

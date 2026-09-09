@@ -66,7 +66,6 @@ def run(cmd, **kwargs):
 
 
 def repo_root() -> Path:
-    """Root of the enclosing git repository."""
     script_dir = Path(__file__).resolve().parent
     res = run(["git", "rev-parse", "--show-toplevel"], cwd=str(script_dir))
     if res.returncode != 0:
@@ -78,7 +77,6 @@ REPO_ROOT = repo_root()
 
 
 def pinned_renovate_version() -> str:
-    """Read the renovate rev pinned in .pre-commit-config.yaml."""
     config = (REPO_ROOT / ".pre-commit-config.yaml").read_text().splitlines()
     for i, line in enumerate(config):
         if "renovatebot/pre-commit-hooks" in line:
@@ -198,7 +196,6 @@ def extraction_stats(log_text: str):
 
 
 def parse_updates_section(log_text: str):
-    """Parse the 'packageFiles with updates' config block from the log."""
     lines = log_text.splitlines()
     idx = next(
         (i for i, line in enumerate(lines) if "packageFiles with updates" in line),

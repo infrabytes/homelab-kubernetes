@@ -1,4 +1,3 @@
-## Proxmox connection
 variable "proxmox_endpoint" {
   description = "Proxmox VE API endpoint, e.g. https://pve1.lan:8006/"
   type        = string
@@ -29,7 +28,6 @@ variable "proxmox_insecure" {
   default     = true
 }
 
-## Cluster settings
 variable "cluster_name" {
   description = "Name of the Talos/Kubernetes cluster."
   type        = string
@@ -42,7 +40,6 @@ variable "cluster_endpoint" {
   default     = "https://10.0.0.10:6443"
 }
 
-## Version pins
 variable "talos_version" {
   description = "Talos Linux version to install. Bump here to upgrade."
   type        = string
@@ -67,7 +64,6 @@ variable "talos_iso_name" {
   default     = ""
 }
 
-## Proxmox storage/network defaults
 variable "proxmox_iso_datastore" {
   description = "Datastore that holds the Talos ISOs (e.g. local or a shared CIFS/NFS store)."
   type        = string
@@ -139,7 +135,6 @@ variable "cilium_chart_version" {
   type        = string
 }
 
-## External access / GitOps
 variable "gateway_api_crds_version" {
   description = "Gateway API CRD bundle version embedded as a Talos inline manifest. Must match the version Cilium 1.20 documents as supported (v1.6.1)."
   type        = string
