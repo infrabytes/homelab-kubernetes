@@ -197,6 +197,62 @@ resource "terraform_data" "openbao_root_token" {
   input = var.openbao_root_token
 }
 
+resource "kubernetes_namespace_v1" "dex" {
+  metadata { name = "dex" }
+}
+
+# Standalone Dex config (config.yaml), rendered from SOPS vars and consumed by
+# the dex chart (platform/helm-charts/dex) via configSecret.name=dex-config.
+# GitHub connector restricted to github_oidc_org; OpenBao is the only static
+# client (redirect URIs cover the OpenBao UI callback and the CLI callback).
+resource "kubernetes_secret_v1" "dex_config" {
+  metadata {
+    name      = "dex-config"
+    namespace = kubernetes_namespace_v1.dex.metadata[0].name
+  }
+  data = {
+    "config.yaml" = <<-EOT
+      issuer: https://dex.icaninto.space
+      storage: memory
+      web:
+        http: 5556
+      connectors:
+        - type: github
+          id: github
+          name: GitHub
+          config:
+            clientID: ${var.dex_github_client_id}
+            clientSecret: ${var.dex_github_client_secret}
+            orgs:
+              - name: ${var.github_oidc_org}
+      staticClients:
+        - id: openbao
+          name: OpenBao
+          secret: ${var.openbao_oidc_client_secret}
+          redirectURIs:
+            - https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback
+            - http://localhost:8250/oidc/callback
+      oauth2:
+        skipApprovalScreen: true
+      enablePasswordDB: false
+    EOT
+  }
+}
+
+# OIDC client credentials for the OpenBao oidc auth method (Dex static client
+# "openbao"). Injected into the OpenBao pods by the chart's
+# server.extraSecretEnvironmentVars (OIDC_CLIENT_ID/OIDC_CLIENT_SECRET).
+resource "kubernetes_secret_v1" "openbao_oidc" {
+  metadata {
+    name      = "openbao-oidc"
+    namespace = kubernetes_namespace_v1.openbao.metadata[0].name
+  }
+  data = {
+    "client-id"     = "openbao"
+    "client-secret" = var.openbao_oidc_client_secret
+  }
+}
+
 resource "kubernetes_namespace_v1" "grafana_cloud" {
   metadata {
     name = "grafana-cloud"
