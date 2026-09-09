@@ -115,3 +115,23 @@ variable "openbao_root_token" {
   default     = ""
   sensitive   = true
 }
+
+variable "dex_github_client_id" {
+  description = "GitHub OAuth app (\"Dex (homelab)\") Client ID for the standalone Dex GitHub connector (OpenBao SSO). Public by design, not a secret."
+  type        = string
+  default     = ""
+}
+
+variable "dex_github_client_secret" {
+  description = "GitHub OAuth app (\"Dex (homelab)\") Client Secret, written into the dex-config Secret (config.yaml, GitHub connector)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "openbao_oidc_client_secret" {
+  description = "Dex static-client secret for the OpenBao oidc auth method, written into dex-config (staticClients.openbao.secret) and the openbao-oidc Secret (OIDC_CLIENT_SECRET env for the openbao chart)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

@@ -179,6 +179,15 @@ locals {
     # (filled in once, after the one-time `bao operator init` bootstrap).
     openbao_seal_key   = local.secrets.openbao_seal_key
     openbao_root_token = local.secrets.openbao_root_token
+
+    # Standalone Dex (OpenBao SSO, platform/helm-charts/dex): dedicated GitHub
+    # OAuth app ("Dex (homelab)") and the Dex static-client secret for the
+    # OpenBao oidc auth method. Render the dex-config (config.yaml) and
+    # openbao-oidc Secrets. The connector org restriction reuses
+    # github_oidc_org.
+    dex_github_client_id       = local.secrets.dex_github_client_id
+    dex_github_client_secret   = local.secrets.dex_github_client_secret
+    openbao_oidc_client_secret = local.secrets.openbao_oidc_client_secret
   }
 
   # Grafana Cloud stack API access for the grafana/grafana provider. Manages
