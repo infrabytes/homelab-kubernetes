@@ -213,7 +213,8 @@ resource "kubernetes_secret_v1" "dex_config" {
   data = {
     "config.yaml" = <<-EOT
       issuer: https://dex.icaninto.space
-      storage: memory
+      storage:
+        type: memory
       web:
         http: 5556
       connectors:
