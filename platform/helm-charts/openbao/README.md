@@ -115,7 +115,7 @@ kubectl exec -n openbao openbao-0 -- sh -c '
 path "secret/data/*" {
   capabilities = ["read", "list"]
 }
-path "sys/mounts" {
+path "sys/mounts/secret" {
   capabilities = ["read"]
 }
 EOF
@@ -136,8 +136,10 @@ EOF
 
 Notes:
 
-- kv-v2 `remoteRef.key` is `secret/<name>` (mount + name; ESO appends the
-  `/data/` suffix itself).
+- The stores set the OpenBao provider `path: secret` (the kv-v2 mount);
+  `remoteRef.key` is relative to it (e.g. `arc-runner-auth`), and ESO
+  appends the `/data/` suffix itself. The `sys/mounts/secret` read is for
+  ESO's store validation (mount type/version check).
 - The `token_reviewer_jwt` pod-roll caveat above applies to ESO too: a
   StatefulSet roll breaks store auth until the k8s auth config is refreshed.
 - The role is deliberately read-only on `secret/data/*`; write access stays
