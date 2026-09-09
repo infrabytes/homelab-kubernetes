@@ -94,17 +94,22 @@ use Kubernetes auth as the ESO controller ServiceAccount
 (`apps/arc-runner-auth`, the ARC runner PAT, formerly created by the addons
 unit from SOPS).
 
-The chart skips the two store CRDs (their schemas exceed the 256KB
-last-applied annotation limit; ArgoCD applies CRDs client-side even with
-ServerSideApply). Install them once, out-of-band, after the chart synced:
+The chart renders all its CRDs. The two store CRDs' schemas exceed the 256KB
+last-applied annotation limit, so the chart app injects a per-resource
+`argocd.argoproj.io/sync-options: Replace=true` annotation (`crds.annotations`
+in `platform/helm-charts/external-secrets/application.yaml`); ArgoCD then
+creates them with `kubectl create` and updates them in place (PUT) — neither
+adds the annotation. (ServerSideApply does not help: ArgoCD falls back to
+client-side apply for CRDs.)
 
-```sh
-helm template external-secrets external-secrets/external-secrets \
-  --version 2.10.0 --namespace external-secrets --include-crds | \
-  kubectl apply --server-side -f -
-```
-
-(On ESO chart upgrades, re-run this if the CRD schemas changed.)
+kubeconform: the store manifests are validated against vendored schemas in
+`.kubeconform/external-secrets.io/` (generated from the chart CRDs, via a
+local hook — the datreeio CRDs catalog is pinned to ESO 2.5.0, before the
+`openBao` provider existed). On ESO chart upgrades, regenerate the vendored
+schemas from the new chart CRDs (`bundle.yaml`, v1 versions, descriptions
+stripped). Once the catalog's `external-secrets.io` update tracks an ESO
+>= 2.7.0, the vendored schemas and the local hook can be dropped (revert to
+the zrootorg kubeconform hook).
 
 One-time setup (root token, as in Bootstrap):
 

@@ -15,11 +15,10 @@ spec:
       values: |
         serviceAccount:
           name: external-secrets
-        # Store CRDs exceed the 256KB last-applied annotation limit (ArgoCD
-        # applies CRDs client-side even with SSA) — installed out-of-band.
+        # Store CRDs exceed the 256KB last-applied annotation limit — per-resource Replace syncs them via create/PUT instead.
         crds:
-          createClusterSecretStore: false
-          createSecretStore: false
+          annotations:
+            argocd.argoproj.io/sync-options: Replace=true
         serviceMonitor:
           enabled: true
         # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
@@ -38,5 +37,3 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      # ESO CRD schemas exceed the 256KB last-applied annotation limit; SSA skips it (as prometheus-operator-crds).
-      - ServerSideApply=true
