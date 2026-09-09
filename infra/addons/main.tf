@@ -224,6 +224,9 @@ resource "kubernetes_secret_v1" "dex_config" {
           config:
             clientID: ${var.dex_github_client_id}
             clientSecret: ${var.dex_github_client_secret}
+            # Must match the OAuth app's registered callback URL; Dex rejects
+            # callbacks that don't match.
+            redirectURI: https://dex.icaninto.space/callback
             orgs:
               - name: ${var.github_oidc_org}
       staticClients:
