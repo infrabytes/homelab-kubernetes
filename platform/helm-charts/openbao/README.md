@@ -45,8 +45,7 @@ Store the root token in `infra/secrets.sops.yaml` (`openbao_root_token`, edit
 via `sops`), then `cd infra && terragrunt apply --addons` so the value lands in
 Terraform state (nothing in the cluster depends on it).
 
-Then configure basics inside the cluster (root token stays there; the SA JWT
-is read from the pod itself):
+Then configure basics inside the cluster (root token stays there):
 
 ```sh
 kubectl exec -n openbao openbao-0 -- sh -c '
@@ -57,29 +56,25 @@ path "*" { capabilities = ["create", "read", "update", "delete", "list", "patch"
 EOF
   bao auth enable kubernetes
   bao write auth/kubernetes/config \
-    kubernetes_host=https://kubernetes.default.svc \
-    token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+    kubernetes_host=https://kubernetes.default.svc
+  bao write auth/kubernetes/role/openbao-admin \
+    bound_service_account_names=openbao \
+    bound_service_account_namespaces=openbao \
+    policies=openbao-admin \
+    ttl=1h
 '
 ```
 
 Notes:
 
-- `token_reviewer_jwt` is the OpenBao SA's own JWT — the chart's
-  `openbao-server-binding` ClusterRoleBinding (system:auth-delegator) authorizes
-  the TokenReview call. It is a projected SA token: **every StatefulSet pod
-  roll invalidates it**, breaking k8s-auth logins (`permission denied`) until
-  the config is refreshed:
-
-  ```sh
-  kubectl exec -n openbao openbao-0 -- sh -c '
-    export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=<root-token>
-    bao write auth/kubernetes/config \
-      kubernetes_host=https://kubernetes.default.svc \
-      token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
-  '
-  ```
-- `openbao-admin` is deliberately root-equivalent (single-admin homelab);
-  consumers later get least-privilege roles.
+- No `token_reviewer_jwt` (and no `kubernetes_ca_cert`): OpenBao periodically
+  re-reads the pod SA token file, so k8s auth keeps working across StatefulSet
+  rolls (short-lived tokens) without config refresh. A stale pinned JWT would
+  break every k8s-auth login after a roll.
+- The `openbao-admin` role authenticates the OpenBao SA itself — the
+  postStart SSO bootstrap (below) logs in with it. It is deliberately
+  root-equivalent via the `openbao-admin` policy (single-admin homelab); the
+  trust model already grants pod-exec seal-key access.
 - The route is LAN-only; `bao.icaninto.space` resolves to the cluster gateway
   L2 IP (RFC1918). Keep the Cloudflare record DNS-only (proxying blocks
   RFC1918 origins).
@@ -145,10 +140,54 @@ Notes:
   `remoteRef.key` is relative to it (e.g. `arc-runner-auth`), and ESO
   appends the `/data/` suffix itself. The `sys/mounts/secret` read is for
   ESO's store validation (mount type/version check).
-- The `token_reviewer_jwt` pod-roll caveat above applies to ESO too: a
-  StatefulSet roll breaks store auth until the k8s auth config is refreshed.
 - The role is deliberately read-only on `secret/data/*`; write access stays
   with the root token / `openbao-admin` policy.
+
+## GitHub SSO (Dex → OpenBao oidc auth)
+
+Logins via GitHub are served by a standalone Dex
+([`platform/helm-charts/dex`](../dex/README.md)), LAN-only at
+`dex.icaninto.space`, restricted to the `infrabytes` org. OpenBao's `oidc`
+auth method points at it with two roles.
+
+- `sso-admin`: bbayrakt (bound claim `preferred_username`) →
+  root-equivalent `openbao-admin` policy.
+- `sso-user`: any other org member → `default` policy only (their own
+  cubbyhole; org membership is enforced by the Dex GitHub connector).
+- `auth/oidc/config.default_role = sso-user`, so the UI login is safe by
+  default; bbayrakt selects the `sso-admin` role in the UI login form.
+
+### How it's configured
+
+The chart's `server.postStart` hook applies the mount, config, and roles on
+**every pod start** (all 3 replicas, idempotent writes) — the chart's
+mechanism for bootstrapping auth methods. It authenticates with Kubernetes
+auth as the pod's own SA via the `openbao-admin` role above — **no root
+token enters the cluster**. Client credentials come from the `openbao-oidc`
+Secret (rendered by the [addons unit](../../../infra/addons/README.md)) via
+`server.extraSecretEnvironmentVars`.
+
+The hook exits 0 when the cluster is not yet initialized or the role does
+not exist, so first boot stays quiet; once the roles exist, a config failure
+fails the hook and the container restarts (visible crash loop, repairs on
+the next start).
+
+### Logging in
+
+- Web UI: https://bao.icaninto.space/ui → sign in with method `oidc` →
+  GitHub. bbayrakt: enter role `sso-admin`.
+- CLI (LAN host): `bao login -method=oidc` (default role `sso-user`; as
+  bbayrakt: `bao login -method=oidc role=sso-admin`).
+
+### Applying changes
+
+The postStart script only runs at pod start: after the first bootstrap rolls
+out the k8s-auth `openbao-admin` role (or after any postStart update), apply
+the chart and run once:
+
+```sh
+kubectl rollout restart statefulset openbao
+```
 
 ## Seal key rotation
 

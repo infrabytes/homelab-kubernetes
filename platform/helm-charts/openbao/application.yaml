@@ -84,6 +84,68 @@ spec:
             - name: openbao-seal
               mountPath: /openbao/seal
               readOnly: true
+          # OIDC client credentials for the oidc auth method (Dex static client "openbao").
+          extraSecretEnvironmentVars:
+            - envName: OIDC_CLIENT_ID
+              secretName: openbao-oidc
+              secretKey: client-id
+            - envName: OIDC_CLIENT_SECRET
+              secretName: openbao-oidc
+              secretKey: client-secret
+          # Bootstraps the oidc auth method on every pod start as the pod's own SA
+          # (Kubernetes auth, no root token in the cluster); a failure crash-loops to surface misconfig.
+          postStart:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              export BAO_ADDR=http://127.0.0.1:8200
+
+              # Not initialized on first boot: exit 0 and retry at the next start.
+              i=0
+              until out=$(bao status 2>&1) && echo "$out" | grep -q '^Initialized .*true' && echo "$out" | grep -q '^Sealed .*false'; do
+                i=$((i+1))
+                [ "$i" -ge 30 ] && exit 0
+                sleep 3
+              done
+
+              # Skip until the bootstrap role exists (README.md).
+              bao login -method=kubernetes role=openbao-admin 2>/dev/null || exit 0
+
+              # The 3 replicas race on first enable — tolerate the loser.
+              bao auth enable oidc 2>/dev/null || true
+
+              bao write auth/oidc/config \
+                oidc_discovery_url=https://dex.icaninto.space \
+                oidc_client_id="$OIDC_CLIENT_ID" \
+                oidc_client_secret="$OIDC_CLIENT_SECRET" \
+                default_role=sso-user
+
+              # bound_claims is a map — no CLI flag, so roles are JSON documents (OpenBao docs).
+              bao write auth/oidc/role/sso-admin - <<'EOF'
+              {
+                "user_claim": "preferred_username",
+                "oidc_scopes": ["profile", "groups"],
+                "allowed_redirect_uris": [
+                  "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
+                  "http://localhost:8250/oidc/callback"
+                ],
+                "bound_claims": { "preferred_username": "bbayrakt" },
+                "token_policies": ["openbao-admin"],
+                "ttl": "1h"
+              }
+              EOF
+              bao write auth/oidc/role/sso-user - <<'EOF'
+              {
+                "user_claim": "preferred_username",
+                "oidc_scopes": ["profile", "groups"],
+                "allowed_redirect_uris": [
+                  "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
+                  "http://localhost:8250/oidc/callback"
+                ],
+                "ttl": "1h"
+              }
+              EOF
           # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
           resources:
             requests:
