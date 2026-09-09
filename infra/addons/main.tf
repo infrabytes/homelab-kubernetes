@@ -256,13 +256,3 @@ resource "kubernetes_namespace_v1" "arc_runners" {
 resource "kubernetes_namespace_v1" "argocd_diff_preview" {
   metadata { name = "argocd-diff-preview" }
 }
-
-resource "kubernetes_secret_v1" "arc_runner_auth" {
-  metadata {
-    name      = "arc-runner-auth"
-    namespace = kubernetes_namespace_v1.arc_runners.metadata[0].name
-  }
-  data = {
-    "github_token" = var.github_runner_token
-  }
-}

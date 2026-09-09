@@ -84,6 +84,45 @@ Notes:
   L2 IP (RFC1918). Keep the Cloudflare record DNS-only (proxying blocks
   RFC1918 origins).
 
+## External Secrets Operator
+
+ESO (chart app `platform/helm-charts/external-secrets`) syncs Secrets from
+OpenBao. Stores: `ClusterSecretStore` `openbao` (cluster-wide) and a
+namespaced `SecretStore` in the demo app (`apps/external-secrets-demo`); both
+use Kubernetes auth as the ESO controller ServiceAccount
+(`external-secrets`/`external-secrets`). Consumers: `arc-runner-auth`
+(`apps/arc-runner-auth`, the ARC runner PAT, formerly created by the addons
+unit from SOPS).
+
+One-time setup (root token, as in Bootstrap):
+
+```sh
+kubectl exec -n openbao openbao-0 -- sh -c '
+  export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=<root-token>
+  bao policy write eso-readonly - <<EOF
+path "secret/data/*" {
+  capabilities = ["read", "list"]
+}
+EOF
+  bao write auth/kubernetes/role/external-secrets \
+    bound_service_account_names=external-secrets \
+    bound_service_account_namespaces=external-secrets \
+    policies=eso-readonly \
+    ttl=1h
+  bao kv put secret/arc-runner-auth github_token=<runner-pat>
+  bao kv put secret/demo demo-key=demo-value
+'
+```
+
+Notes:
+
+- kv-v2 `remoteRef.key` is `secret/<name>` (mount + name; ESO appends the
+  `/data/` suffix itself).
+- The `token_reviewer_jwt` pod-roll caveat above applies to ESO too: a
+  StatefulSet roll breaks store auth until the k8s auth config is refreshed.
+- The role is deliberately read-only on `secret/data/*`; write access stays
+  with the root token / `openbao-admin` policy.
+
 ## Seal key rotation
 
 Generate a new key, add it as a second Secret key and rotate via the static

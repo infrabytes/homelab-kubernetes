@@ -17,6 +17,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | cert-manager                 | TLS via Let's Encrypt DNS-01 (Cloudflare), ClusterIssuer `letsencrypt-dns01` |
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
 | OpenBao                      | Cluster secrets manager (Vault fork): HA raft (3 replicas, Longhorn), static-key auto-unseal, KV v2 + Kubernetes auth; UI at bao.icaninto.space (LAN only) |
+| External Secrets Operator   | Syncs Secrets from OpenBao (ClusterSecretStore `openbao`, k8s auth, least-privilege role); e.g. the ARC runner PAT (`arc-runner-auth`) |
 | Longhorn                     | Block storage on the worker nodes (dedicated disk labels); UI at longhorn.icaninto.space |
 | Grafana Cloud (free tier)    | Metrics (Prometheus remote-write) + logs (Loki), via the `k8s-monitoring` Helm chart; also ingests Talos syslog (port 5140) |
 | Hubble Observer + CF2CNP     | Streams Cilium Hubble flows (DROPPED verdicts) to Loki; Grafana dashboard "Cilium Flows - Hubble Observer" (grafana.com #23862) in the Grafana Cloud stack; CF2CNP web UI generates CiliumNetworkPolicies from flows at cf2cnp.icaninto.space |
@@ -38,7 +39,7 @@ infra/              Terragrunt/OpenTofu units: cluster -> viewer-kubeconfig, add
   secrets.sops.yaml single SOPS-encrypted secrets file (never plaintext)
   cluster/          Talos cluster + Cilium; writes artifacts/kubeconfig + talosconfig
   viewer-kubeconfig/ Mints the view-only client cert + kubeconfig (CSR API, no CA key extraction)
-  addons/           Installs ArgoCD, cert-manager, external-dns, OpenBao namespace + seal Secret, ARC namespaces
+  addons/           Installs ArgoCD, cert-manager, external-dns, OpenBao namespace + seal Secret, ARC namespaces (runner PAT now synced by ESO from OpenBao)
   argocd-config/    ArgoCD bootstrap ApplicationSet (app-of-appsets)
 argocd/appsets/     committed ApplicationSets (platform, apps, pdeu), applied via the
                     Terraform bootstrap ApplicationSet
@@ -217,7 +218,9 @@ webhook (shared secret + payload cap; see
 [`infra/addons/README.md`](infra/addons/README.md#argocd-github-webhook)).
 
 Secrets: edit `infra/secrets.sops.yaml` with `sops` (re-encrypts on save). The
-age key is not in the repo; all units decrypt via `env.hcl`.
+age key is not in the repo; all units decrypt via `env.hcl`. Runtime secrets
+for workloads are synced from OpenBao by External Secrets Operator (see
+[`platform/helm-charts/openbao/README.md`](platform/helm-charts/openbao/README.md)).
 
 Validation: `pre-commit run --all-files` (terragrunt fmt/validate/tflint,
 yamllint, kubeconform, argocd-apps-check, detect-secrets, sops-encrypted, ruff,

@@ -170,8 +170,7 @@ locals {
     # ArgoCD SSO-only login: once the tf-bot API token is added below, the
     # local admin account is disabled and the argocd-config provider
     # authenticates with the token instead of the admin password.
-    argocd_tf_token     = try(local.secrets.argocd_tf_token, "")
-    github_runner_token = local.secrets.github_runner_token
+    argocd_tf_token = try(local.secrets.argocd_tf_token, "")
     # ArgoCD GitHub webhook shared secret (argocd-secret: webhook.github.secret).
     # The same value goes into the GitHub repo webhook (Settings -> Webhooks);
     # ArgoCD rejects events whose X-Hub-Signature-256 does not match.

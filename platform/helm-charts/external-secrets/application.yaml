@@ -1,0 +1,35 @@
+# Controller SA pinned to `external-secrets` — chart default would be <release>-external-secrets; the OpenBao role and stores reference it by name.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-secrets-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://charts.external-secrets.io
+    chart: external-secrets
+    targetRevision: 2.10.0
+    helm:
+      releaseName: external-secrets
+      values: |
+        serviceAccount:
+          name: external-secrets
+        serviceMonitor:
+          enabled: true
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 96Mi
+  destination:
+    namespace: external-secrets
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
