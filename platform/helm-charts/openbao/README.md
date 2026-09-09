@@ -115,6 +115,9 @@ kubectl exec -n openbao openbao-0 -- sh -c '
 path "secret/data/*" {
   capabilities = ["read", "list"]
 }
+path "sys/mounts" {
+  capabilities = ["read"]
+}
 EOF
   bao write auth/kubernetes/role/external-secrets \
     bound_service_account_names=external-secrets \
