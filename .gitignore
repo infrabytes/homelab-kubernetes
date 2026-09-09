@@ -20,3 +20,5 @@ __pycache__/
 # Locally generated artifacts
 artifacts/
 .worktrees/
+goals/
+plans/
