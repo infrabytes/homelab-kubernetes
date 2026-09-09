@@ -33,3 +33,5 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      # ESO CRD schemas exceed the 256KB last-applied annotation limit; SSA skips it (as prometheus-operator-crds).
+      - ServerSideApply=true
