@@ -15,6 +15,11 @@ spec:
       values: |
         serviceAccount:
           name: external-secrets
+        # Store CRDs exceed the 256KB last-applied annotation limit (ArgoCD
+        # applies CRDs client-side even with SSA) — installed out-of-band.
+        crds:
+          createClusterSecretStore: false
+          createSecretStore: false
         serviceMonitor:
           enabled: true
         # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
