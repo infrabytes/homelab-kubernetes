@@ -74,13 +74,6 @@ variable "argocd_tf_token" {
   sensitive   = true
 }
 
-variable "github_runner_token" {
-  description = "GitHub PAT (repo scope) for the ARC runner scale set (self-hosted runner used by the Argo CD diff preview workflow). Written into the arc-runner-auth Secret."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 variable "grafana_cloud_prometheus_username" {
   description = "Grafana Cloud Prometheus instance ID (basic-auth username for remote-write)."
   type        = string
