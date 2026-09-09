@@ -1,0 +1,35 @@
+# Standalone Dex OIDC provider (OpenBao SSO, LAN-only); config from the Terraform-created dex-config Secret, exposure via apps/dex.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dex-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://dexidp.github.io/helm-charts
+    chart: dex
+    targetRevision: 0.24.1
+    helm:
+      releaseName: dex
+      values: |
+        replicaCount: 1
+        configSecret:
+          create: false
+          name: dex-config
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 96Mi
+          limits:
+            memory: 144Mi
+        serviceMonitor:
+          enabled: true
+  destination:
+    namespace: dex
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
