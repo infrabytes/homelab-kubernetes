@@ -94,6 +94,18 @@ use Kubernetes auth as the ESO controller ServiceAccount
 (`apps/arc-runner-auth`, the ARC runner PAT, formerly created by the addons
 unit from SOPS).
 
+The chart skips the two store CRDs (their schemas exceed the 256KB
+last-applied annotation limit; ArgoCD applies CRDs client-side even with
+ServerSideApply). Install them once, out-of-band, after the chart synced:
+
+```sh
+helm template external-secrets external-secrets/external-secrets \
+  --version 2.10.0 --namespace external-secrets --include-crds | \
+  kubectl apply --server-side -f -
+```
+
+(On ESO chart upgrades, re-run this if the CRD schemas changed.)
+
 One-time setup (root token, as in Bootstrap):
 
 ```sh
