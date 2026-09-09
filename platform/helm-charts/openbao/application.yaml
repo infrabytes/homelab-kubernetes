@@ -84,6 +84,11 @@ spec:
             - name: openbao-seal
               mountPath: /openbao/seal
               readOnly: true
+          # Router DNS rebinding protection drops RFC1918 answers; reach Dex via the gateway L2 IP.
+          hostAliases:
+            - ip: 192.168.0.200
+              hostnames:
+                - dex.icaninto.space
           # OIDC client credentials for the oidc auth method (Dex static client "openbao").
           extraSecretEnvironmentVars:
             - envName: OIDC_CLIENT_ID
@@ -110,7 +115,7 @@ spec:
               done
 
               # Skip until the bootstrap role exists (README.md).
-              bao login -method=kubernetes role=openbao-admin 2>/dev/null || exit 0
+              bao login -method=kubernetes role=openbao-admin jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token 2>/dev/null || exit 0
 
               # The 3 replicas race on first enable — tolerate the loser.
               bao auth enable oidc 2>/dev/null || true
