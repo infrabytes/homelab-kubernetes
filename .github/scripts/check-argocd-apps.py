@@ -90,7 +90,6 @@ def values_args(work_dir, helm_block):
 
 
 def template_args(work_dir, release, source, dest_ns, helm_block):
-    """Build the helm template argv for a pulled chart tarball."""
     args = ["helm", "template", release]
     chart_paths = sorted(work_dir.glob("*.tgz"))
     if not chart_paths:

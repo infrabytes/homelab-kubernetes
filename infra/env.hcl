@@ -12,26 +12,20 @@ locals {
 
   secrets = yamldecode(sops_decrypt_file(abspath("${local.infra_dir}/secrets.sops.yaml")))
 
-  # ---------------------------------------------------------------------------
-  # cluster unit inputs
-  # ---------------------------------------------------------------------------
   cluster = {
     # Write talosconfig/kubeconfig to the real unit dir (Terragrunt runs from
     # .terragrunt-cache).
     artifacts_dir = abspath("${local.infra_dir}/cluster/artifacts")
 
-    # Proxmox connection
     proxmox_endpoint  = "https://192.168.0.11:8006/"
     proxmox_api_token = local.secrets.proxmox_api_token
     proxmox_username  = ""
     proxmox_password  = ""
     proxmox_insecure  = true
 
-    # Cluster
     cluster_name     = "talos-cluster"
     cluster_endpoint = "https://192.168.0.67:6443"
 
-    # Versions
     talos_version            = "v1.14.0"
     kubernetes_version       = "1.37.0"
     cilium_chart_version     = "1.20.1"
@@ -51,13 +45,11 @@ locals {
     # Longhorn on every node.
     talos_system_extensions = ["siderolabs/intel-ucode", "siderolabs/iscsi-tools", "siderolabs/util-linux-tools"]
 
-    # Proxmox storage/network defaults
     proxmox_iso_datastore  = "local"
     proxmox_disk_datastore = "local-lvm"
     proxmox_network_bridge = "vmbr0"
     secure_boot            = false
 
-    # Nodes
     nodes = {
       "192.168.0.67" = {
         role           = "controlplane"
@@ -131,9 +123,6 @@ locals {
     }
   }
 
-  # ---------------------------------------------------------------------------
-  # addons unit inputs
-  # ---------------------------------------------------------------------------
   addons = {
     kubeconfig_path           = local.kubeconfig_path
     gitops_repo_url           = local.gitops_repo_url
@@ -192,9 +181,6 @@ locals {
     openbao_root_token = local.secrets.openbao_root_token
   }
 
-  # ---------------------------------------------------------------------------
-  # grafana-cloud-config unit inputs
-  # ---------------------------------------------------------------------------
   # Grafana Cloud stack API access for the grafana/grafana provider. Manages
   # dashboards, folders, alerting (rule groups, contact points, notification
   # policies, message templates) and org preferences on the existing stack.
@@ -204,9 +190,6 @@ locals {
     grafana_cloud_stack_sa_token = local.secrets.grafana_cloud_stack_sa_token
   }
 
-  # ---------------------------------------------------------------------------
-  # argocd-config unit inputs
-  # ---------------------------------------------------------------------------
   argocd_config = {
     kubeconfig_path       = local.kubeconfig_path
     gitops_repo_url       = local.gitops_repo_url
@@ -216,9 +199,6 @@ locals {
     argocd_tf_token = try(local.secrets.argocd_tf_token, "")
   }
 
-  # ---------------------------------------------------------------------------
-  # viewer-kubeconfig unit inputs
-  # ---------------------------------------------------------------------------
   viewer_kubeconfig = {
     kubeconfig_path = local.kubeconfig_path
     # Write the viewer kubeconfig next to the admin kubeconfig (gitignored).
