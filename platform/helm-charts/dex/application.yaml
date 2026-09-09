@@ -14,6 +14,16 @@ spec:
       releaseName: dex
       values: |
         replicaCount: 1
+        # Image runs as uid 1001; satisfy restricted PodSecurity so rollouts don't warn.
+        podSecurityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          runAsNonRoot: true
         configSecret:
           create: false
           name: dex-config
