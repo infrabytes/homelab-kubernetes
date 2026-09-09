@@ -121,6 +121,11 @@ EOF
     bound_service_account_namespaces=external-secrets \
     policies=eso-readonly \
     ttl=1h
+  bao write auth/kubernetes/role/eso-demo \
+    bound_service_account_names=eso-demo \
+    bound_service_account_namespaces=external-secrets-demo \
+    policies=eso-readonly \
+    ttl=1h
   bao kv put secret/arc-runner-auth github_token=<runner-pat>
   bao kv put secret/demo demo-key=demo-value
 '
