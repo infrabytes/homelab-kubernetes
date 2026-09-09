@@ -172,6 +172,11 @@ not exist, so first boot stays quiet; once the roles exist, a config failure
 fails the hook and the container restarts (visible crash loop, repairs on
 the next start).
 
+The pods reach Dex via a `hostAliases` entry (`dex.icaninto.space` →
+`192.168.0.200`, the gateway L2 IP): the LAN router's DNS rebinding
+protection drops RFC1918 answers, so CoreDNS can't resolve the LAN-only
+hostname.
+
 ### Logging in
 
 - Web UI: https://bao.icaninto.space/ui → sign in with method `oidc` →
