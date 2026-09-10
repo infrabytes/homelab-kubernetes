@@ -23,6 +23,8 @@ spec:
         injector:
           enabled: false
         server:
+          # Overrides the chart's OnDelete default: rolls one pod at a time, Ready-gated, keeping raft quorum.
+          updateStrategyType: RollingUpdate
           authDelegator:
             # Chart-rendered ClusterRoleBinding (openbao-server-binding →
             # system:auth-delegator); enables k8s auth's TokenReview call.
