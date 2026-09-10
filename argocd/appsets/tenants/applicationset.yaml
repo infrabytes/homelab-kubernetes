@@ -1,10 +1,12 @@
 # The list must stay in sync with the TENANTS marker in platform/helm-charts/openbao/application.yaml (tenant-config-check hook).
+# goTemplate keeps members a list (fasttemplate would stringify them as "[map[...]]").
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   name: tenants
   namespace: argocd
 spec:
+  goTemplate: true
   generators:
     - git:
         repoURL: https://github.com/infrabytes/homelab-kubernetes
@@ -13,7 +15,7 @@ spec:
           - path: argocd/tenants/tenants.json
   template:
     metadata:
-      name: "tenant-{{tenant}}"
+      name: "tenant-{{ .tenant }}"
     spec:
       project: default
       source:
@@ -22,12 +24,18 @@ spec:
         path: charts/tenant-access
         helm:
           values: |
-            tenant: "{{tenant}}"
-            namespace: "{{namespace}}"
-            identity: "{{identity}}"
+            tenant: "{{ .tenant }}"
+            namespace: "{{ .namespace }}"
+            members:
+            {{- range .members }}
+              - identity: "{{ .identity }}"
+              {{- if .user }}
+                user: "{{ .user }}"
+              {{- end }}
+            {{- end }}
       destination:
         server: https://kubernetes.default.svc
-        namespace: "{{namespace}}"
+        namespace: "{{ .namespace }}"
       syncPolicy:
         automated:
           prune: true
