@@ -23,7 +23,20 @@ ROOT = Path(__file__).resolve().parents[2]
 TENANTS_FILE = ROOT / "argocd" / "tenants" / "tenants.json"
 OPENBAO_APP = ROOT / "platform" / "helm-charts" / "openbao" / "application.yaml"
 TENANT_CHART = ROOT / "charts" / "tenant-access"
-MARKER = re.compile(r'^TENANTS="([^"]*)"$', re.MULTILINE)
+MARKER = re.compile(r'^[ \t]*TENANTS="([^"]*)"[ \t]*$', re.MULTILINE)
+DNS_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+GITHUB_USER = re.compile(r"^[A-Za-z0-9-]+$")
+# Mount paths this cluster already uses; a tenant mount there would inherit their policies.
+RESERVED_TENANTS = {
+    "secret",
+    "sys",
+    "auth",
+    "identity",
+    "cubbyhole",
+    "kubernetes",
+    "oidc",
+    "oidc-tailnet",
+}
 
 
 def log(msg: str) -> None:
@@ -53,6 +66,15 @@ def load_tenants(errors: list) -> list:
         if not all(fields.values()):
             errors.append(f"{rel}: entry #{i + 1} has an empty tenant/namespace/identity/user")
             continue
+        if not DNS_LABEL.match(fields["tenant"]) or not DNS_LABEL.match(fields["namespace"]):
+            errors.append(f"{rel}: tenant/namespace {fields['tenant']!r}/{fields['namespace']!r} are not DNS labels")
+            continue
+        if not GITHUB_USER.match(fields["user"]):
+            errors.append(f"{rel}: {fields['tenant']} user {fields['user']!r} is not a GitHub login")
+            continue
+        if fields["tenant"] in RESERVED_TENANTS:
+            errors.append(f"{rel}: tenant {fields['tenant']!r} collides with an existing OpenBao mount")
+            continue
         if fields["identity"] != f"{fields['user']}@github":
             errors.append(f"{rel}: {fields['tenant']} identity {fields['identity']!r} is not <user>@github")
             continue
@@ -67,10 +89,19 @@ def load_tenants(errors: list) -> list:
     return tenants
 
 
-def openbao_script(errors: list) -> str:
+def openbao_text(errors: list) -> str:
     rel = OPENBAO_APP.relative_to(ROOT)
     try:
-        app = yaml.safe_load(OPENBAO_APP.read_text())
+        return OPENBAO_APP.read_text()
+    except OSError as err:
+        errors.append(f"{rel}: cannot read: {err}")
+        return ""
+
+
+def poststart_script(raw: str, errors: list) -> str:
+    rel = OPENBAO_APP.relative_to(ROOT)
+    try:
+        app = yaml.safe_load(raw)
         values = yaml.safe_load(app["spec"]["source"]["helm"]["values"])
         command = values["server"]["postStart"]
         return command[command.index("-c") + 1]
@@ -127,7 +158,7 @@ def check_chart(tenants: list, errors: list) -> None:
         rendered = {
             (doc.get("kind"), (doc.get("metadata") or {}).get("name"), (doc.get("metadata") or {}).get("namespace"))
             for doc in yaml.safe_load_all(res.stdout)
-            if isinstance(doc, dict)
+            if isinstance(doc, dict) and doc.get("kind")
         }
         expected = {
             ("RoleBinding", "tenant-admin", namespace),
@@ -142,17 +173,16 @@ def check_chart(tenants: list, errors: list) -> None:
 
 
 def main() -> int:
-    if yaml is None:
-        log("PyYAML not found, skipping (pip install pyyaml to validate the tenant config)")
-        return 0
-
     errors: list = []
     tenants = load_tenants(errors)
-    script = openbao_script(errors)
-    if script:
-        check_shell(script, errors)
-        check_parity(tenants, marker_triples(script, errors), errors)
-    if tenants:
+    raw = openbao_text(errors)
+    if raw:
+        check_parity(tenants, marker_triples(raw, errors), errors)
+        if yaml is None:
+            log("WARN PyYAML not found, skipping the postStart syntax check and the chart render")
+        elif script := poststart_script(raw, errors):
+            check_shell(script, errors)
+    if tenants and yaml is not None:
         check_chart(tenants, errors)
 
     for error in errors:
