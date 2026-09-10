@@ -1,4 +1,4 @@
-# Controller SA pinned to `external-secrets` — chart default would be <release>-external-secrets; the OpenBao role and stores reference it by name.
+# Controller SA pinned to `external-secrets` (chart default `external-secrets-external-secrets`): stable identity; consumer stores authenticate as their own SAs.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
