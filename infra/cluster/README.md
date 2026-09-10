@@ -308,6 +308,13 @@ registry pulls and speeding up image distribution:
   nodes on the next `terragrunt apply`. Each node's running Talos version and
   applied-config hash are read on every refresh; anything changed
   out-of-band is reconciled to the declared state on the next apply.
+- **The VM-before-config ordering edge is a value dependency, not a module-level
+  `depends_on`.** `module.talos_cluster` takes `vm_ids = module.proxmox_nodes.vm_ids` and reaches it
+  through the `terraform_data.node_vm` gate that `talos_machine.*` depends on. Module-level
+  `depends_on` is inherited by the module's data sources, so a pending VM change defers them: the
+  untargeted plan then reports an unknown `local_sensitive_file.talosconfig` (delete+create) and an
+  "update" on every `talos_machine` (byte-identical config) instead of the single in-place VM update.
+  Don't replace the gate with a module-level `depends_on`.
 - **Bootstrap pauses at phase 18/19 ("node not ready").** Expected with
   `cni: none`; nodes can't become Ready until a CNI runs. Because Cilium is an
   inline manifest, Talos applies it itself during bootstrap; the
