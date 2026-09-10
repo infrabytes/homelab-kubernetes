@@ -399,7 +399,3 @@ resource "kubernetes_namespace_v1" "arc_systems" {
 resource "kubernetes_namespace_v1" "arc_runners" {
   metadata { name = "arc-runners" }
 }
-
-resource "kubernetes_namespace_v1" "argocd_diff_preview" {
-  metadata { name = "argocd-diff-preview" }
-}

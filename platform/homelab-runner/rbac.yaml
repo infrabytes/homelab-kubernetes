@@ -4,30 +4,6 @@ metadata:
   name: arc-runner
   namespace: arc-runners
 ---
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: arc-runner-diff-preview
-  namespace: argocd-diff-preview
-rules:
-  - apiGroups: ["*"]
-    resources: ["*"]
-    verbs: ["*"]
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: arc-runner-diff-preview
-  namespace: argocd-diff-preview
-subjects:
-  - kind: ServiceAccount
-    name: arc-runner
-    namespace: arc-runners
-roleRef:
-  kind: Role
-  name: arc-runner-diff-preview
-  apiGroup: rbac.authorization.k8s.io
----
 # Read access to the vcluster namespace so `vcluster connect` can discover
 # the vcluster workload and read the exported kubeconfig Secret
 # (vc-vcluster) that the PR preview workflow uses to reach the

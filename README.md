@@ -55,7 +55,7 @@ platform/           ArgoCD-managed cluster-level resources (network, issuer,
   helm-charts/      one parent ArgoCD app (app-of-apps) for the Helm chart
                     Applications (cert-manager, external-dns, hubble-observer,
                     grafana-cloud, longhorn, prometheus-operator-crds, spegel,
-                    openbao, dex, vcluster, argocd-diff-preview, gha-runner-scale-set,
+                    openbao, dex, vcluster, gha-runner-scale-set,
                     gha-runner-scale-set-controller)
 apps/               ArgoCD-managed applications (one subdir per app)
 .github/            CI workflows + scripts (pre-commit, PR preview diff)
