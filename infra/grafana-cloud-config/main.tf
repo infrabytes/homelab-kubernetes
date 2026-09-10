@@ -375,3 +375,139 @@ resource "grafana_rule_group" "capacity" {
     }
   }
 }
+
+# Resource guards: the sizing re-audit's alert pair. The last-terminated gauge
+# latches until the next clean exit, so the restart increase pins the OOMKill
+# rule to a recent kill; the saturation rule compares the 5m working-set peak
+# against each container's own memory limit.
+resource "grafana_rule_group" "resources" {
+  name             = "resources"
+  folder_uid       = grafana_folder.talos.uid
+  interval_seconds = 60
+
+  rule {
+    name           = "Container OOMKilled"
+    for            = "5m"
+    condition      = "threshold"
+    no_data_state  = "OK"
+    exec_err_state = "Alerting"
+
+    annotations = {
+      summary = "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} was OOMKilled and restarted"
+    }
+    labels = {
+      severity = "critical"
+    }
+
+    data {
+      ref_id         = "query"
+      datasource_uid = data.grafana_data_source.prom.uid
+      query_type     = "prometheus"
+      relative_time_range {
+        from = 660
+        to   = 60
+      }
+      model = jsonencode({
+        datasource = {
+          type = "prometheus"
+          uid  = data.grafana_data_source.prom.uid
+        }
+        expr          = "(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\"} == 1) and on (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[1h]) > 0)"
+        instant       = true
+        intervalMs    = 1000
+        maxDataPoints = 43200
+        range         = false
+        refId         = "query"
+      })
+    }
+    data {
+      ref_id         = "threshold"
+      datasource_uid = "__expr__"
+      query_type     = "threshold"
+      relative_time_range {
+        from = 0
+        to   = 0
+      }
+      model = jsonencode({
+        conditions = [{
+          evaluator = {
+            params = [0]
+            type   = "gt"
+          }
+        }]
+        datasource = {
+          type = "__expr__"
+          uid  = "__expr__"
+        }
+        expression    = "query"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+        refId         = "threshold"
+        type          = "threshold"
+      })
+    }
+  }
+
+  rule {
+    name           = "Container memory above 90% of limit"
+    for            = "15m"
+    condition      = "threshold"
+    no_data_state  = "OK"
+    exec_err_state = "Alerting"
+
+    annotations = {
+      summary = "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} runs above 90% of its memory limit"
+    }
+    labels = {
+      severity = "warning"
+    }
+
+    data {
+      ref_id         = "query"
+      datasource_uid = data.grafana_data_source.prom.uid
+      query_type     = "prometheus"
+      relative_time_range {
+        from = 660
+        to   = 60
+      }
+      model = jsonencode({
+        datasource = {
+          type = "prometheus"
+          uid  = data.grafana_data_source.prom.uid
+        }
+        expr          = "(max_over_time(max by (namespace, pod, container) (container_memory_working_set_bytes)[5m:1m]) / on (namespace, pod, container) max by (namespace, pod, container) (kube_pod_container_resource_limits{resource=\"memory\"})) > bool 0.9"
+        instant       = true
+        intervalMs    = 1000
+        maxDataPoints = 43200
+        range         = false
+        refId         = "query"
+      })
+    }
+    data {
+      ref_id         = "threshold"
+      datasource_uid = "__expr__"
+      query_type     = "threshold"
+      relative_time_range {
+        from = 0
+        to   = 0
+      }
+      model = jsonencode({
+        conditions = [{
+          evaluator = {
+            params = [0]
+            type   = "gt"
+          }
+        }]
+        datasource = {
+          type = "__expr__"
+          uid  = "__expr__"
+        }
+        expression    = "query"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+        refId         = "threshold"
+        type          = "threshold"
+      })
+    }
+  }
+}
