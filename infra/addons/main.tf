@@ -297,7 +297,7 @@ resource "kubernetes_secret_v1" "dex_tailnet_config" {
           name: OpenBao
           secret: ${var.openbao_oidc_client_secret}
           redirectURIs:
-            - https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback
+            - https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback
             - http://localhost:8250/oidc/callback
       oauth2:
         skipApprovalScreen: true
