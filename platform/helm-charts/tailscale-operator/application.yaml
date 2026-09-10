@@ -17,13 +17,24 @@ spec:
           mode: "true"
         # ESO creates operator-oauth; chart reads it at /oauth (1.102.3 fixed the pre-created-secret bug).
         oauth: {}
-        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
+        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
+        # Proxies keep this too; the operator Deployment is sized via operatorConfig below.
         resources:
           requests:
             cpu: 10m
             memory: 64Mi
           limits:
             memory: 96Mi
+        # The top-level `resources` key is not a chart value; the operator Deployment
+        # and the proxy pods are sized separately (proxies keep the chart default).
+        operatorConfig:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 96Mi
         proxy:
           resources:
             requests:

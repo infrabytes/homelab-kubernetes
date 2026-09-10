@@ -14,16 +14,17 @@ spec:
       values: |
         telemetry:
           enabled: false
-        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
+        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
         controlPlane:
           statefulSet:
             resources:
               requests:
-                cpu: 250m
-                memory: 960Mi
+                cpu: 200m
+                memory: 1088Mi
                 ephemeral-storage: 1Gi
               limits:
-                memory: 1440Mi
+                memory: 1632Mi
                 ephemeral-storage: 10Gi
         # Proxies the host metrics-server (read-only) - no metrics server is deployed in the vCluster.
         integrations:
