@@ -1,0 +1,16 @@
+# Tailnet exposure: operator-managed TLS + Serve (plain HTTP to the Service; TLS terminates at the proxy).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dex
+  namespace: dex-tailnet
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: dex-tailnet
+      port:
+        number: 5556
+  tls:
+    - hosts:
+        - dex

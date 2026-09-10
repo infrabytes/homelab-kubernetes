@@ -264,7 +264,9 @@ resource "kubernetes_namespace_v1" "dex_tailnet" {
 # Tailnet Dex config (config.yaml): second Dex instance with its own issuer
 # (https://dex.taile70903.ts.net) and GitHub OAuth app for remote OpenBao SSO.
 # Consumed by the dex chart (platform/helm-charts/dex/dex-tailnet-app.yaml) via
-# configSecret.name=dex-tailnet-config.
+# configSecret.name=dex-tailnet-config. Serves https on 5554 with the
+# Terraform-generated cert so OpenBao's in-cluster discovery fetch (which
+# cannot reach the tailscale interface) gets a matching issuer over TLS.
 resource "kubernetes_secret_v1" "dex_tailnet_config" {
   metadata {
     name      = "dex-tailnet-config"
@@ -277,6 +279,9 @@ resource "kubernetes_secret_v1" "dex_tailnet_config" {
         type: memory
       web:
         http: 5556
+        https: 5554
+        tlsCert: /etc/dex/tls/tls.crt
+        tlsKey: /etc/dex/tls/tls.key
       connectors:
         - type: github
           id: github
@@ -298,6 +303,68 @@ resource "kubernetes_secret_v1" "dex_tailnet_config" {
         skipApprovalScreen: true
       enablePasswordDB: false
     EOT
+  }
+}
+
+# Private CA + leaf cert for the tailnet Dex HTTPS listener (in-cluster only;
+# tailnet clients get the operator-provisioned Let's Encrypt cert via the L7
+# Ingress). OpenBao trusts the CA through oidc_discovery_ca_pem.
+resource "tls_private_key" "dex_tailnet_ca" {
+  algorithm   = "ECDSA"
+  ecdsa_curve = "P256"
+}
+
+resource "tls_self_signed_cert" "dex_tailnet_ca" {
+  private_key_pem       = tls_private_key.dex_tailnet_ca.private_key_pem
+  is_ca_certificate     = true
+  validity_period_hours = 87600
+  subject {
+    common_name = "dex-tailnet-ca"
+  }
+  allowed_uses = ["cert_signing", "crl_signing", "digital_signature"]
+}
+
+resource "tls_private_key" "dex_tailnet" {
+  algorithm   = "ECDSA"
+  ecdsa_curve = "P256"
+}
+
+resource "tls_cert_request" "dex_tailnet" {
+  private_key_pem = tls_private_key.dex_tailnet.private_key_pem
+  subject {
+    common_name = "dex.taile70903.ts.net"
+  }
+  dns_names = ["dex.taile70903.ts.net"]
+}
+
+resource "tls_locally_signed_cert" "dex_tailnet" {
+  cert_request_pem      = tls_cert_request.dex_tailnet.cert_request_pem
+  ca_private_key_pem    = tls_private_key.dex_tailnet_ca.private_key_pem
+  ca_cert_pem           = tls_self_signed_cert.dex_tailnet_ca.cert_pem
+  validity_period_hours = 8760
+  early_renewal_hours   = 720
+  allowed_uses          = ["key_encipherment", "digital_signature", "server_auth"]
+}
+
+resource "kubernetes_secret_v1" "dex_tailnet_tls" {
+  metadata {
+    name      = "dex-tailnet-tls"
+    namespace = kubernetes_namespace_v1.dex_tailnet.metadata[0].name
+  }
+  data = {
+    "tls.crt" = tls_locally_signed_cert.dex_tailnet.cert_pem
+    "tls.key" = tls_private_key.dex_tailnet.private_key_pem
+  }
+}
+
+# CA for OpenBao's oidc-tailnet discovery fetch (mounted read-only by the chart).
+resource "kubernetes_secret_v1" "openbao_oidc_tailnet_ca" {
+  metadata {
+    name      = "openbao-oidc-tailnet-ca"
+    namespace = kubernetes_namespace_v1.openbao.metadata[0].name
+  }
+  data = {
+    "ca.crt" = tls_self_signed_cert.dex_tailnet_ca.cert_pem
   }
 }
 
