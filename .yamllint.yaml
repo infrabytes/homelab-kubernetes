@@ -2,6 +2,7 @@
 extends: default
 ignore: |
   **/secrets.sops.yaml
+  charts/*/templates/
 rules:
   line-length:
     max: 160

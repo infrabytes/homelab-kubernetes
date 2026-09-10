@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ required "tenant is required" .Values.tenant }}-eso
+  namespace: {{ required "namespace is required" .Values.namespace }}
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: openbao-{{ required "tenant is required" .Values.tenant }}
+  namespace: {{ required "namespace is required" .Values.namespace }}
+spec:
+  provider:
+    openBao:
+      server: http://openbao.openbao.svc:8200
+      path: {{ required "tenant is required" .Values.tenant }}
+      auth:
+        kubernetes:
+          path: kubernetes
+          role: eso-{{ required "tenant is required" .Values.tenant }}
+          serviceAccountRef:
+            name: {{ required "tenant is required" .Values.tenant }}-eso

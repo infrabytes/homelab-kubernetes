@@ -6,6 +6,7 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
         args: [-m]
+        exclude: ^charts/.*/templates/
       - id: check-json
       - id: check-merge-conflict
       - id: check-added-large-files
@@ -57,6 +58,12 @@ repos:
         entry: .github/scripts/check-argocd-apps.py
         language: script
         files: ^(platform|apps)/.*\.ya?ml$
+      - id: tenant-config-check
+        name: tenant list / openbao config consistency
+        entry: .github/scripts/check-tenants.py
+        language: script
+        pass_filenames: false
+        files: ^(argocd/appsets/tenants/|argocd/tenants/|charts/tenant-access/|platform/helm-charts/openbao/application\.yaml)
       - id: terragrunt-validate
         name: terragrunt validate
         entry: .github/scripts/terragrunt-validate.sh

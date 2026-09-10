@@ -1,0 +1,40 @@
+# The list must stay in sync with the TENANTS marker in platform/helm-charts/openbao/application.yaml (tenant-config-check hook).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tenants
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/infrabytes/homelab-kubernetes
+        revision: main
+        files:
+          - path: argocd/tenants/tenants.json
+  template:
+    metadata:
+      name: "tenant-{{tenant}}"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/infrabytes/homelab-kubernetes
+        targetRevision: main
+        path: charts/tenant-access
+        helm:
+          values: |
+            tenant: "{{tenant}}"
+            namespace: "{{namespace}}"
+            identity: "{{identity}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 30s
+            maxDuration: 5m
+            factor: 2

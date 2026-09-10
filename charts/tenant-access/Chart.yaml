@@ -1,0 +1,5 @@
+apiVersion: v2
+name: tenant-access
+description: Tenant admin + cluster-wide read RBAC, ESO identity and namespaced OpenBao store for one tenant
+type: application
+version: 0.1.0
