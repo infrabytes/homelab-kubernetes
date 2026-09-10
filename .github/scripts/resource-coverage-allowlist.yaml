@@ -1,0 +1,51 @@
+# Exemptions for the resource-coverage check in check-argocd-apps.py: chart
+# versions with no values key for that container. Key = namespace + workload + container.
+allow:
+  - namespace: grafana-cloud
+    workload: k8s-monitoring-alloy-operator
+    container: alloy-operator
+    reason: "k8s-monitoring 4.5.1 sets the Alloy operator's resources in code; no values key"
+  - namespace: grafana-cloud
+    workload: k8s-monitoring-add-finalizer
+    container: add-finalizers
+    reason: "k8s-monitoring 4.5.1 hook Job; no resources value"
+  - namespace: grafana-cloud
+    workload: k8s-monitoring-remove-alloy-and-finalizer
+    container: remove-finalizers
+    reason: "k8s-monitoring 4.5.1 hook Job; no resources value"
+  - namespace: longhorn-system
+    workload: longhorn-manager
+    container: pre-pull-share-manager-image
+    reason: "longhorn 1.12.1 exposes no resources value for this container"
+  - namespace: longhorn-system
+    workload: longhorn-driver-deployer
+    container: longhorn-driver-deployer
+    reason: "longhorn 1.12.1 exposes no resources value for this Deployment"
+  - namespace: longhorn-system
+    workload: longhorn-driver-deployer
+    container: wait-longhorn-manager
+    reason: "longhorn 1.12.1 init container; no resources value"
+  - namespace: longhorn-system
+    workload: longhorn-ui
+    container: longhorn-ui
+    reason: "longhorn 1.12.1 exposes no resources value for this Deployment"
+  - namespace: longhorn-system
+    workload: longhorn-post-upgrade
+    container: longhorn-post-upgrade
+    reason: "longhorn 1.12.1 hook Job; no resources value"
+  - namespace: longhorn-system
+    workload: longhorn-uninstall
+    container: longhorn-uninstall
+    reason: "longhorn 1.12.1 hook Job; no resources value"
+  - namespace: openbao
+    workload: openbao-server-test
+    container: openbao-server-test
+    reason: "openbao 0.29.4 helm-test Pod; no resources value"
+  - namespace: spegel
+    workload: spegel-cleanup
+    container: cleanup
+    reason: "spegel 0.7.4 hook DaemonSet; no resources value"
+  - namespace: spegel
+    workload: spegel-cleanup-wait
+    container: cleanup-wait
+    reason: "spegel 0.7.4 hook Pod; no resources value"
