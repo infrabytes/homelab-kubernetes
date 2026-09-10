@@ -4,7 +4,7 @@
 # Terraform-created openbao-seal Secret from /openbao/seal/current.key). The
 # retry_join stanzas make followers join+unseal after the one-time init on
 # openbao-0; authDelegator is the chart's own binding to system:auth-delegator
-# (k8s auth TokenReview); LAN-only exposure via apps/openbao. Bootstrap:
+# (k8s auth TokenReview). LAN exposure via apps/openbao; tailnet via Tailscale operator proxy. Bootstrap:
 # README.md in this directory.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -84,11 +84,14 @@ spec:
             - name: openbao-seal
               mountPath: /openbao/seal
               readOnly: true
-          # Router DNS rebinding protection drops RFC1918 answers; reach Dex via the gateway L2 IP.
+          # hostAliases bypasses DNS rebinding for both LAN and tailnet Dex.
           hostAliases:
             - ip: 192.168.0.200
               hostnames:
                 - dex.icaninto.space
+            - ip: <DEX_TAILNET_CLUSTER_IP>
+              hostnames:
+                - dex.<tailnet>.ts.net
           # OIDC client credentials for the oidc auth method (Dex static client "openbao").
           extraSecretEnvironmentVars:
             - envName: OIDC_CLIENT_ID
@@ -151,7 +154,47 @@ spec:
                 "ttl": "1h"
               }
               EOF
+
+              # Tailnet OIDC mount (separate issuer — a single Dex cannot serve both LAN and tailnet).
+              bao auth enable -path=oidc-tailnet oidc 2>/dev/null || true
+
+              bao write auth/oidc-tailnet/config \
+                oidc_discovery_url=https://dex.<tailnet>.ts.net \
+                oidc_client_id="$OIDC_CLIENT_ID" \
+                oidc_client_secret="$OIDC_CLIENT_SECRET" \
+                default_role=sso-user
+
+              bao write auth/oidc-tailnet/role/sso-admin - <<'EOF'
+              {
+                "user_claim": "preferred_username",
+                "oidc_scopes": ["profile", "groups"],
+                "allowed_redirect_uris": [
+                  "https://openbao.<tailnet>.ts.net/ui/vault/auth/oidc/oidc/callback",
+                  "http://localhost:8250/oidc/callback"
+                ],
+                "bound_claims": { "preferred_username": "bbayrakt" },
+                "token_policies": ["openbao-admin"],
+                "ttl": "1h"
+              }
+              EOF
+              bao write auth/oidc-tailnet/role/sso-user - <<'EOF'
+              {
+                "user_claim": "preferred_username",
+                "oidc_scopes": ["profile", "groups"],
+                "allowed_redirect_uris": [
+                  "https://openbao.<tailnet>.ts.net/ui/vault/auth/oidc/oidc/callback",
+                  "http://localhost:8250/oidc/callback"
+                ],
+                "ttl": "1h"
+              }
+              EOF
           # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+          # Tailscale operator proxy on the active Service → https://openbao.<tailnet>.ts.net.
+          service:
+            active:
+              annotations:
+                tailscale.com/expose: "true"
+                tailscale.com/hostname: "openbao"
           resources:
             requests:
               cpu: 50m

@@ -9,7 +9,9 @@ per worker — with Longhorn PVCs and the built-in static-key auto-unseal.
   in manifests.
 - LAN-only access: `apps/openbao/route.yaml` (gateway `openbao-https` listener,
   cert-manager DNS-01 cert like argocd); plaintext http redirects to https
-  (`apps/openbao/redirect.yaml`).
+  (`apps/openbao/redirect.yaml`). Also exposed on the tailnet via Tailscale
+  operator proxy (annotations on the `openbao-active` Service →
+  `https://openbao.<tailnet>.ts.net`).
 - Metrics: chart ServiceMonitor scraped by the k8s-monitoring stack.
 
 ## How auto-unseal works
@@ -130,6 +132,7 @@ EOF
     policies=eso-readonly \
     ttl=1h
   bao kv put secret/arc-runner-auth github_token=<runner-pat>
+  bao kv put secret/tailscale-operator client_id=<oauth-client-id> client_secret=<oauth-client-secret>
   bao kv put secret/demo demo-key=demo-value
 '
 ```
@@ -145,10 +148,17 @@ Notes:
 
 ## GitHub SSO (Dex → OpenBao oidc auth)
 
-Logins via GitHub are served by a standalone Dex
-([`platform/helm-charts/dex`](../dex/README.md)), LAN-only at
-`dex.icaninto.space`, restricted to the `infrabytes` org. OpenBao's `oidc`
-auth method points at it with two roles.
+Logins via GitHub are served by standalone Dex instances
+([`platform/helm-charts/dex`](../dex/README.md)), restricted to the
+`infrabytes` org. OpenBao has two OIDC auth mounts:
+
+- `auth/oidc` (LAN): discovery URL `https://dex.icaninto.space`, roles
+  `sso-admin`/`sso-user` with LAN redirect URIs.
+- `auth/oidc-tailnet` (tailnet): discovery URL `https://dex.<tailnet>.ts.net`,
+  roles `sso-admin`/`sso-user` with tailnet redirect URIs. Same static client
+  credentials (`OIDC_CLIENT_ID`/`OIDC_CLIENT_SECRET`).
+
+### LAN roles (`auth/oidc`)
 
 - `sso-admin`: bbayrakt (bound claim `preferred_username`) →
   root-equivalent `openbao-admin` policy.
@@ -172,10 +182,9 @@ not exist, so first boot stays quiet; once the roles exist, a config failure
 fails the hook and the container restarts (visible crash loop, repairs on
 the next start).
 
-The pods reach Dex via a `hostAliases` entry (`dex.icaninto.space` →
-`192.168.0.200`, the gateway L2 IP): the LAN router's DNS rebinding
-protection drops RFC1918 answers, so CoreDNS can't resolve the LAN-only
-hostname.
+The pods reach both Dex instances via `hostAliases`: `dex.icaninto.space` → `192.168.0.200`
+(the gateway L2 IP, DNS rebinding protection workaround) and `dex.<tailnet>.ts.net`
+→ `<DEX_TAILNET_CLUSTER_IP>` (pinned cluster IP of the tailnet Dex Service).
 
 ### Logging in
 
@@ -183,6 +192,9 @@ hostname.
   GitHub. bbayrakt: enter role `sso-admin`.
 - CLI (LAN host): `bao login -method=oidc` (default role `sso-user`; as
   bbayrakt: `bao login -method=oidc role=sso-admin`).
+- Tailnet: https://openbao.<tailnet>.ts.net/ui → sign in with method
+  `oidc-tailnet` → GitHub (through the tailnet Dex). bbayrakt: enter role
+  `sso-admin`.
 
 ### Applying changes
 

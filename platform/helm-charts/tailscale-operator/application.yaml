@@ -1,0 +1,42 @@
+# Tailscale Operator (tailnet proxy + API server proxy; OAuth via ESO from OpenBao).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tailscale-operator-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://pkgs.tailscale.com/helmcharts
+    chart: tailscale-operator
+    targetRevision: 1.102.3
+    helm:
+      releaseName: tailscale-operator
+      values: |
+        apiServerProxyConfig:
+          mode: "true"
+        # ESO creates operator-oauth; chart reads it at /oauth (1.102.3 fixed the pre-created-secret bug).
+        oauth: {}
+        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 96Mi
+        proxy:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 96Mi
+  destination:
+    namespace: tailscale
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -135,3 +135,16 @@ variable "openbao_oidc_client_secret" {
   default     = ""
   sensitive   = true
 }
+
+variable "dex_tailnet_github_client_id" {
+  description = "GitHub OAuth app (\"Dex (homelab tailnet)\") Client ID for the tailnet Dex GitHub connector. Public by design, not a secret."
+  type        = string
+  default     = ""
+}
+
+variable "dex_tailnet_github_client_secret" {
+  description = "GitHub OAuth app (\"Dex (homelab tailnet)\") Client Secret, written into the dex-tailnet-config Secret (config.yaml, GitHub connector)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

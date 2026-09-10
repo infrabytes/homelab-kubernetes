@@ -257,6 +257,50 @@ resource "kubernetes_secret_v1" "openbao_oidc" {
   }
 }
 
+resource "kubernetes_namespace_v1" "dex_tailnet" {
+  metadata { name = "dex-tailnet" }
+}
+
+# Tailnet Dex config (config.yaml): second Dex instance with its own issuer
+# (https://dex.<tailnet>.ts.net) and GitHub OAuth app for remote OpenBao SSO.
+# Consumed by the dex chart (platform/helm-charts/dex/dex-tailnet-app.yaml) via
+# configSecret.name=dex-tailnet-config.
+resource "kubernetes_secret_v1" "dex_tailnet_config" {
+  metadata {
+    name      = "dex-tailnet-config"
+    namespace = kubernetes_namespace_v1.dex_tailnet.metadata[0].name
+  }
+  data = {
+    "config.yaml" = <<-EOT
+      issuer: https://dex.<tailnet>.ts.net
+      storage:
+        type: memory
+      web:
+        http: 5556
+      connectors:
+        - type: github
+          id: github
+          name: GitHub
+          config:
+            clientID: ${var.dex_tailnet_github_client_id}
+            clientSecret: ${var.dex_tailnet_github_client_secret}
+            redirectURI: https://dex.<tailnet>.ts.net/callback
+            orgs:
+              - name: ${var.github_oidc_org}
+      staticClients:
+        - id: openbao
+          name: OpenBao
+          secret: ${var.openbao_oidc_client_secret}
+          redirectURIs:
+            - https://openbao.<tailnet>.ts.net/ui/vault/auth/oidc/oidc/callback
+            - http://localhost:8250/oidc/callback
+      oauth2:
+        skipApprovalScreen: true
+      enablePasswordDB: false
+    EOT
+  }
+}
+
 resource "kubernetes_namespace_v1" "grafana_cloud" {
   metadata {
     name = "grafana-cloud"

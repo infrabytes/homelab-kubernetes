@@ -3,7 +3,9 @@
 A dedicated Dex instance that authenticates OpenBao logins via GitHub SSO
 (`bao login -method=oidc` and the OpenBao UI). It is **independent** from the
 Dex embedded in ArgoCD, runs in its own `dex` namespace, and is LAN-only at
-https://dex.icaninto.space.
+https://dex.icaninto.space. A second Dex instance for the tailnet
+(`dex-tailnet-app.yaml`, namespace `dex-tailnet`) serves remote SSO at
+https://dex.<tailnet>.ts.net with its own GitHub OAuth app.
 
 ## What it is
 
