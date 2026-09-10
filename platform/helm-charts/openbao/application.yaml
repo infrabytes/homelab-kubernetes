@@ -203,7 +203,14 @@ spec:
               TENANTS="pdeu:pdeu:dhaustein"
               for entry in $(printf '%s' "$TENANTS" | tr ',' ' '); do
                 t=${entry%%:*}; rest=${entry#*:}; ns=${rest%%:*}; user=${rest##*:}
-                bao secrets enable -path="$t" kv-v2 2>/dev/null || true
+                if opts=$(bao read -field=options "sys/mounts/$t" 2>/dev/null); then
+                  case "$opts" in
+                    *version:2*) ;;
+                    *) echo "tenant $t: existing mount is not kv-v2 ($opts)" >&2; exit 1 ;;
+                  esac
+                else
+                  bao secrets enable -path="$t" kv-v2
+                fi
                 bao policy write "$t-tenant" - <<EOF
               path "$t/data/*" {
                 capabilities = ["create", "read", "update", "delete", "list"]
