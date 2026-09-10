@@ -1,4 +1,4 @@
-# Tailscale API server proxy auth → cluster-admin (name matches the upstream quickstart's ts-cluster-admin). Replace <OWNER_TAILNET_EMAIL> with the actual email.
+# Tailscale API server proxy auth → cluster-admin (name matches the upstream quickstart's ts-cluster-admin).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -9,4 +9,4 @@ roleRef:
   name: cluster-admin
 subjects:
   - kind: User
-    name: <OWNER_TAILNET_EMAIL>
+    name: bbayrakt@github

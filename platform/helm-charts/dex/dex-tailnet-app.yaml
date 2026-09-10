@@ -30,7 +30,7 @@ spec:
           annotations:
             tailscale.com/expose: "true"
             tailscale.com/hostname: "dex"
-          clusterIP: <DEX_TAILNET_CLUSTER_IP>
+          clusterIP: 10.111.254.10
         # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
         resources:
           requests:
