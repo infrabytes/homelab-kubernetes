@@ -14,9 +14,7 @@ module "proxmox_nodes" {
 module "talos_cluster" {
   source = "./modules/talos-cluster"
 
-  depends_on = [
-    module.proxmox_nodes,
-  ]
+  vm_ids = module.proxmox_nodes.vm_ids
 
   cluster_name       = var.cluster_name
   cluster_endpoint   = var.cluster_endpoint

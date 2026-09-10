@@ -36,6 +36,11 @@ variable "nodes" {
   }))
 }
 
+variable "vm_ids" {
+  description = "Per-node Proxmox VM ids (module.proxmox_nodes.vm_ids). Keys must match `nodes`."
+  type        = map(number)
+}
+
 variable "artifacts_dir" {
   description = "Directory to write generated talosconfig/kubeconfig artifacts to."
   type        = string

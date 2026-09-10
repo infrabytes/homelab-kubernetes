@@ -213,6 +213,16 @@ ephemeral "talos_cluster_kubeconfig" "drain" {
   endpoint        = var.cluster_endpoint
 }
 
+# Ordering gate: a node's VM must exist before its machine config is applied.
+# Referencing module.proxmox_nodes.vm_ids through a resource keeps that edge
+# without a module-level depends_on, which deferred the machine/client
+# configuration data sources whenever a VM change was pending (unknown
+# talosconfig at plan, phantom talos_machine updates on every resize).
+resource "terraform_data" "node_vm" {
+  for_each = var.vm_ids
+  input    = each.value
+}
+
 # talos_machine applies the machine config and keeps the running Talos in
 # sync with `image`: on an image change it upgrades the OS in place first
 # (pull -> install -> cordon+drain -> reboot -> wait -> uncordon), then
@@ -224,6 +234,8 @@ ephemeral "talos_cluster_kubeconfig" "drain" {
 # (see terragrunt.hcl).
 resource "talos_machine" "controlplane" {
   for_each = { for k, v in var.nodes : k => v if v.role == "controlplane" }
+
+  depends_on = [terraform_data.node_vm]
 
   node                            = each.key
   image                           = each.value.install_img
@@ -237,7 +249,7 @@ resource "talos_machine" "controlplane" {
 resource "talos_machine" "worker" {
   for_each = { for k, v in var.nodes : k => v if v.role == "worker" }
 
-  depends_on = [talos_machine.controlplane]
+  depends_on = [talos_machine.controlplane, terraform_data.node_vm]
 
   node                            = each.key
   image                           = each.value.install_img
