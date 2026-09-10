@@ -64,11 +64,19 @@ The connector uses a dedicated OAuth app (separate from ArgoCD's):
 
 ## Adding future clients / connectors
 
-Edit the `dex-config` Secret source (the addons unit in `infra/addons/`
-`main.tf`): add a `staticClients` entry (new client id/secret + redirect URIs)
-or a connector, back it with a SOPS key, then `terragrunt apply` in
-`infra/addons`. Dex picks up config changes at container start; ArgoCD
-restarts the Deployment on Secret change (tracked resource in the chart).
+Edit the `dex-config` (LAN) / `dex-tailnet-config` Secret source (the addons
+unit in `infra/addons/main.tf`): add a `staticClients` entry (new client
+id/secret + redirect URIs) or a connector, back it with a SOPS key, then
+`terragrunt apply` in `infra/addons`.
+
+Dex reads its config at container start, and the chart's checksum annotation
+only covers its own rendered Secret (both releases use
+`configSecret.create: false`, so an external Secret change triggers no roll).
+Delete the pod to pick up a config change:
+
+```sh
+kubectl delete pod -n dex-tailnet -l app.kubernetes.io/name=dex   # or -n dex for the LAN instance
+```
 
 ## Verify
 
