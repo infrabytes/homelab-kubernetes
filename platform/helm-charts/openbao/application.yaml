@@ -199,10 +199,11 @@ spec:
               }
               EOF
 
-              # Tenant list (<tenant>:<namespace>:<github-login>): mirrors argocd/tenants/tenants.json (tenant-config-check hook).
+              # Tenant list (<tenant>:<namespace>[:<github-login>[|<login>]]): the logins mirror the members in argocd/tenants/tenants.json (tenant-config-check hook).
               TENANTS="pdeu:pdeu:dhaustein"
               for entry in $(printf '%s' "$TENANTS" | tr ',' ' '); do
-                t=${entry%%:*}; rest=${entry#*:}; ns=${rest%%:*}; user=${rest##*:}
+                t=${entry%%:*}; rest=${entry#*:}; ns=${rest%%:*}
+                case "$rest" in *:*) logins=${rest#*:} ;; *) logins="" ;; esac
                 if opts=$(bao read -field=options "sys/mounts/$t" 2>/dev/null); then
                   case "$opts" in
                     *version:2*) ;;
@@ -250,7 +251,9 @@ spec:
                   bound_service_account_namespaces="$ns" \
                   policies="eso-$t" \
                   ttl=1h
-                bao write "auth/oidc/role/sso-$t" - <<EOF
+                if [ -n "$logins" ]; then
+                  claims=$(printf '%s' "$logins" | tr '|' ',' | sed 's/[^,]*/"&"/g')
+                  bao write "auth/oidc/role/sso-$t" - <<EOF
               {
                 "user_claim": "preferred_username",
                 "oidc_scopes": ["profile", "groups"],
@@ -258,12 +261,12 @@ spec:
                   "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
                   "http://localhost:8250/oidc/callback"
                 ],
-                "bound_claims": { "preferred_username": "$user" },
+                "bound_claims": { "preferred_username": [$claims] },
                 "token_policies": ["$t-tenant"],
                 "ttl": "1h"
               }
               EOF
-                bao write "auth/oidc-tailnet/role/sso-$t" - <<EOF
+                  bao write "auth/oidc-tailnet/role/sso-$t" - <<EOF
               {
                 "user_claim": "preferred_username",
                 "oidc_scopes": ["profile", "groups"],
@@ -271,11 +274,15 @@ spec:
                   "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
                   "http://localhost:8250/oidc/callback"
                 ],
-                "bound_claims": { "preferred_username": "$user" },
+                "bound_claims": { "preferred_username": [$claims] },
                 "token_policies": ["$t-tenant"],
                 "ttl": "1h"
               }
               EOF
+                else
+                  bao delete "auth/oidc/role/sso-$t" >/dev/null 2>&1 || true
+                  bao delete "auth/oidc-tailnet/role/sso-$t" >/dev/null 2>&1 || true
+                fi
               done
 
               bao policy write eso-arc-runners - <<'EOF'

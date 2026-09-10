@@ -2,7 +2,11 @@
   {
     "tenant": "pdeu",
     "namespace": "pdeu",
-    "identity": "dhaustein@github",
-    "user": "dhaustein"
+    "members": [
+      {
+        "identity": "dhaustein@github",
+        "user": "dhaustein"
+      }
+    ]
   }
 ]
