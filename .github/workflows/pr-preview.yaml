@@ -49,7 +49,7 @@ jobs:
 
       - uses: Azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
-          version: v4.2.4
+          version: v4.3.0
 
       # The CLIs below are installed per-run from the *_VERSION job env pins;
       # they are not part of the persisted tool cache.
@@ -117,7 +117,7 @@ jobs:
           for attempt in 1 2 3; do
             if helm upgrade --install argocd-preview argo-cd \
                 --repo https://argoproj.github.io/argo-helm \
-                --version 10.8.2 \
+                --version 10.8.4 \
                 --namespace argocd-preview \
                 --create-namespace \
                 --values target-branch/.github/argocd-preview-values.yaml \
