@@ -89,9 +89,9 @@ spec:
             - ip: 192.168.0.200
               hostnames:
                 - dex.icaninto.space
-            - ip: <DEX_TAILNET_CLUSTER_IP>
+            - ip: 10.111.254.10
               hostnames:
-                - dex.<tailnet>.ts.net
+                - dex.taile70903.ts.net
           # OIDC client credentials for the oidc auth method (Dex static client "openbao").
           extraSecretEnvironmentVars:
             - envName: OIDC_CLIENT_ID
@@ -159,7 +159,7 @@ spec:
               bao auth enable -path=oidc-tailnet oidc 2>/dev/null || true
 
               bao write auth/oidc-tailnet/config \
-                oidc_discovery_url=https://dex.<tailnet>.ts.net \
+                oidc_discovery_url=https://dex.taile70903.ts.net \
                 oidc_client_id="$OIDC_CLIENT_ID" \
                 oidc_client_secret="$OIDC_CLIENT_SECRET" \
                 default_role=sso-user
@@ -169,7 +169,7 @@ spec:
                 "user_claim": "preferred_username",
                 "oidc_scopes": ["profile", "groups"],
                 "allowed_redirect_uris": [
-                  "https://openbao.<tailnet>.ts.net/ui/vault/auth/oidc/oidc/callback",
+                  "https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback",
                   "http://localhost:8250/oidc/callback"
                 ],
                 "bound_claims": { "preferred_username": "bbayrakt" },
@@ -182,14 +182,14 @@ spec:
                 "user_claim": "preferred_username",
                 "oidc_scopes": ["profile", "groups"],
                 "allowed_redirect_uris": [
-                  "https://openbao.<tailnet>.ts.net/ui/vault/auth/oidc/oidc/callback",
+                  "https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback",
                   "http://localhost:8250/oidc/callback"
                 ],
                 "ttl": "1h"
               }
               EOF
           # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
-          # Tailscale operator proxy on the active Service → https://openbao.<tailnet>.ts.net.
+          # Tailscale operator proxy on the active Service → https://openbao.taile70903.ts.net.
           service:
             active:
               annotations:

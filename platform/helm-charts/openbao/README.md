@@ -184,7 +184,7 @@ the next start).
 
 The pods reach both Dex instances via `hostAliases`: `dex.icaninto.space` → `192.168.0.200`
 (the gateway L2 IP, DNS rebinding protection workaround) and `dex.<tailnet>.ts.net`
-→ `<DEX_TAILNET_CLUSTER_IP>` (pinned cluster IP of the tailnet Dex Service).
+→ `10.111.254.10` (pinned cluster IP of the tailnet Dex Service).
 
 ### Logging in
 

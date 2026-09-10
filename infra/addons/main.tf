@@ -262,7 +262,7 @@ resource "kubernetes_namespace_v1" "dex_tailnet" {
 }
 
 # Tailnet Dex config (config.yaml): second Dex instance with its own issuer
-# (https://dex.<tailnet>.ts.net) and GitHub OAuth app for remote OpenBao SSO.
+# (https://dex.taile70903.ts.net) and GitHub OAuth app for remote OpenBao SSO.
 # Consumed by the dex chart (platform/helm-charts/dex/dex-tailnet-app.yaml) via
 # configSecret.name=dex-tailnet-config.
 resource "kubernetes_secret_v1" "dex_tailnet_config" {
@@ -272,7 +272,7 @@ resource "kubernetes_secret_v1" "dex_tailnet_config" {
   }
   data = {
     "config.yaml" = <<-EOT
-      issuer: https://dex.<tailnet>.ts.net
+      issuer: https://dex.taile70903.ts.net
       storage:
         type: memory
       web:
@@ -284,7 +284,7 @@ resource "kubernetes_secret_v1" "dex_tailnet_config" {
           config:
             clientID: ${var.dex_tailnet_github_client_id}
             clientSecret: ${var.dex_tailnet_github_client_secret}
-            redirectURI: https://dex.<tailnet>.ts.net/callback
+            redirectURI: https://dex.taile70903.ts.net/callback
             orgs:
               - name: ${var.github_oidc_org}
       staticClients:
@@ -292,7 +292,7 @@ resource "kubernetes_secret_v1" "dex_tailnet_config" {
           name: OpenBao
           secret: ${var.openbao_oidc_client_secret}
           redirectURIs:
-            - https://openbao.<tailnet>.ts.net/ui/vault/auth/oidc/oidc/callback
+            - https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback
             - http://localhost:8250/oidc/callback
       oauth2:
         skipApprovalScreen: true
