@@ -13,6 +13,8 @@ spec:
     helm:
       releaseName: dex
       values: |
+        # fullnameOverride keeps the cluster-scoped RBAC (ClusterRole/dex-tailnet) distinct from the LAN release's ClusterRole/dex.
+        fullnameOverride: dex-tailnet
         replicaCount: 1
         podSecurityContext:
           runAsNonRoot: true
