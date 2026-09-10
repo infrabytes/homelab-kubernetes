@@ -84,12 +84,12 @@ spec:
             - name: openbao-seal
               mountPath: /openbao/seal
               readOnly: true
-          # hostAliases bypasses DNS rebinding for both LAN and tailnet Dex.
+          # hostAliases bypasses LAN DNS rebinding and routes the tailnet Dex via the in-cluster TLS hop (dex-tailnet-tls).
           hostAliases:
             - ip: 192.168.0.200
               hostnames:
                 - dex.icaninto.space
-            - ip: 10.111.254.10
+            - ip: 10.111.254.11
               hostnames:
                 - dex.taile70903.ts.net
           # OIDC client credentials for the oidc auth method (Dex static client "openbao").

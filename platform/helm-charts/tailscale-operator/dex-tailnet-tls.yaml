@@ -1,0 +1,76 @@
+# In-cluster TLS hop for dex.taile70903.ts.net (OpenBao's discovery fetch can't reach the unroutable 100.x tailscale interface): nginx mirrors the proxy node's Tailscale cert, forwards to dex-tailnet:5556; openbao hostAliases → pinned 10.111.254.11.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dex-tailnet-tls
+  namespace: tailscale
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dex-tailnet-tls
+  template:
+    metadata:
+      labels:
+        app: dex-tailnet-tls
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 443
+          volumeMounts:
+            - name: certs
+              mountPath: /etc/nginx/certs
+            - name: conf
+              mountPath: /etc/nginx/conf.d
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 48Mi
+      volumes:
+        - name: certs
+          secret:
+            secretName: ts-dex-tailnet-rtddl-0
+            items:
+              - key: dex.taile70903.ts.net.crt
+                path: tls.crt
+              - key: dex.taile70903.ts.net.key
+                path: tls.key
+        - name: conf
+          configMap:
+            name: dex-tailnet-tls-conf
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dex-tailnet-tls-conf
+  namespace: tailscale
+data:
+  dex-tailnet.conf: |
+    server {
+      listen 443 ssl;
+      ssl_certificate /etc/nginx/certs/tls.crt;
+      ssl_certificate_key /etc/nginx/certs/tls.key;
+      location / {
+        proxy_pass http://dex-tailnet.dex-tailnet.svc.cluster.local:5556;
+        proxy_set_header Host dex.taile70903.ts.net;
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dex-tailnet-tls
+  namespace: tailscale
+spec:
+  type: ClusterIP
+  clusterIP: 10.111.254.11
+  selector:
+    app: dex-tailnet-tls
+  ports:
+    - name: https
+      port: 443
+      targetPort: 443
