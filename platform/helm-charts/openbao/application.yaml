@@ -128,6 +128,8 @@ spec:
 
               # The 3 replicas race on first enable — tolerate the loser.
               bao auth enable oidc 2>/dev/null || true
+              # Tuned unauth: visible in the unauthenticated UI login dropdown (default is hidden).
+              bao auth tune -listing-visibility=unauth oidc/ >/dev/null 2>&1 || true
 
               bao write auth/oidc/config \
                 oidc_discovery_url=https://dex.icaninto.space \
@@ -163,6 +165,7 @@ spec:
 
               # Tailnet OIDC mount (separate issuer — a single Dex cannot serve both LAN and tailnet).
               bao auth enable -path=oidc-tailnet oidc 2>/dev/null || true
+              bao auth tune -listing-visibility=unauth oidc-tailnet/ >/dev/null 2>&1 || true
 
               bao write auth/oidc-tailnet/config \
                 oidc_discovery_url=https://dex.taile70903.ts.net \
