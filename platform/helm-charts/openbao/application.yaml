@@ -84,7 +84,7 @@ spec:
             - name: openbao-seal
               mountPath: /openbao/seal
               readOnly: true
-          # hostAliases bypasses DNS rebinding for both LAN and tailnet Dex.
+          # hostAliases bypasses LAN DNS rebinding and routes the tailnet Dex via its in-cluster HTTPS listener.
           hostAliases:
             - ip: 192.168.0.200
               hostnames:
@@ -100,6 +100,10 @@ spec:
             - envName: OIDC_CLIENT_SECRET
               secretName: openbao-oidc
               secretKey: client-secret
+            # Private CA for the tailnet Dex HTTPS listener (in-cluster discovery fetch).
+            - envName: OIDC_TAILNET_CA_PEM
+              secretName: openbao-oidc-tailnet-ca
+              secretKey: ca.crt
           # Bootstraps the oidc auth method on every pod start as the pod's own SA
           # (Kubernetes auth, no root token in the cluster); a failure crash-loops to surface misconfig.
           postStart:
@@ -160,6 +164,7 @@ spec:
 
               bao write auth/oidc-tailnet/config \
                 oidc_discovery_url=https://dex.taile70903.ts.net \
+                oidc_discovery_ca_pem="$OIDC_TAILNET_CA_PEM" \
                 oidc_client_id="$OIDC_CLIENT_ID" \
                 oidc_client_secret="$OIDC_CLIENT_SECRET" \
                 default_role=sso-user
@@ -189,12 +194,6 @@ spec:
               }
               EOF
           # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
-          # Tailscale operator proxy on the active Service → https://openbao.taile70903.ts.net.
-          service:
-            active:
-              annotations:
-                tailscale.com/expose: "true"
-                tailscale.com/hostname: "openbao"
           resources:
             requests:
               cpu: 50m

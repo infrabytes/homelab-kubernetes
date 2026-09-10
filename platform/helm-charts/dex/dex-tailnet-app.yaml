@@ -28,11 +28,22 @@ spec:
         configSecret:
           create: false
           name: dex-tailnet-config
+        # In-cluster HTTPS (Terraform-generated cert) for OpenBao's discovery fetch; tailnet TLS comes from the L7 Ingress.
+        https:
+          enabled: true
+        volumeMounts:
+          - name: tls
+            mountPath: /etc/dex/tls
+            readOnly: true
+        volumes:
+          - name: tls
+            secret:
+              secretName: dex-tailnet-tls
         service:
-          annotations:
-            tailscale.com/expose: "true"
-            tailscale.com/hostname: "dex"
           clusterIP: 10.111.254.10
+          ports:
+            https:
+              port: 443
         # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
         resources:
           requests:

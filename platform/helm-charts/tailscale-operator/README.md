@@ -25,12 +25,20 @@ the `operator-oauth` Secret — this is expected and self-heals within seconds.
 
 ## Tailnet hostnames
 
-- `openbao.<tailnet>.ts.net` — OpenBao UI/API (Tailscale proxy on the
-  `openbao-active` Service, annotations `tailscale.com/expose` +
-  `tailscale.com/hostname: openbao`).
-- `dex.<tailnet>.ts.net` — Second Dex instance for remote SSO (separate issuer
-  required; OpenBao's OIDC discovery must match the URL).
+All exposure uses layer-7 `Ingress` resources (`ingressClassName: tailscale`):
+the operator runs Tailscale Serve in a proxy pod and auto-provisions the
+MagicDNS name + Let's Encrypt certificate declaratively — no Service
+annotations, no manual `tailscale serve`.
+
+- `openbao.<tailnet>.ts.net` — OpenBao UI/API
+  (`platform/helm-charts/openbao/openbao-tailnet-ingress.yaml` → `openbao-active:8200`,
+  plain HTTP backend; TLS terminates at the proxy).
+- `dex.<tailnet>.ts.net` — second Dex instance for remote SSO
+  (`platform/helm-charts/dex/dex-tailnet-ingress.yaml` → `dex-tailnet:5556`).
 - `tailscale-operator.<tailnet>.ts.net` — API server proxy for kubectl.
+
+In-cluster consumers reach the tailnet Dex through its own HTTPS listener
+(the Terraform-generated cert in `dex-tailnet-tls`); see the openbao README.
 
 ## kubectl from the tailnet
 
@@ -40,10 +48,12 @@ kubectl get nodes
 ```
 
 The owner's Tailscale identity is bound to `cluster-admin` via the
-`tailscale-admin` ClusterRoleBinding in `platform/tailscale-rbac/`.
+`ts-cluster-admin` ClusterRoleBinding in `platform/tailscale-rbac/`.
 
 ## Files
 
 - `application.yaml` — ArgoCD Helm chart app (tailscale-operator 1.102.3,
   `apiServerProxyConfig.mode: "true"`).
 - `external-secret.yaml` — ESO ExternalSecret (`operator-oauth` from OpenBao).
+- `namespace.yaml` — `tailscale` namespace with `pod-security.kubernetes.io/enforce: privileged`
+  (proxy pods run privileged; Talos's default baseline PSA rejects them otherwise).
