@@ -12,13 +12,14 @@ spec:
     helm:
       releaseName: gha-runner-scale-set-controller
       values: |
-        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
+        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
         resources:
           requests:
             cpu: 10m
-            memory: 48Mi
+            memory: 64Mi
           limits:
-            memory: 72Mi
+            memory: 96Mi
   destination:
     namespace: arc-systems
     server: https://kubernetes.default.svc
