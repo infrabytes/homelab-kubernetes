@@ -188,6 +188,12 @@ locals {
     dex_github_client_id       = local.secrets.dex_github_client_id
     dex_github_client_secret   = local.secrets.dex_github_client_secret
     openbao_oidc_client_secret = local.secrets.openbao_oidc_client_secret
+
+    # Tailnet Dex: dedicated GitHub OAuth app ("Dex (homelab tailnet)") with
+    # callback https://dex.<tailnet>.ts.net/callback. Reuses the OpenBao
+    # static-client secret (openbao_oidc_client_secret) for the tailnet mount.
+    dex_tailnet_github_client_id     = local.secrets.dex_tailnet_github_client_id
+    dex_tailnet_github_client_secret = local.secrets.dex_tailnet_github_client_secret
   }
 
   # Grafana Cloud stack API access for the grafana/grafana provider. Manages
