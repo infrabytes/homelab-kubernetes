@@ -1,0 +1,7 @@
+# Operator proxy pods (sysctler, tailscale) run privileged — Talos's default baseline PSA rejects them without this label.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tailscale
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
