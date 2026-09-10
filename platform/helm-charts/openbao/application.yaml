@@ -176,7 +176,7 @@ spec:
                 "user_claim": "preferred_username",
                 "oidc_scopes": ["profile", "groups"],
                 "allowed_redirect_uris": [
-                  "https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback",
+                  "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
                   "http://localhost:8250/oidc/callback"
                 ],
                 "bound_claims": { "preferred_username": "bbayrakt" },
@@ -189,7 +189,7 @@ spec:
                 "user_claim": "preferred_username",
                 "oidc_scopes": ["profile", "groups"],
                 "allowed_redirect_uris": [
-                  "https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback",
+                  "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
                   "http://localhost:8250/oidc/callback"
                 ],
                 "ttl": "1h"
