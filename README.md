@@ -53,10 +53,11 @@ platform/           ArgoCD-managed cluster-level resources (network, issuer,
                     metrics-server, kubelet-serving-cert-approver,
                     homelab-runner + cluster-viewer RBAC)
   helm-charts/      one parent ArgoCD app (app-of-apps) for the Helm chart
-                    Applications (cert-manager, external-dns, hubble-observer,
-                    grafana-cloud, longhorn, prometheus-operator-crds, spegel,
-                    openbao, dex, vcluster, gha-runner-scale-set,
-                    gha-runner-scale-set-controller)
+                    Applications (cert-manager, cloudnative-pg, dex,
+                    external-dns, external-secrets, gha-runner-scale-set,
+                    gha-runner-scale-set-controller, grafana-cloud,
+                    hubble-observer, longhorn, openbao, prometheus-operator-crds,
+                    spegel, tailscale-operator, vcluster)
 apps/               ArgoCD-managed applications (one subdir per app)
 .github/            CI workflows + scripts (pre-commit, PR preview diff)
 .pre-commit-config.yaml  the single lint/format gate
