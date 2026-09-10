@@ -198,6 +198,118 @@ spec:
                 "ttl": "1h"
               }
               EOF
+
+              # Tenant list (<tenant>:<namespace>:<github-login>): mirrors argocd/tenants/tenants.json (tenant-config-check hook).
+              TENANTS="pdeu:pdeu:dhaustein"
+              for entry in $(printf '%s' "$TENANTS" | tr ',' ' '); do
+                t=${entry%%:*}; rest=${entry#*:}; ns=${rest%%:*}; user=${rest##*:}
+                bao secrets enable -path="$t" kv-v2 2>/dev/null || true
+                bao policy write "$t-tenant" - <<EOF
+              path "$t/data/*" {
+                capabilities = ["create", "read", "update", "delete", "list"]
+              }
+              path "$t/metadata" {
+                capabilities = ["list"]
+              }
+              path "$t/metadata/*" {
+                capabilities = ["read", "list", "delete"]
+              }
+              path "$t/delete/*" {
+                capabilities = ["update"]
+              }
+              path "$t/undelete/*" {
+                capabilities = ["update"]
+              }
+              path "$t/destroy/*" {
+                capabilities = ["update"]
+              }
+              path "sys/mounts/$t" {
+                capabilities = ["read"]
+              }
+              EOF
+                bao policy write "eso-$t" - <<EOF
+              path "$t/data/*" {
+                capabilities = ["read", "list"]
+              }
+              path "$t/metadata/*" {
+                capabilities = ["read", "list"]
+              }
+              path "sys/mounts/$t" {
+                capabilities = ["read"]
+              }
+              EOF
+                bao write "auth/kubernetes/role/eso-$t" \
+                  bound_service_account_names="$t-eso" \
+                  bound_service_account_namespaces="$ns" \
+                  policies="eso-$t" \
+                  ttl=1h
+                bao write "auth/oidc/role/sso-$t" - <<EOF
+              {
+                "user_claim": "preferred_username",
+                "oidc_scopes": ["profile", "groups"],
+                "allowed_redirect_uris": [
+                  "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
+                  "http://localhost:8250/oidc/callback"
+                ],
+                "bound_claims": { "preferred_username": "$user" },
+                "token_policies": ["$t-tenant"],
+                "ttl": "1h"
+              }
+              EOF
+                bao write "auth/oidc-tailnet/role/sso-$t" - <<EOF
+              {
+                "user_claim": "preferred_username",
+                "oidc_scopes": ["profile", "groups"],
+                "allowed_redirect_uris": [
+                  "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
+                  "http://localhost:8250/oidc/callback"
+                ],
+                "bound_claims": { "preferred_username": "$user" },
+                "token_policies": ["$t-tenant"],
+                "ttl": "1h"
+              }
+              EOF
+              done
+
+              bao policy write eso-arc-runners - <<'EOF'
+              path "secret/data/arc-runner-auth" {
+                capabilities = ["read"]
+              }
+              path "sys/mounts/secret" {
+                capabilities = ["read"]
+              }
+              EOF
+              bao write auth/kubernetes/role/eso-arc-runners \
+                bound_service_account_names=arc-runners-eso \
+                bound_service_account_namespaces=arc-runners \
+                policies=eso-arc-runners \
+                ttl=1h
+              bao policy write eso-tailscale - <<'EOF'
+              path "secret/data/tailscale-operator" {
+                capabilities = ["read"]
+              }
+              path "sys/mounts/secret" {
+                capabilities = ["read"]
+              }
+              EOF
+              bao write auth/kubernetes/role/eso-tailscale \
+                bound_service_account_names=tailscale-eso \
+                bound_service_account_namespaces=tailscale \
+                policies=eso-tailscale \
+                ttl=1h
+              bao policy write eso-demo - <<'EOF'
+              path "secret/data/demo" {
+                capabilities = ["read"]
+              }
+              path "sys/mounts/secret" {
+                capabilities = ["read"]
+              }
+              EOF
+              bao write auth/kubernetes/role/eso-demo \
+                bound_service_account_names=eso-demo \
+                bound_service_account_namespaces=external-secrets-demo \
+                policies=eso-demo \
+                ttl=1h
           # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
           resources:
             requests:
