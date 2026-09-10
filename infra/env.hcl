@@ -61,9 +61,9 @@ locals {
         ipv4_gateway   = "192.168.0.1"
         dns_servers    = ["192.168.0.1"]
         mac_address    = "BC:24:11:00:00:D2"
-        cores          = 2
-        memory         = 4096
-        disk_size      = 40
+        cores          = 4
+        memory         = 14336
+        disk_size      = 80
         swap_disk_size = 4
         # Single controlplane: no drain before OS upgrades (nothing to evict,
         # and a drain can block the upgrade when the cluster is degraded).
