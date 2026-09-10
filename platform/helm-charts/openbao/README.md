@@ -83,12 +83,17 @@ Notes:
 ## External Secrets Operator
 
 ESO (chart app `platform/helm-charts/external-secrets`) syncs Secrets from
-OpenBao. Stores: `ClusterSecretStore` `openbao` (cluster-wide) and a
-namespaced `SecretStore` in the demo app (`apps/external-secrets-demo`); both
-use Kubernetes auth as the ESO controller ServiceAccount
-(`external-secrets`/`external-secrets`). Consumers: `arc-runner-auth`
-(`apps/arc-runner-auth`, the ARC runner PAT, formerly created by the addons
-unit from SOPS).
+OpenBao through **namespaced** `SecretStore`s: each consumer namespace has its
+own store, ServiceAccount and OpenBao Kubernetes-auth role, read-scoped to a
+single secret path. There is no cluster-wide store, so no namespace can read
+another namespace's secrets.
+
+| Namespace | Store | ServiceAccount | OpenBao role | Read scope |
+|---|---|---|---|---|
+| `arc-runners` | `openbao-arc-runners` | `arc-runners-eso` | `eso-arc-runners` | `secret/arc-runner-auth` |
+| `tailscale` | `openbao-tailscale` | `tailscale-eso` | `eso-tailscale` | `secret/tailscale-operator` |
+| `external-secrets-demo` | `openbao-demo` | `eso-demo` | `eso-demo` | `secret/demo` |
+| tenant namespace | `openbao-<tenant>` | `<tenant>-eso` | `eso-<tenant>` | `<tenant>/data/*` |
 
 The chart renders all its CRDs. The two store CRDs' schemas exceed the 256KB
 last-applied annotation limit, so the chart app injects a per-resource
@@ -107,29 +112,21 @@ stripped). Once the catalog's `external-secrets.io` update tracks an ESO
 >= 2.7.0, the vendored schemas and the local hook can be dropped (revert to
 the zrootorg kubeconform hook).
 
-One-time setup (root token, as in Bootstrap):
+### Declarative configuration
+
+The ESO policies and roles, the tenant mounts, and the tenant policies/roles
+are written by the chart's `server.postStart` hook on every pod start (the
+same mechanism as the OIDC mounts below) — no manual `bao policy write`
+bootstrap for ESO and no root token: the hook logs in with Kubernetes auth as
+the pod's own SA (`openbao-admin` role from the one-time Bootstrap above).
+
+Seeding the consumer secrets stays manual (their values are not in git) — same
+login inside the pod:
 
 ```sh
 kubectl exec -n openbao openbao-0 -- sh -c '
-  export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=<root-token>
-  bao policy write eso-readonly - <<EOF
-path "secret/data/*" {
-  capabilities = ["read", "list"]
-}
-path "sys/mounts/secret" {
-  capabilities = ["read"]
-}
-EOF
-  bao write auth/kubernetes/role/external-secrets \
-    bound_service_account_names=external-secrets \
-    bound_service_account_namespaces=external-secrets \
-    policies=eso-readonly \
-    ttl=1h
-  bao write auth/kubernetes/role/eso-demo \
-    bound_service_account_names=eso-demo \
-    bound_service_account_namespaces=external-secrets-demo \
-    policies=eso-readonly \
-    ttl=1h
+  export BAO_ADDR=http://127.0.0.1:8200
+  bao login -method=kubernetes role=openbao-admin jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token
   bao kv put secret/arc-runner-auth github_token=<runner-pat>
   bao kv put secret/tailscale-operator client_id=<oauth-client-id> client_secret=<oauth-client-secret>
   bao kv put secret/demo demo-key=demo-value
@@ -138,12 +135,125 @@ EOF
 
 Notes:
 
-- The stores set the OpenBao provider `path: secret` (the kv-v2 mount);
+- A store sets the OpenBao provider `path` to the kv-v2 mount it may read
+  (`secret` for the shared mount, `<tenant>` for tenant stores);
   `remoteRef.key` is relative to it (e.g. `arc-runner-auth`), and ESO
-  appends the `/data/` suffix itself. The `sys/mounts/secret` read is for
-  ESO's store validation (mount type/version check).
-- The role is deliberately read-only on `secret/data/*`; write access stays
-  with the root token / `openbao-admin` policy.
+  appends the `/data/` suffix itself. Each role also carries the
+  `sys/mounts/<path>` read that ESO's store validation (mount type/version
+  check) needs.
+- Every role is read-only and scoped to its own secret path; writes happen in
+  OpenBao with a human or tenant token (`openbao-admin`, `sso-<tenant>`).
+- ESO's OpenBao provider is read-only upstream (PushSecret is unsupported), so
+  there are no PushSecret manifests: a secret is always created in OpenBao
+  first and then synced down.
+
+## Tenants
+
+Tenant access is data-driven from `argocd/tenants/tenants.json` — one object
+per tenant with a `members` list, each member carrying the **tailnet
+identity** (the Kubernetes user the API-server proxy impersonates) and
+optionally its **GitHub login** (for OpenBao SSO):
+
+```json
+{
+  "tenant": "pdeu",
+  "namespace": "pdeu",
+  "members": [
+    { "identity": "dhaustein@github", "user": "dhaustein" },
+    { "identity": "alice@example.com" }
+  ]
+}
+```
+
+The two identities differ when a person did not sign into Tailscale with
+GitHub (`name@github` is a Tailscale convention, not ours): RBAC uses
+`identity`, while the OpenBao OIDC roles bind the Dex GitHub login
+(`preferred_username`). A member without `user` gets RBAC but no OpenBao SSO
+(the Dex here only has a GitHub connector). All members of a tenant share
+that tenant's access — namespace admin, cluster-wide read, full control of its
+secret mount; there is no per-member separation.
+
+- `argocd/appsets/tenants/applicationset.yaml` (git files generator,
+  `goTemplate: true` — fasttemplate would stringify the nested members list)
+  renders `charts/tenant-access` once per entry: RoleBinding to the built-in
+  `admin` ClusterRole in the tenant namespace, ClusterRoleBinding to the
+  built-in `view` ClusterRole cluster-wide (read-only, Secrets excluded), the
+  ServiceAccount `<tenant>-eso` and the namespaced store `openbao-<tenant>`.
+  Both bindings list every member as a subject.
+- The `TENANTS="<tenant>:<namespace>[:<github-login>[|<login>]]"` marker in
+  `platform/helm-charts/openbao/application.yaml` makes postStart enable the
+  kv-v2 mount `<tenant>/` and write the `<tenant>-tenant` policy (full control
+  of that mount), the `eso-<tenant>` policy (read `<tenant>/data/*`), the
+  Kubernetes-auth role `eso-<tenant>` bound to `<tenant>-eso` in the tenant
+  namespace, and `sso-<tenant>` on both `auth/oidc` and `auth/oidc-tailnet`
+  with `bound_claims.preferred_username` set to the tenant's GitHub logins.
+  A tenant whose members have no GitHub login has its `sso-<tenant>` roles
+  deleted, so the marker stays the single source of truth.
+
+The two lists must stay identical; the `tenant-config-check` pre-commit hook
+compares them, shell-checks the postStart script and renders the chart. A
+tenant name must also not collide with an existing mount: the hook rejects the
+cluster/system mount names (`secret`, `sys`, `auth`, `identity`, `cubbyhole`,
+`kubernetes`, `oidc`, `oidc-tailnet`), and postStart refuses to configure a
+tenant path whose existing mount is not kv-v2.
+
+### Onboarding a tenant
+
+1. Add the entry to `argocd/tenants/tenants.json` (one `members` object per
+   person: `identity` from the tailnet, `user` only for GitHub logins) and the
+   same `tenant:namespace[:login[|login]]` triple to the `TENANTS` marker,
+   then merge. On a from-scratch cluster the tenant Application can fail until
+   its namespace exists (the tenant repo creates it) — re-sync it once it
+   does.
+2. The tenant logs in (LAN: `bao login -method=oidc role=sso-<tenant>`;
+   tailnet: `bao login -method=oidc -path=oidc-tailnet role=sso-<tenant>`, or
+   the OpenBao UI) and writes secrets into its own mount:
+   `bao kv put <tenant>/<name> key=value`.
+3. ESO syncs them with an ExternalSecret in the tenant namespace:
+   `secretStoreRef: {name: openbao-<tenant>, kind: SecretStore}`,
+   `remoteRef.key: <name>` (relative to `<tenant>/`). The ExternalSecret
+   lives in the tenant's repo.
+4. kubectl access as the member's tailnet identity (namespace admin +
+   cluster read-only) goes through the Tailscale API-server proxy, which needs
+   a tailnet ACL grant for that identity — Tailscale admin console, not this
+   repo. The authoritative string is what the proxy sends; if it differs from
+   the list, RBAC stays inert until `identity` is corrected.
+
+### pdeu (dhaustein)
+
+The first tenant: namespace `pdeu`, identity `dhaustein@github`, mount `pdeu/`,
+store `openbao-pdeu`, role `sso-pdeu`. Open items on the tenant side:
+
+- Tailnet ACL grant for `dhaustein@github` (without it the RBAC is inert).
+- An ExternalSecret in `dhaustein/pdeu-discord-bot` pointing at
+  `openbao-pdeu` (the cluster-wide store is gone).
+- Moving the `pdeu-discord-bot-env` values into `pdeu/discord-bot`
+  (`bao kv put pdeu/discord-bot ...`) so ESO can sync them down.
+
+### Retired shared store (one-time cleanup)
+
+Deleting `platform/external-secrets/` also prunes the cluster-wide
+`ClusterSecretStore openbao`: the `platform` ApplicationSet generates its
+Applications with Argo CD's `resources-finalizer.argocd.argoproj.io` finalizer
+(nothing sets `preserveResourcesOnDeletion`), so dropping the directory from
+git cascades to the Application's resources. Verify:
+
+```sh
+kubectl get clustersecretstore   # openbao must not be listed
+```
+
+The `eso-readonly` policy and the `external-secrets` Kubernetes-auth role
+never lived in git (manual setup), so delete them once inside the pod:
+
+```sh
+kubectl exec -n openbao openbao-0 -- sh -c '
+  export BAO_ADDR=http://127.0.0.1:8200
+  bao login -method=kubernetes role=openbao-admin jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token
+  bao delete auth/kubernetes/role/external-secrets
+  bao policy delete eso-readonly
+'
+```
+```
 
 ## GitHub SSO (Dex → OpenBao oidc auth)
 
@@ -195,10 +305,11 @@ the cert is generated by the [addons unit](../../../infra/addons/README.md)
 - Web UI: https://bao.icaninto.space/ui → sign in with method `oidc` →
   GitHub. bbayrakt: enter role `sso-admin`.
 - CLI (LAN host): `bao login -method=oidc` (default role `sso-user`; as
-  bbayrakt: `bao login -method=oidc role=sso-admin`).
+  bbayrakt: `bao login -method=oidc role=sso-admin`; a tenant:
+  `role=sso-<tenant>`).
 - Tailnet: https://openbao.<tailnet>.ts.net/ui → sign in with method
   `oidc-tailnet` → GitHub (through the tailnet Dex). bbayrakt: enter role
-  `sso-admin`.
+  `sso-admin`; a tenant: `sso-<tenant>` (CLI: `-path=oidc-tailnet`).
 
 ### Applying changes
 
