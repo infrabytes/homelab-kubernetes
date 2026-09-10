@@ -52,9 +52,12 @@ resource "helm_release" "argo_cd" {
       }
       repoServer = {
         metrics = { enabled = true }
+        # One-shot escalation: the policy-derived 327Mi limit was hit during the
+        # full-fleet render burst that followed the sizing apply, so the retained
+        # series cannot size it. Re-measure 2026-09-24.
         resources = {
-          requests = { cpu = "170m", memory = "192Mi" }
-          limits   = { memory = "327Mi" }
+          requests = { cpu = "170m", memory = "256Mi" }
+          limits   = { memory = "1Gi" }
         }
       }
       dex = {
