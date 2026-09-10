@@ -22,7 +22,8 @@ resource "helm_release" "argo_cd" {
         service = { type = "ClusterIP" }
         ingress = { enabled = false }
         metrics = { enabled = true }
-        # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+        # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
+        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
         resources = {
           requests = { cpu = "10m", memory = "128Mi" }
           limits   = { memory = "192Mi" }
@@ -31,31 +32,35 @@ resource "helm_release" "argo_cd" {
       applicationSet = {
         enabled = true
         metrics = { enabled = true }
+        # One-shot escalation: the retained series is censored by the old 96Mi limit
+        # (last termination reason OOMKilled), so p95 cannot size it. Re-measure 2026-09-24.
         resources = {
-          requests = { cpu = "10m", memory = "64Mi" }
-          limits   = { memory = "96Mi" }
+          requests = { cpu = "10m", memory = "128Mi" }
+          limits   = { memory = "256Mi" }
         }
       }
       # Expose the /metrics endpoints as Services so the k8s-monitoring
       # ServiceMonitors in platform/helm-charts/grafana-cloud can scrape them.
       controller = {
         metrics = { enabled = true }
+        # One-shot escalation: the retained series is censored by the old 912Mi limit
+        # (last termination reason OOMKilled), so p95 cannot size it. Re-measure 2026-09-24.
         resources = {
-          requests = { cpu = "100m", memory = "608Mi" }
-          limits   = { memory = "912Mi" }
+          requests = { cpu = "80m", memory = "1Gi" }
+          limits   = { memory = "2Gi" }
         }
       }
       repoServer = {
         metrics = { enabled = true }
         resources = {
-          requests = { cpu = "10m", memory = "192Mi" }
-          limits   = { memory = "288Mi" }
+          requests = { cpu = "170m", memory = "192Mi" }
+          limits   = { memory = "327Mi" }
         }
       }
       dex = {
         resources = {
-          requests = { cpu = "10m", memory = "80Mi" }
-          limits   = { memory = "120Mi" }
+          requests = { cpu = "10m", memory = "128Mi" }
+          limits   = { memory = "192Mi" }
         }
       }
       notifications = {
@@ -66,8 +71,8 @@ resource "helm_release" "argo_cd" {
       }
       redis = {
         resources = {
-          requests = { cpu = "10m", memory = "32Mi" }
-          limits   = { memory = "48Mi" }
+          requests = { cpu = "10m", memory = "64Mi" }
+          limits   = { memory = "96Mi" }
         }
       }
       configs = {
