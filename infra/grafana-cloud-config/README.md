@@ -32,10 +32,14 @@ ordering: after `addons`, before `argocd-config`).
   - `grafana_cloud_prometheus_username`: numeric stack instance ID (the
     **Username / Instance ID** on the same Details page).
   - `grafana_cloud_adaptive_metrics_token`: access-policy token with
-    `adaptive-metrics-config:read` and `adaptive-metrics-config:write`. The
-    portal exposes those two for the config endpoint even though the
+    `adaptive-metrics-config:read`, `adaptive-metrics-config:write` and
+    `adaptive-metrics-rules:read`. The portal exposes those for the config
+    endpoint even though the
     [HTTP API docs](https://grafana.com/docs/grafana-cloud/adaptive-telemetry/adaptive-metrics/manage-as-code/adaptive-metrics-api/)
-    name a non-grantable `adaptive-metrics-recommendations:write`.
+    name a non-grantable `adaptive-metrics-recommendations:write`. Rules read is
+    not cosmetic: the provider fetches `GET /aggregations/segmented_rules` while
+    configuring itself, so a config-only token without it fails every plan with
+    `Could not initialize internal state. ... invalid scope requested`.
     `adaptive-metrics-recommendations:read` only matters for listing
     recommendations; the provider does not need it.
 - `infra/env.hcl` maps them into `locals.grafana_cloud`, wired by
