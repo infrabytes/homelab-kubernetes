@@ -36,6 +36,22 @@ spec:
             memory: 144Mi
         serviceMonitor:
           enabled: true
+        # Egress: cluster DNS + GitHub over 443; storage is in-memory, so no API-server edge.
+        networkPolicy:
+          enabled: true
+          egressRules:
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: kube-system
+              ports:
+                - port: 53
+                  protocol: UDP
+                - port: 53
+                  protocol: TCP
+            - ports:
+                - port: 443
+                  protocol: TCP
   destination:
     namespace: dex
     server: https://kubernetes.default.svc

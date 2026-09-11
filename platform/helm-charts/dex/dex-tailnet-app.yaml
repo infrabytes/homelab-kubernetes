@@ -53,6 +53,22 @@ spec:
             memory: 144Mi
         serviceMonitor:
           enabled: true
+        # Same egress needs as dex: shared GitHub connector plus cluster DNS.
+        networkPolicy:
+          enabled: true
+          egressRules:
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: kube-system
+              ports:
+                - port: 53
+                  protocol: UDP
+                - port: 53
+                  protocol: TCP
+            - ports:
+                - port: 443
+                  protocol: TCP
   destination:
     namespace: dex-tailnet
     server: https://kubernetes.default.svc

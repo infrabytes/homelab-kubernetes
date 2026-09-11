@@ -1,0 +1,11 @@
+---
+# Same posture as dex: binds the chart's port-scoped allows.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: dex-tailnet
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
