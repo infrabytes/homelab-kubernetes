@@ -331,6 +331,46 @@ spec:
               memory: 128Mi
             limits:
               memory: 192Mi
+          # Audited egress: DNS, raft peers, and the Dex backends behind the LAN and tailnet routes.
+          # Envoy enforces this pod's egress against the HTTPRoute backend (pod + pod port), not the Gateway address.
+          networkPolicy:
+            enabled: true
+            egress:
+              - to:
+                  - namespaceSelector:
+                      matchLabels:
+                        kubernetes.io/metadata.name: kube-system
+                ports:
+                  - port: 53
+                    protocol: UDP
+                  - port: 53
+                    protocol: TCP
+              - to:
+                  - podSelector:
+                      matchLabels:
+                        app.kubernetes.io/name: openbao
+                        app.kubernetes.io/instance: openbao
+                ports:
+                  - port: 8201
+                    protocol: TCP
+              - to:
+                  - namespaceSelector:
+                      matchLabels:
+                        kubernetes.io/metadata.name: dex
+                    podSelector:
+                      matchLabels:
+                        app.kubernetes.io/name: dex
+                        app.kubernetes.io/instance: dex
+                ports:
+                  - port: 5556
+                    protocol: TCP
+              - to:
+                  - namespaceSelector:
+                      matchLabels:
+                        kubernetes.io/metadata.name: dex-tailnet
+                ports:
+                  - port: https
+                    protocol: TCP
         serverTelemetry:
           serviceMonitor:
             enabled: true
