@@ -89,14 +89,14 @@ Known gaps inside covered namespaces:
 ### vcluster control-plane note
 
 Applying a policy change rolls the vcluster control plane, and that control plane
-does not always survive a restart: once its nested state has served preview
-traffic, the syncer's `ensure protection policy` hook can stop completing and the
-pod crash-loops with no ready endpoint. This happens **with or without these
-policies** — reproduced with them absent — so it is a vcluster/kine issue, not a
-policy one. Recovery is a destructive reset of the `data-vcluster-0` PVC (clear
-its `pvc-protection` finalizer while the pod is stopped); the StatefulSet then
-recreates the volume and the nested cluster bootstraps fresh. Apply policy or
-version changes right after such a reset, not before.
+does not reliably survive a restart: the syncer's `ensure protection policy` hook
+can stop completing (the nested API never reports ready through
+`rbac/bootstrap-roles`) and the pod crash-loops with no ready endpoint. This is
+**not** caused by these policies — reproduced with them absent, and again on a
+fresh volume immediately after a single restart. Recovery is a destructive reset
+of the `data-vcluster-0` PVC (clear its `pvc-protection` finalizer while the pod
+is stopped); the StatefulSet then recreates the volume and the nested cluster
+bootstraps fresh, after which the control plane runs until its next restart.
 
 ## Phase 2 backlog
 
