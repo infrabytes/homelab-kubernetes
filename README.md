@@ -44,7 +44,8 @@ infra/              Terragrunt/OpenTofu units: cluster -> viewer-kubeconfig, add
   env.hcl           ALL unit inputs centralized (versions, nodes, secrets)
   root.hcl          shared remote_state (S3 backend on SeaweedFS, pbkdf2-encrypted)
   secrets.sops.yaml single SOPS-encrypted secrets file (never plaintext)
-  cluster/          Talos cluster + Cilium; writes artifacts/kubeconfig + talosconfig
+  cluster/          Talos cluster + Cilium; writes artifacts/kubeconfig + talosconfig,
+                    and converges the rendered inline manifests on every apply
   viewer-kubeconfig/ Mints the view-only client cert + kubeconfig (CSR API, no CA key extraction)
   addons/           Installs ArgoCD, cert-manager, external-dns, OpenBao namespace + seal Secret, dex + dex-tailnet namespaces + config Secrets, ARC namespaces (runner PAT now synced by ESO from OpenBao)
   argocd-config/    ArgoCD bootstrap ApplicationSet (app-of-appsets)
