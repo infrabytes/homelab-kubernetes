@@ -207,7 +207,8 @@ locals {
 
     # Adaptive Metrics is served from the hosted Prometheus endpoint, not the
     # stack URL, and takes a tenant ID + access-policy token rather than the
-    # stack service-account token. Empty until the access policy exists.
+    # stack service-account token. try() keeps the units valid until that
+    # access policy token lands in SOPS.
     grafana_cloud_prometheus_url         = local.secrets.grafana_cloud_prometheus_url
     grafana_cloud_prometheus_username    = local.secrets.grafana_cloud_prometheus_username
     grafana_cloud_adaptive_metrics_token = try(local.secrets.grafana_cloud_adaptive_metrics_token, "")
