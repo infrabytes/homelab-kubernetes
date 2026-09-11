@@ -22,12 +22,18 @@ resource "grafana-adaptive-metrics_recommendations_config" "singleton" {
     "statefulset",
   ]
 
-  # Auto-apply stays off until a provider release supports the `no-increase`
-  # gate. Declaring `auto_apply.gate` today is silently discarded — no released
-  # provider has the attribute (0.3.3-0.3.6), and OpenTofu drops unknown keys
-  # inside a nested attribute instead of failing validation — which would run
-  # auto-apply with every recommendation applied. See README.md.
+  # Auto-apply is on: Grafana aggregates labels it sees no queries for, accepted
+  # with the 82 pending recommendations that still propose dropping kept labels
+  # (keep_labels only constrains newly generated ones).
+  #
+  # The `no-increase` gate is NOT declared here and cannot be: no provider
+  # release has the attribute (0.3.3-0.3.6), and OpenTofu drops unknown keys
+  # inside a nested attribute instead of failing — so writing it here is a no-op
+  # that would run auto-apply ungated, which is how this bit us once already.
+  # The gate is held server-side (the API stores and returns it) and any apply
+  # of this resource POSTs a config without it, clearing the gate; re-set it
+  # per README.md. Verify with `terragrunt state show`, never by re-reading HCL.
   auto_apply = {
-    enabled = false
+    enabled = true
   }
 }

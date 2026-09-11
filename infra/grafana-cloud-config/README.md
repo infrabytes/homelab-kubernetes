@@ -103,40 +103,49 @@ it has its own `url`/`api_key` inputs (see Requirements above).
 Policy:
 
 - **`keep_labels`** lists the labels dashboards and alerts depend on. It only
-  constrains *new* recommendations: a rule that already aggregates one of these
-  labels stays as it is, so the list protects future queries, not existing ones.
-  Recommendations generated before a label joined the list keep proposing to
-  drop it until the service regenerates them.
-- **Auto-apply is off.** The intended policy was `auto_apply.gate.policy =
-  "no-increase"` (apply only when the net series change is ≤ 0), but **no
-  released provider version supports the `gate` attribute** — 0.3.3 through
-  0.3.6 have no gate at all; it exists only on the provider's unreleased `main`.
-  Worse, declaring it fails silently: OpenTofu drops unrecognized keys inside a
-  nested attribute object, so `terragrunt validate` stays green and the config
-  POST goes out with auto-apply enabled and *no* gate, which the provider schema
-  documents as "every recommendation is applied". Confirm what actually landed
-  with `terragrunt state show 'grafana-adaptive-metrics_recommendations_config.singleton'`
-  before trusting any nested attribute in this provider.
+  constrains *new* recommendations: rules that already aggregate one of these
+  labels stay as they are. Recommendations generated before a label joined the
+  list keep proposing to drop it until the service regenerates them — when
+  auto-apply was enabled, 82 of 160 pending recommendations still proposed
+  dropping `pod`, `node`, `instance`, `namespace`, `container` or `job`, and
+  those are applied anyway. That risk was accepted deliberately: Grafana only
+  recommends aggregating labels it sees no queries for, so only queries built
+  afterwards can read `<aggregated>`.
+- **Auto-apply is on** (`auto_apply.enabled = true`). While it is on, no new
+  custom rules can be created (existing ones keep working).
+- **The `no-increase` gate is held server-side, not in HCL.** No released
+  provider version has the `gate` attribute (0.3.3-0.3.6 have none; it exists
+  only on the provider's unreleased `main`), and OpenTofu drops unrecognized
+  keys inside a nested attribute object — so declaring it keeps
+  `terragrunt validate` green while POSTing a config with **no gate at all**,
+  i.e. ungated auto-apply that looks gated in review. Do not re-add the block
+  until a release supports it, and confirm what actually landed with
+  `terragrunt state show 'grafana-adaptive-metrics_recommendations_config.singleton'`
+  rather than by reading HCL.
 
-Re-enable gated auto-apply only after a release ships the attribute: add the
-`gate` block, set `enabled = true`, and verify via `state show` that the gate is
-present rather than silently dropped. Renovate tracks the provider, so the
-release shows up as a PR. Until then, recommendations are reviewed by hand on
-the Rules page. Auto-apply is in public preview; while it is enabled no new
-custom rules can be created (existing ones keep working).
+Every apply of this resource POSTs the whole config **without** `gate`, so the
+gate is cleared whenever `keep_labels` or `auto_apply` changes. Re-set it right
+after such an apply:
 
-After apply, verify in Grafana Cloud → Adaptive Metrics: `keep_labels` is listed
-under Exemptions and auto-apply shows as off for the default segment
-(Overview/Segments). Verify the live config directly with
-`GET <prom-url>/aggregations/recommendations/config` — it is the same data the
-UI renders.
+```sh
+# reads the live config, forces auto-apply on with the gate, writes it back
+curl -sS -u "$TENANT:$TOKEN" "$URL/aggregations/recommendations/config" \
+  | jq '.auto_apply = {enabled: true, gate: {policy: "no-increase"}}' \
+  | curl -sS -u "$TENANT:$TOKEN" -X POST -H 'Content-Type: application/json' \
+      --data-binary @- "$URL/aggregations/recommendations/config"
+```
+
+`GET /aggregations/recommendations/config` echoes `auto_apply.gate` back when it
+is set and omits it when it is not — that is the only reliable check, since
+Terraform neither manages nor misses the gate. Renovate tracks the provider, so
+the release that makes this declarable arrives as a PR.
 
 The config is a tenant singleton: `create` only records it in state and
 `delete` only forgets it, so the resource is not importable. A UI-side edit
 shows up as drift on the next `terragrunt plan`: apply to overwrite it, or move
-the change into `adaptive_metrics.tf`. A UI-side auto-apply toggle is invisible
-to `plan` only when it matches the config; the API does not echo `gate` back at
-all, so a gate written out-of-band could never be detected as drift.
+the change into `adaptive_metrics.tf`. A UI-side *gate* change is invisible to
+`plan` — the provider has no such attribute — so only the API or the UI shows
+it.
 
 Add a per-metric `grafana-adaptive-metrics_exemption` to keep full cardinality
 for a specific metric — that is the lever for the pending recommendations that
