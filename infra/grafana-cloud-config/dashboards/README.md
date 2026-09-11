@@ -16,9 +16,9 @@ Requirements:
 
 ## `network-policies.json` (hand-authored)
 
-Policy posture dashboard: what is enforced, what is denied, which namespaces are
-still wide open. Unlike the Hubble dashboard this one is not generated from a
-chart — edit the JSON directly (Terraform pushes it on apply).
+Policy posture dashboard: which endpoints and namespaces have no policy at
+all, and what is being denied. Unlike the Hubble dashboard this one is not
+generated from a chart; edit the JSON directly (Terraform pushes it on apply).
 
 Sources:
 
