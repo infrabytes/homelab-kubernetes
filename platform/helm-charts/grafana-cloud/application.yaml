@@ -94,6 +94,9 @@ spec:
                 - "libp2p_.*"
                 - "longhorn_rest_client_.*"
                 - "longhorn_workqueue_.*"
+                # agent-sandbox v1.0.2 exposes 269 workqueue_/rest_client_ series (9038/10K, 2026-09-11).
+                - "rest_client_.*"
+                - "workqueue_.*"
                 - "http_.*"
                 - "argocd_kubectl_(request_duration_seconds|rate_limiter_duration_seconds|response_size_bytes|request_size_bytes|requests_total).*"
                 - "controller_runtime_.*"
