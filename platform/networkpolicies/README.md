@@ -87,16 +87,17 @@ Known gaps inside covered namespaces:
 
 ## Phase 2 backlog
 
-- **vcluster** — isolation was attempted twice (#172, re-applied in #176) and
-  reverted both times. With the chart's policies live the control plane cannot
-  pass its own bootstrap hook (`ensure protection policy: apply
-  vcluster-protected-apiservices` times out, `rbac/bootstrap-roles` never
-  reports ready), so the pod crash-loops with no ready Service endpoints and the
-  PR-preview gate loses the vCluster. The policies were not the whole story:
-  the same loop persisted after the first revert, and only a `data-vcluster-0`
-  reset cleared it — while the same CP then ran stably with no policies in
-  place. Re-attempt only with a recovery path (the reset is destructive) or
-  after a chart/version change that addresses that hook.
+- **vcluster** — isolation is deferred, not abandoned. Two attempts (#172,
+  re-applied in #176) were reverted because the control plane crash-looped with
+  no ready endpoint, but the cause turned out to be the nested state on
+  `data-vcluster-0`: it stops bootstrapping (the syncer cannot pass its own
+  `ensure protection policy` hook and the nested API never reports ready),
+  exactly as it had before those changes, and only a destructive PVC reset
+  clears it. The policies are **not** implicated — they were removed and the CP
+  still crashed, and it recovered only after the reset. They stay out for now
+  because applying them forces a control-plane rollout, and this vCluster does
+  not yet survive restarts reliably: re-attempt once a restart is stable, or
+  after a chart/version change that fixes that bootstrap.
 - Rung 2, chart-value workloads: `external-dns`, the k8s-monitoring stack
   (`alloy-metrics`, `alloy-logs`, `kube-state-metrics`, `node-exporter`),
   `spegel`, both ARC charts, longhorn's manager and CSI metrics edges.
