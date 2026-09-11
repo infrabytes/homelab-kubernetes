@@ -198,11 +198,19 @@ locals {
 
   # Grafana Cloud stack API access for the grafana/grafana provider. Manages
   # dashboards, folders, alerting (rule groups, contact points, notification
-  # policies, message templates) and org preferences on the existing stack.
-  # Order-independent unit: it talks to the Grafana Cloud API, not the cluster.
+  # policies, message templates), org preferences and Adaptive Metrics on the
+  # existing stack. Order-independent unit: it talks to the Grafana Cloud API,
+  # not the cluster.
   grafana_cloud = {
     grafana_cloud_stack_url      = local.secrets.grafana_cloud_stack_url
     grafana_cloud_stack_sa_token = local.secrets.grafana_cloud_stack_sa_token
+
+    # Adaptive Metrics is served from the hosted Prometheus endpoint, not the
+    # stack URL, and takes a tenant ID + access-policy token rather than the
+    # stack service-account token. Empty until the access policy exists.
+    grafana_cloud_prometheus_url         = local.secrets.grafana_cloud_prometheus_url
+    grafana_cloud_prometheus_username    = local.secrets.grafana_cloud_prometheus_username
+    grafana_cloud_adaptive_metrics_token = try(local.secrets.grafana_cloud_adaptive_metrics_token, "")
   }
 
   argocd_config = {
