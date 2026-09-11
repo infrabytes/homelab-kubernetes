@@ -1,5 +1,5 @@
 ---
-# The nested CoreDNS runs with dnsPolicy Default, so it forwards to the node's resolver (identity host) — the chart's kube-dns policy only allows the host kube-dns pods.
+# The nested CoreDNS runs with dnsPolicy Default, so it forwards to the node's resolver (identity host): the chart's kube-dns policy only allows the host kube-dns pods.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:

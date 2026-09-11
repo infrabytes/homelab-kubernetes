@@ -10,14 +10,14 @@ Every covered namespace ends up with:
 
 1. its chart's own network policies, enabled through the chart's values;
 2. a committed `default-deny-ingress` NetworkPolicy (`podSelector: {}`,
-   `policyTypes: [Ingress]`) — that is what makes the chart's port list binding,
+   `policyTypes: [Ingress]`); that is what makes the chart's port list binding,
    since undeclared ports are otherwise reachable from any source;
 3. egress restricted per pod from observed flows: chart values where they exist,
    Cilium policies only for edges a plain NetworkPolicy cannot name;
-4. hand-written supplements in this directory — one policy per file — for
+4. hand-written supplements in this directory, one policy per file, for
    anything the chart's values cannot express.
 
-## Verified rules (each one cost a drop review)
+## Verified rules
 
 **Policies match the post-DNAT pod and port, in both directions.** For traffic to
 a Service, ingress *and* egress rules are evaluated against the backend pod and
@@ -31,13 +31,12 @@ host-network DaemonSet carrying the reserved `ingress` identity and enforces
 network policy itself:
 
 - rules with a `from` selector (`namespaceSelector`, `podSelector`) can never
-  match it — the Gateway needs `fromEntities: [ingress]`
+  match it: the Gateway needs `fromEntities: [ingress]`
   (`openbao-allow-gateway-ingress.yaml`);
 - for a request going *through* the Gateway, the client's egress policy is
   enforced against the HTTPRoute's backend pod and pod port, so rules aimed at
-  the VIP or the node are inert. `openbao-allow-gateway-egress.yaml` existed for
-  exactly that reason and was deleted; the rule that matters is the dex pod on
-  5556, declared in the chart values.
+  the VIP or the node are inert. What keeps the LAN Dex reachable is the dex pod
+  on 5556, declared in the chart values.
 
 **Kubelet probes need no allow.** Cilium adds an automatic
 `Allow Ingress reserved:host ANY` entry to every endpoint, so a default-deny
@@ -45,7 +44,7 @@ cannot break liveness or readiness checks.
 
 **Chart ingress rules select pods, not identities.** A rule like
 `from: [{namespaceSelector: {}}]` reads as "allow everything" but only matches
-*pods in namespaces* — it cannot match host-network peers such as the Gateway.
+*pods in namespaces*; it cannot match host-network peers such as the Gateway.
 Port-scoped rules (ports, no `from`) are the ones that keep API-server and
 gateway traffic working; see the cert-manager and external-secrets policies.
 
@@ -92,7 +91,7 @@ Applying a policy change rolls the vcluster control plane, and that control plan
 does not reliably survive a restart: the syncer's `ensure protection policy` hook
 can stop completing (the nested API never reports ready through
 `rbac/bootstrap-roles`) and the pod crash-loops with no ready endpoint. This is
-**not** caused by these policies — reproduced with them absent, and again on a
+**not** caused by these policies: reproduced with them absent, and again on a
 fresh volume immediately after a single restart. Recovery is a destructive reset
 of the `data-vcluster-0` PVC (clear its `pvc-protection` finalizer while the pod
 is stopped); the StatefulSet then recreates the volume and the nested cluster
@@ -109,7 +108,7 @@ bootstraps fresh, after which the control plane runs until its next restart.
 - `argocd`: tighten `argocd-server`'s allow-all ingress and restrict the
   repo-server's egress. That needs `global.networkPolicy.create: false` plus
   per-component re-enables in `infra/addons/main.tf`, then a manual
-  `terragrunt apply` — which is why it is not part of phase 1.
+  `terragrunt apply`. That is why it is not part of phase 1.
 - Namespace-level egress default-denies (phase 1 restricts egress only where a
   chart's policy selects pods).
 - Tenant namespaces (`charts/tenant-access`, `pdeu`) and the unmanaged
