@@ -105,28 +105,49 @@ Policy:
 - **`keep_labels`** lists the labels dashboards and alerts depend on. It only
   constrains *new* recommendations: a rule that already aggregates one of these
   labels stays as it is, so the list protects future queries, not existing ones.
-- **`auto_apply.gate.policy = "no-increase"`** applies only recommendations
-  whose net series change is zero or less. Auto-apply runs unattended, but a
-  recommendation that would grow cardinality is skipped instead of applied.
-  `unbounded` applies everything and needs a regular Rules-page review.
+  Recommendations generated before a label joined the list keep proposing to
+  drop it until the service regenerates them.
+- **Auto-apply is off.** The intended policy was `auto_apply.gate.policy =
+  "no-increase"` (apply only when the net series change is ≤ 0), but **no
+  released provider version supports the `gate` attribute** — 0.3.3 through
+  0.3.6 have no gate at all; it exists only on the provider's unreleased `main`.
+  Worse, declaring it fails silently: OpenTofu drops unrecognized keys inside a
+  nested attribute object, so `terragrunt validate` stays green and the config
+  POST goes out with auto-apply enabled and *no* gate, which the provider schema
+  documents as "every recommendation is applied". Confirm what actually landed
+  with `terragrunt state show 'grafana-adaptive-metrics_recommendations_config.singleton'`
+  before trusting any nested attribute in this provider.
 
-After apply, verify in Grafana Cloud → Adaptive Metrics: auto-apply is on for
-the default segment (Overview/Segments), `keep_labels` is listed under
-Exemptions, and Rules shows recommendations — the first ones appear within
-~24h. Auto-apply is in public preview; while it is enabled no new custom rules
-can be created (existing ones keep working).
+Re-enable gated auto-apply only after a release ships the attribute: add the
+`gate` block, set `enabled = true`, and verify via `state show` that the gate is
+present rather than silently dropped. Renovate tracks the provider, so the
+release shows up as a PR. Until then, recommendations are reviewed by hand on
+the Rules page. Auto-apply is in public preview; while it is enabled no new
+custom rules can be created (existing ones keep working).
+
+After apply, verify in Grafana Cloud → Adaptive Metrics: `keep_labels` is listed
+under Exemptions and auto-apply shows as off for the default segment
+(Overview/Segments). Verify the live config directly with
+`GET <prom-url>/aggregations/recommendations/config` — it is the same data the
+UI renders.
 
 The config is a tenant singleton: `create` only records it in state and
 `delete` only forgets it, so the resource is not importable. A UI-side edit
 shows up as drift on the next `terragrunt plan`: apply to overwrite it, or move
-the change into `adaptive_metrics.tf`. If `plan` reports a permanent diff on
-`auto_apply.gate` after a successful apply, the API is not echoing the gate
-back — confirm with a `GET /aggregations/recommendations/config` before
-treating it as a config error.
+the change into `adaptive_metrics.tf`. A UI-side auto-apply toggle is invisible
+to `plan` only when it matches the config; the API does not echo `gate` back at
+all, so a gate written out-of-band could never be detected as drift.
 
-Add a per-metric `grafana-adaptive-metrics_exemption` only when the Rules page
-shows a recommendation that auto-apply refused (or a metric that must keep full
-cardinality); the `keep_labels` list already covers label-level protection.
+Add a per-metric `grafana-adaptive-metrics_exemption` to keep full cardinality
+for a specific metric — that is the lever for the pending recommendations that
+still propose dropping a kept label.
+
+Auth note: the provider's `Configure` calls
+`GET /aggregations/segmented_rules`, so the token needs
+`adaptive-metrics-rules:read` even though this resource never touches rules.
+After a policy change, Grafana Cloud propagates scopes unevenly across edge
+nodes, so that call can intermittently return `401 invalid scope requested` for
+a few minutes — retry before debugging the config.
 
 ## Caveats
 
