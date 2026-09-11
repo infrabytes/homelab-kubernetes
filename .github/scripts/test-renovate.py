@@ -15,16 +15,17 @@ What it does:
     1. copies the working tree (incl. uncommitted changes) into a temp dir
     2. installs the exact renovate version pinned in .pre-commit-config.yaml
        (never trusts the npx cache: stale cached versions are a known trap)
-    3. runs renovate with platform=local in the temp copy (dryRun=lookup:
-       extract + lookup, no writes; the local platform forces this)
+    3. runs renovate with platform=local in the temp copy (dryRun=lookup,
+       forced by the local platform)
     4. prints the extraction stats and, for every detected dependency, the
        detected current version and the proposed update (if any)
     5. fails when nothing was extracted (a config that silently matches
        nothing is a broken config)
 
 Notes:
-    - platform=local scans the current working directory, so the script
-      chdir's into the temp copy, so it is safe to invoke from anywhere
+    - platform=local scans the current working directory, so the script runs
+      renovate with the temp copy as its working directory; it is safe to
+      invoke from anywhere
     - platform=local has no platform, so the GitHub token must be injected via
       RENOVATE_HOST_RULES; RENOVATE_TOKEN alone is not enough
     - the local platform forces dryRun to 'lookup' (values other than
