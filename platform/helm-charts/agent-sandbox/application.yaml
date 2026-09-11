@@ -1,0 +1,40 @@
+# Upstream git chart (no published Helm/OCI chart): `image.tag` and `targetRevision` must name the same release; Renovate bumps both.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agent-sandbox-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kubernetes-sigs/agent-sandbox
+    targetRevision: v1.0.2
+    path: helm
+    helm:
+      releaseName: agent-sandbox
+      values: |
+        image:
+          tag: v1.0.2
+        # namespace.yaml (parent app) owns the Namespace, so the chart must not render it.
+        namespace:
+          create: false
+        controller:
+          extensions: true
+        # Sizing baseline 2026-08-27..09-11 (Grafana Cloud, 15d): memory request = p95
+        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 48Mi
+        metrics:
+          serviceMonitor:
+            enabled: true
+  destination:
+    namespace: agent-sandbox-system
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

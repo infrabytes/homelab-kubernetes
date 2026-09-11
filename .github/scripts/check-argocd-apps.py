@@ -8,6 +8,9 @@ with `helm template --include-crds` (matching ArgoCD's default; opt-out via
 the Application manifest. Catches wrong OCI repo paths, missing versions,
 typoed values, and template errors before they reach the cluster.
 
+Charts come from a Helm chart repo, an OCI registry, or a git repository
+(cloned at `targetRevision` and rendered from `path`).
+
 Three checks run per file:
 - Duplicate mapping keys: YAML last-key-wins silently drops earlier values, so
   a repeated key inside `helm.values` (or the Application itself) is a hard
@@ -156,11 +159,13 @@ def run(cmd, **kwargs):
 def helm_sources(doc):
     """Yield (app_name, source, dest_namespace, kind) for helm-rendered sources.
 
-    kind is always "helm" (chart or OCI registry sources). Sources with
-    neither a chart nor a path (plain manifest apps) are skipped.
+    kind is "helm" for chart/OCI registry sources and "git-helm" for charts
+    that live in a git repository and are rendered from `path`. Sources with
+    neither a chart nor a helm block (plain manifest apps) are skipped.
     """
     spec = doc.get("spec") or {}
     dest_ns = (spec.get("destination") or {}).get("namespace") or "default"
+    app = (doc.get("metadata") or {}).get("name", "?")
     sources = spec.get("sources") or ([spec["source"]] if "source" in spec else [])
     for src in sources:
         if src.get("ref"):
@@ -168,7 +173,9 @@ def helm_sources(doc):
         repo = src.get("repoURL") or ""
         is_oci = repo.startswith("oci://")
         if src.get("chart") or is_oci:
-            yield (doc.get("metadata") or {}).get("name", "?"), src, dest_ns, "helm"
+            yield app, src, dest_ns, "helm"
+        elif src.get("helm") and src.get("path"):
+            yield app, src, dest_ns, "git-helm"
 
 
 def pull_args(source):
@@ -186,6 +193,25 @@ def pull_args(source):
         # scheme-less OCI-enabled helm repo (e.g. quay.io/..., ghcr.io/...)
         return ["helm", "pull", f"oci://{repo}/{chart}", *version], chart
     raise ValueError(f"unrecognized helm source: {repo} chart={chart!r}")
+
+
+def checkout_git(source, work_dir):
+    """Clone a git-sourced chart at targetRevision and return the chart path."""
+    repo = source["repoURL"]
+    rev = source.get("targetRevision") or "HEAD"
+    checkout = work_dir / "git-checkout"
+    res = run(["git", "clone", "--quiet", "--depth", "1", "--branch", rev, repo, str(checkout)])
+    if res.returncode != 0:
+        # --branch only resolves branches and tags; fetch the revision itself
+        # for commit SHAs and other refs.
+        run(["git", "init", "--quiet", str(checkout)])
+        res = run(["git", "-C", str(checkout), "fetch", "--quiet", "--depth", "1", repo, rev])
+        if res.returncode != 0:
+            raise RuntimeError(f"git fetch {repo}@{rev} failed:\n{res.stderr.strip()}")
+        res = run(["git", "-C", str(checkout), "checkout", "--quiet", "FETCH_HEAD"])
+        if res.returncode != 0:
+            raise RuntimeError(f"git checkout {rev} failed:\n{res.stderr.strip()}")
+    return checkout / source["path"]
 
 
 def values_args(work_dir, helm_block):
@@ -208,12 +234,8 @@ def values_args(work_dir, helm_block):
     return args
 
 
-def template_args(work_dir, release, source, dest_ns, helm_block):
-    args = ["helm", "template", release]
-    chart_paths = sorted(work_dir.glob("*.tgz"))
-    if not chart_paths:
-        raise FileNotFoundError(f"no chart tarball pulled into {work_dir}")
-    args.append(str(chart_paths[0]))
+def template_args(work_dir, chart_path, release, dest_ns, helm_block):
+    args = ["helm", "template", release, str(chart_path)]
     args += ["--namespace", dest_ns]
     # ArgoCD renders charts with --include-crds unless helm.skipCrds is set.
     if not helm_block.get("skipCrds"):
@@ -249,12 +271,20 @@ def check_file(path: Path) -> int:
                 try:
                     check_values_duplicates(helm_block)
                     release = helm_block.get("releaseName") or source.get("chart", "")
-                    pull, default_release = pull_args(source)
-                    res = run(pull + ["--destination", str(tmp)])
-                    if res.returncode != 0:
-                        raise RuntimeError(f"helm pull failed:\n{res.stderr.strip()}")
-                    release = release or default_release
-                    args = template_args(tmp, release, source, dest_ns, helm_block)
+                    if kind == "git-helm":
+                        chart_path = checkout_git(source, tmp)
+                        release = release or app
+                    else:
+                        pull, default_release = pull_args(source)
+                        res = run(pull + ["--destination", str(tmp)])
+                        if res.returncode != 0:
+                            raise RuntimeError(f"helm pull failed:\n{res.stderr.strip()}")
+                        release = release or default_release
+                        chart_paths = sorted(tmp.glob("*.tgz"))
+                        if not chart_paths:
+                            raise FileNotFoundError(f"no chart tarball pulled into {tmp}")
+                        chart_path = chart_paths[0]
+                    args = template_args(tmp, chart_path, release, dest_ns, helm_block)
                     res = run(args)
                     if res.returncode != 0:
                         raise RuntimeError(
@@ -280,6 +310,9 @@ def main() -> int:
         return 0
     if yaml is None:
         log("PyYAML not found, skipping (pip install pyyaml to validate ArgoCD apps)")
+        return 0
+    if not shutil.which("git"):
+        log("git not found, skipping (install git to validate git-sourced charts)")
         return 0
     paths = [Path(p) for p in sys.argv[1:]]
     if not paths:
