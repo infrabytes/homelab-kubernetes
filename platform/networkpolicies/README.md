@@ -73,6 +73,7 @@ gateway traffic working; see the cert-manager and external-secrets policies.
 | `external-secrets` | controller, webhook and cert-controller `networkPolicy`: DNS, OpenBao 8200 | `external-secrets-allow-apiserver-egress.yaml`, `external-secrets-default-deny-ingress.yaml` |
 | `openbao` | `server.networkPolicy`: DNS, raft 8201, both Dex backends | `openbao-allow-apiserver-egress.yaml`, `openbao-allow-gateway-ingress.yaml`, `openbao-default-deny-ingress.yaml` |
 | `hubble-observer` | `ciliumNetworkPolicy`: relay egress, cf2cnp ingress with the `ingress` entity | `hubble-observer-allow-relay-egress.yaml`, `hubble-observer-allow-dns-egress.yaml`, `hubble-observer-default-deny-ingress.yaml` |
+| `vcluster` | `policies.networkPolicy`: chart defaults plus the metrics-server control-plane egress on 443/10250 | `vcluster-allow-host-dns-egress.yaml`, `vcluster-default-deny-ingress.yaml` |
 | `longhorn-system` | longhorn's internal policies (`restrictInternalTraffic`) | `longhorn-manager-allow-metrics.yaml` |
 
 Known gaps inside covered namespaces:
@@ -85,18 +86,20 @@ Known gaps inside covered namespaces:
   it needs `fromEntities` for API-server and Gateway traffic and is a later
   phase.
 
+### vcluster control-plane note
+
+Applying a policy change rolls the vcluster control plane, and that control plane
+does not always survive a restart: once its nested state has served preview
+traffic, the syncer's `ensure protection policy` hook can stop completing and the
+pod crash-loops with no ready endpoint. This happens **with or without these
+policies** — reproduced with them absent — so it is a vcluster/kine issue, not a
+policy one. Recovery is a destructive reset of the `data-vcluster-0` PVC (clear
+its `pvc-protection` finalizer while the pod is stopped); the StatefulSet then
+recreates the volume and the nested cluster bootstraps fresh. Apply policy or
+version changes right after such a reset, not before.
+
 ## Phase 2 backlog
 
-- **vcluster** — isolation was attempted twice (#172, re-applied in #176) and
-  reverted both times. With the chart's policies live the control plane cannot
-  pass its own bootstrap hook (`ensure protection policy: apply
-  vcluster-protected-apiservices` times out, `rbac/bootstrap-roles` never
-  reports ready), so the pod crash-loops with no ready Service endpoints and the
-  PR-preview gate loses the vCluster. The policies were not the whole story:
-  the same loop persisted after the first revert, and only a `data-vcluster-0`
-  reset cleared it — while the same CP then ran stably with no policies in
-  place. Re-attempt only with a recovery path (the reset is destructive) or
-  after a chart/version change that addresses that hook.
 - Rung 2, chart-value workloads: `external-dns`, the k8s-monitoring stack
   (`alloy-metrics`, `alloy-logs`, `kube-state-metrics`, `node-exporter`),
   `spegel`, both ARC charts, longhorn's manager and CSI metrics edges.
