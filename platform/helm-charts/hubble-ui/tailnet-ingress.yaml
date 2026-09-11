@@ -1,4 +1,4 @@
-# Tailnet exposure: Hubble UI has no authentication, so it stays off the public Gateway; the tailscale proxy terminates TLS in front of the plain-HTTP service.
+# Tailnet exposure next to the LAN-only Gateway route (httproute.yaml): the UI has no authentication, so neither path is public.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

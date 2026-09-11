@@ -78,3 +78,15 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: hubble-https
+      hostname: hubble.icaninto.space
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: hubble-tls
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All
