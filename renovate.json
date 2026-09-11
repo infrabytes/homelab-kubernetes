@@ -236,6 +236,19 @@
       "depNameTemplate": "kubernetes-sigs/gateway-api",
       "datasourceTemplate": "github-tags",
       "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "description": "Agent Sandbox controller image tag in the chart Application values (docker datasource: only moves when the matching image is promoted)",
+      "managerFilePatterns": [
+        "/^platform\\/helm-charts\\/agent-sandbox\\/application\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "image:\\s*\\n\\s*tag:\\s*(?<currentValue>v?[0-9.]+)"
+      ],
+      "depNameTemplate": "registry.k8s.io/agent-sandbox/agent-sandbox-controller",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
     }
   ],
   "packageRules": [

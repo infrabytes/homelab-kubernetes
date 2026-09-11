@@ -24,6 +24,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | Grafana Cloud (free tier)    | Metrics (Prometheus remote-write) + logs (Loki), via the `k8s-monitoring` Helm chart; also ingests Talos syslog (port 5140) |
 | Hubble Observer + CF2CNP     | Streams Cilium Hubble flows (DROPPED verdicts) to Loki; Grafana dashboard "Cilium Flows - Hubble Observer" (grafana.com #23862) in the Grafana Cloud stack; CF2CNP web UI generates CiliumNetworkPolicies from flows at cf2cnp.icaninto.space |
 | spegel                       | Peer-to-peer container image distribution between nodes              |
+| Agent Sandbox                | Sandboxed agent workloads (`agents.x-k8s.io` CRDs + controller, extensions enabled) from the upstream git-pinned Helm chart `v1.0.2`; ArgoCD-managed, metrics scraped by Grafana Cloud |
 | vCluster                     | Virtual Kubernetes cluster in namespace `vcluster`; hosts the PR-preview Argo CD used for diff rendering; access via `vcluster connect` |
 | prometheus-operator-crds     | CRDs for the monitoring stack                                        |
 | Actions Runner Controller    | Self-hosted GitHub Actions runners in-cluster (ARC), scale set `homelab-runner` |
