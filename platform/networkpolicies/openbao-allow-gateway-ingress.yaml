@@ -1,0 +1,19 @@
+---
+# The chart's ingress rule selects pods by namespace, which the Cilium Gateway's envoy cannot match: it is host-network and carries the reserved `ingress` identity. Without this, the Gateway → 8200 path (bao.icaninto.space) is dropped.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openbao-allow-gateway-ingress
+  namespace: openbao
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: openbao
+      app.kubernetes.io/instance: openbao
+  ingress:
+    - fromEntities:
+        - ingress
+      toPorts:
+        - ports:
+            - port: "8200"
+              protocol: TCP
