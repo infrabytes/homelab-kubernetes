@@ -103,7 +103,7 @@ bootstraps fresh, after which the control plane runs until its next restart.
   (`alloy-metrics`, `alloy-logs`, `kube-state-metrics`, `node-exporter`),
   `spegel`, both ARC charts, longhorn's manager and CSI metrics edges.
 - Rung 3, raw manifests: `metrics-server`, `kubelet-serving-cert-approver`, and
-  `kube-system` (cilium, coredns, hubble-relay, the Gateway's envoy).
+  `kube-system` (cilium, coredns, hubble-relay, hubble-ui, the Gateway's envoy).
 - Rung 4: a `CiliumClusterwideNetworkPolicy` default-deny.
 - `argocd`: tighten `argocd-server`'s allow-all ingress and restrict the
   repo-server's egress. That needs `global.networkPolicy.create: false` plus
