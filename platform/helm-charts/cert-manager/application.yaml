@@ -44,8 +44,7 @@ spec:
               memory: 96Mi
           networkPolicy:
             enabled: true
-        # Runs before the controller; no retained metrics (hook Job), sized like the
-        # controller: same binary, and this keeps the resource-coverage check green.
+        # Hook Job with no retained metrics, so it mirrors the webhook sizing.
         startupapicheck:
           resources:
             requests:

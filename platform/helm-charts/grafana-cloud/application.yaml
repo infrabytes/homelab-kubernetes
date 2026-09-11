@@ -140,7 +140,6 @@ spec:
                   memory: 48Mi
           alloy-logs:
             presets: [daemonset, filesystem-log-reader]
-            # Declared twice until this change, so last-key-wins silently dropped these resources.
             alloy:
               resources:
                 requests:
