@@ -80,6 +80,14 @@ spec:
               memory: 32Mi
             limits:
               memory: 48Mi
+        ciliumNetworkPolicy:
+          enabled: true
+          cf2cnp:
+            # The Gateway's envoy carries the reserved ingress identity; without it the cf2cnp route would be dropped.
+            ingressFromEntities:
+              - cluster
+              - world
+              - ingress
   destination:
     namespace: hubble-observer
     server: https://kubernetes.default.svc
