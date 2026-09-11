@@ -142,8 +142,17 @@ for production, as an **inline manifest**:
   (`KubeInlineManifestConfig` document). Talos applies it itself during
   bootstrap, so **no manual `helm install`/`kubectl apply` window** is needed.
 
-Upgrade Cilium: bump `cilium_chart_version` → `terragrunt apply` (re-renders
-the manifest and re-applies the controlplane config).
+> **Talos applies inline manifests only once.** Its manifest apply controller
+> skips every object already in the bootstrap inventory, and backfills the
+> inventory for objects that already exist, so a chart bump or a values change
+> never reaches objects that are already running. `converge.tf` closes that
+> gap: it writes both renders to `artifacts/` and applies them with
+> `kubectl apply --server-side --field-manager=talos` after the config apply
+> (needs `kubectl` on PATH).
+
+Upgrade Cilium: bump `cilium_chart_version` → `terragrunt apply`. The controlplane
+config is re-rendered (bootstrap path) and the converge step re-applies the
+manifest to the running cluster, which is what actually rolls the agent.
 
 > Change only the values in `cilium.tf`'s `values` block to enable extras
 > (e.g. Hubble `hubble.enabled=true`, or kube-proxy-free), then re-apply.
