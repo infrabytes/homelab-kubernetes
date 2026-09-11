@@ -30,6 +30,24 @@ spec:
         integrations:
           metricsServer:
             enabled: true
+        # Audit: chart defaults cover the DNS/CP/workload edges; the metrics-server Service (443 → container 10250) needs its own control-plane rule.
+        policies:
+          networkPolicy:
+            enabled: true
+            controlPlane:
+              egress:
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                      podSelector:
+                        matchLabels:
+                          k8s-app: metrics-server
+                  ports:
+                    - port: 443
+                      protocol: TCP
+                    - port: 10250
+                      protocol: TCP
         # sync.fromHost.customResources is vCluster.Pro - OSS (chart 0.36.1) silently ignores it.
   destination:
     namespace: vcluster

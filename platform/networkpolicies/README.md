@@ -73,6 +73,7 @@ gateway traffic working; see the cert-manager and external-secrets policies.
 | `external-secrets` | controller, webhook and cert-controller `networkPolicy`: DNS, OpenBao 8200 | `external-secrets-allow-apiserver-egress.yaml`, `external-secrets-default-deny-ingress.yaml` |
 | `openbao` | `server.networkPolicy`: DNS, raft 8201, both Dex backends | `openbao-allow-apiserver-egress.yaml`, `openbao-allow-gateway-ingress.yaml`, `openbao-default-deny-ingress.yaml` |
 | `hubble-observer` | `ciliumNetworkPolicy`: relay egress, cf2cnp ingress with the `ingress` entity | `hubble-observer-allow-relay-egress.yaml`, `hubble-observer-allow-dns-egress.yaml`, `hubble-observer-default-deny-ingress.yaml` |
+| `vcluster` | `policies.networkPolicy`: chart defaults plus the metrics-server control-plane egress on 443/10250 | `vcluster-allow-host-dns-egress.yaml`, `vcluster-default-deny-ingress.yaml` |
 | `longhorn-system` | longhorn's internal policies (`restrictInternalTraffic`) | `longhorn-manager-allow-metrics.yaml` |
 
 Known gaps inside covered namespaces:
@@ -87,12 +88,6 @@ Known gaps inside covered namespaces:
 
 ## Phase 2 backlog
 
-- **vcluster** — the chart's `policies.networkPolicy` was enabled in #172 and
-  reverted in #174. The control plane's own bootstrap hook (`ensure protection
-  policy: apply vcluster-protected-apiservices`) times out while the *nested*
-  API server never passes `rbac/bootstrap-roles`, and the failure is identical
-  with the policies removed. Re-attempt with a bisect (default-deny first, then
-  the chart policies) once the CP starts cleanly.
 - Rung 2, chart-value workloads: `external-dns`, the k8s-monitoring stack
   (`alloy-metrics`, `alloy-logs`, `kube-state-metrics`, `node-exporter`),
   `spegel`, both ARC charts, longhorn's manager and CSI metrics edges.

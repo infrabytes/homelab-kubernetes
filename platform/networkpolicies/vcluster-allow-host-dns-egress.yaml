@@ -1,0 +1,22 @@
+---
+# The nested CoreDNS runs with dnsPolicy Default, so it forwards to the node's resolver (identity host) — the chart's kube-dns policy only allows the host kube-dns pods.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vcluster-allow-host-dns-egress
+  namespace: vcluster
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app: vcluster-kube-dns
+      vcluster.loft.sh/managed-by: vcluster
+  egress:
+    - toEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
