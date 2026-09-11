@@ -286,6 +286,17 @@
       ],
       "groupName": "apps",
       "groupSlug": "apps"
+    },
+    {
+      "description": "The Cilium chart is pinned twice (cilium_chart_version in infra/env.hcl and the hubble-ui app); the UI must match the deployed chart, so bump both in one branch.",
+      "matchDatasources": [
+        "helm"
+      ],
+      "matchPackageNames": [
+        "cilium"
+      ],
+      "groupName": "cilium chart",
+      "groupSlug": "cilium-chart"
     }
   ]
 }

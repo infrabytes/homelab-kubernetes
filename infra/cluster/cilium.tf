@@ -139,7 +139,20 @@ data "helm_template" "cilium" {
       ca:
         cert: ${base64encode(tls_self_signed_cert.cilium_ca.cert_pem)}
         key: ${base64encode(tls_private_key.cilium_ca.private_key_pem)}
+    # Serves cilium_* agent metrics on :9962 (hostPort); the Grafana Cloud
+    # PodMonitor allowlists only the policy families (series budget).
+    prometheus:
+      enabled: true
     hubble:
+      # Low-cardinality Hubble metrics on :9965 (hostPort), scraped through the
+      # same PodMonitor: flow = allowed vs denied per verdict, drop = reasons,
+      # tcp = flag counters. Context options stay off (they add pod/workload
+      # labels and with them thousands of series).
+      metrics:
+        enabled:
+          - flow
+          - drop
+          - tcp
       tls:
         auto:
           enabled: false
