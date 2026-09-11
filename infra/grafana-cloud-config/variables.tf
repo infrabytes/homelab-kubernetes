@@ -20,7 +20,7 @@ variable "grafana_cloud_prometheus_username" {
 }
 
 variable "grafana_cloud_adaptive_metrics_token" {
-  description = "Grafana Cloud access-policy token with the adaptive-metrics-config:read and adaptive-metrics-config:write scopes. Held in the shared SOPS secrets file."
+  description = "Grafana Cloud access-policy token with the adaptive-metrics-config:read, adaptive-metrics-config:write and adaptive-metrics-rules:read scopes. Held in the shared SOPS secrets file."
   type        = string
   sensitive   = true
 }
