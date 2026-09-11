@@ -1,0 +1,24 @@
+---
+# The chart's CNP allows the relay on the Service port (hubbleRelay.port, 80); policies are enforced against the pod port instead, which is 4245.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hubble-observer-allow-relay-egress
+  namespace: hubble-observer
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: hubble-observer
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: hubble-relay
+      ports:
+        - port: 4245
+          protocol: TCP

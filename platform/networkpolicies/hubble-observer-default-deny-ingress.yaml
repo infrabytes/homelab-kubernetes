@@ -1,0 +1,11 @@
+---
+# Binds the chart's port-scoped allows: undeclared ports close; kubelet probes stay allowed (Cilium reserves host ingress).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: hubble-observer
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
