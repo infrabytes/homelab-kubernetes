@@ -331,7 +331,8 @@ spec:
               memory: 128Mi
             limits:
               memory: 192Mi
-          # Audited egress: DNS, raft peers, the LAN Dex's Gateway L2 IP, the tailnet Dex; the Gateway's host view is a CNP.
+          # Audited egress: DNS, raft peers, and the Dex backends behind the LAN and tailnet routes.
+          # Envoy enforces this pod's egress against the HTTPRoute backend (pod + pod port), not the Gateway address.
           networkPolicy:
             enabled: true
             egress:
@@ -353,10 +354,15 @@ spec:
                   - port: 8201
                     protocol: TCP
               - to:
-                  - ipBlock:
-                      cidr: 192.168.0.200/32
+                  - namespaceSelector:
+                      matchLabels:
+                        kubernetes.io/metadata.name: dex
+                    podSelector:
+                      matchLabels:
+                        app.kubernetes.io/name: dex
+                        app.kubernetes.io/instance: dex
                 ports:
-                  - port: 443
+                  - port: 5556
                     protocol: TCP
               - to:
                   - namespaceSelector:
