@@ -147,6 +147,9 @@ the manifest and re-applies the controlplane config).
 
 > Change only the values in `cilium.tf`'s `values` block to enable extras
 > (e.g. Hubble `hubble.enabled=true`, or kube-proxy-free), then re-apply.
+> `prometheus.enabled` (agent metrics) and `hubble.metrics.enabled` feed the
+> Grafana Cloud "Network Policies" dashboard through the PodMonitor in
+> `platform/helm-charts/grafana-cloud/`.
 
 ## Upgrades (Talos & Kubernetes)
 

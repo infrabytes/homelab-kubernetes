@@ -19,11 +19,13 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
 | OpenBao                      | Cluster secrets manager (Vault fork): HA raft (3 replicas, Longhorn), static-key auto-unseal, KV v2 + Kubernetes auth; UI at bao.icaninto.space (LAN only) |
 | Dex (standalone)             | OIDC provider for OpenBao GitHub SSO (`sso-admin`/`sso-user` roles, org-restricted GitHub connector); LAN only at dex.icaninto.space |
-| Tailscale Operator            | Exposes cluster services on the tailnet (OpenBao UI, second Dex for remote SSO) and provides in-process API server proxy for kubectl from tailnet devices |
+| Tailscale Operator            | Exposes cluster services on the tailnet (OpenBao UI, second Dex for remote SSO, Hubble UI) and provides in-process API server proxy for kubectl from tailnet devices |
 | External Secrets Operator   | Syncs Secrets from OpenBao through per-consumer namespaced stores (k8s auth, one read-only role scoped to a single secret path each); e.g. the ARC runner PAT (`arc-runner-auth`) |
 | Longhorn                     | Block storage on the worker nodes (dedicated disk labels); UI at longhorn.icaninto.space |
 | Grafana Cloud (free tier)    | Metrics (Prometheus remote-write) + logs (Loki), via the `k8s-monitoring` Helm chart; also ingests Talos syslog (port 5140) |
 | Hubble Observer + CF2CNP     | Streams Cilium Hubble flows (DROPPED verdicts) to Loki; Grafana dashboard "Cilium Flows - Hubble Observer" (grafana.com #23862) in the Grafana Cloud stack; CF2CNP web UI generates CiliumNetworkPolicies from flows at cf2cnp.icaninto.space |
+| Hubble UI                    | Cilium's live service map (allowed vs dropped edges per namespace/workload), deployed standalone from the Cilium chart by ArgoCD in `kube-system` and exposed on the tailnet as `hubble-ui` — it has no authentication, so it stays off the public Gateway |
+| Network Policies dashboard   | Grafana Cloud dashboard "Network Policies": endpoint enforcement status (`cilium_policy_endpoint_enforcement_status` = wide-open endpoints), policies per namespace and namespaces without any policy (KSM `kube_networkpolicy_*`), allowed-vs-denied flows and drop reasons (Hubble metrics); scraped through the `cilium-agent` PodMonitor |
 | spegel                       | Peer-to-peer container image distribution between nodes              |
 | Agent Sandbox                | Sandboxed agent workloads (`agents.x-k8s.io` CRDs + controller, extensions enabled) from the upstream git-pinned Helm chart `v1.0.2`; ArgoCD-managed, metrics scraped by Grafana Cloud |
 | vCluster                     | Virtual Kubernetes cluster in namespace `vcluster`; hosts the PR-preview Argo CD used for diff rendering; access via `vcluster connect` |
@@ -58,8 +60,8 @@ platform/           ArgoCD-managed cluster-level resources (network, issuer,
                     Applications (cert-manager, cloudnative-pg, dex,
                     external-dns, external-secrets, gha-runner-scale-set,
                     gha-runner-scale-set-controller, grafana-cloud,
-                    hubble-observer, longhorn, openbao, prometheus-operator-crds,
-                    spegel, tailscale-operator, vcluster)
+                    hubble-observer, hubble-ui, longhorn, openbao,
+                    prometheus-operator-crds, spegel, tailscale-operator, vcluster)
 apps/               ArgoCD-managed applications (one subdir per app)
 .github/            CI workflows + scripts (pre-commit, PR preview diff)
 .pre-commit-config.yaml  the single lint/format gate

@@ -47,6 +47,9 @@ spec:
           # covered by kube_pod_info; dropping them saves ~1.1K series.
           kube-state-metrics:
             metricsTuning:
+              # NetworkPolicy objects (~100 series): the default allowlist omits them.
+              includeMetrics:
+                - kube_networkpolicy_.*
               excludeMetrics:
                 - kube_pod_status_reason
                 - kube_pod_status_phase
@@ -82,6 +85,14 @@ spec:
         prometheusOperatorObjects:
           enabled: true
           collector: alloy-metrics
+          # Cilium agent + Hubble metrics (platform/helm-charts/grafana-cloud/cilium-podmonitor.yaml):
+          # two policy families plus everything hubble_*; the rest of cilium_* is per-API-path churn.
+          podMonitors:
+            metricsTuning:
+              includeMetrics:
+                - cilium_policy$
+                - cilium_policy_endpoint_enforcement_status
+                - hubble_.*
           # Series budget (10K free-tier cap): drop runtime/library internals
           # measured live (Aug 2026) at 16,459 total before this block.
           # Add new families here as components grow.

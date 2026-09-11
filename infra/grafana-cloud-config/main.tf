@@ -46,6 +46,18 @@ resource "grafana_dashboard" "cilium_hubble_flows" {
   )
 }
 
+# Policy posture: enforcement status, wide-open namespaces, flow verdicts. The
+# single $${DS_PROM} placeholder is filled with the managed Prometheus
+# datasource uid at apply time (same pattern as the Loki placeholder above).
+resource "grafana_dashboard" "network_policies" {
+  folder = grafana_folder.cilium.id
+  config_json = replace(
+    file("${path.module}/dashboards/network-policies.json"),
+    "$${DS_PROM}",
+    data.grafana_data_source.prom.uid,
+  )
+}
+
 # Import: terragrunt import 'grafana_rule_group.<name>' "<folderUID>:<groupName>"
 
 resource "grafana_rule_group" "critical" {

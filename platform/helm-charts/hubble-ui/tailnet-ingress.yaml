@@ -1,0 +1,16 @@
+# Tailnet exposure: Hubble UI has no authentication, so it stays off the public Gateway; the tailscale proxy terminates TLS in front of the plain-HTTP service.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hubble-ui
+  namespace: kube-system
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: hubble-ui
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - hubble-ui

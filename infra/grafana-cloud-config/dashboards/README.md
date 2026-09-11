@@ -14,6 +14,28 @@ Requirements:
   the dashboard instead of updating it. Edit the JSON file directly and let
   `terragrunt apply` push the change.
 
+## `network-policies.json` (hand-authored)
+
+Policy posture dashboard: what is enforced, what is denied, which namespaces are
+still wide open. Unlike the Hubble dashboard this one is not generated from a
+chart — edit the JSON directly (Terraform pushes it on apply).
+
+Sources:
+
+- `kube_networkpolicy_created` / `_spec_ingress_rules` / `_spec_egress_rules`
+  from kube-state-metrics (allowlisted in
+  `platform/helm-charts/grafana-cloud/application.yaml`);
+- `cilium_policy` and `cilium_policy_endpoint_enforcement_status` from the
+  Cilium agent (`prometheus.enabled` in `infra/cluster/cilium.tf`);
+- `hubble_flows_processed_total` and `hubble_drop_total` from the Hubble
+  metrics exporter (`hubble.metrics.enabled` in `infra/cluster/cilium.tf`),
+  scraped through the PodMonitor in
+  `platform/helm-charts/grafana-cloud/cilium-podmonitor.yaml`.
+
+The `${DS_PROM}` placeholder in the templating variable is replaced with the
+managed Prometheus datasource uid by the `grafana_dashboard.network_policies`
+resource in `../main.tf`.
+
 ## `cilium-hubble-flows.json` (template, not a raw export)
 
 One exception to the raw-export rule: this dashboard is generated from the

@@ -1,0 +1,19 @@
+# Agent metrics (port prometheus, 9962) + Hubble metrics (9965), enabled in
+# infra/cluster/cilium.tf; the podMonitors allowlist keeps only policy/flow families.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: cilium-agent
+  namespace: grafana-cloud
+spec:
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  selector:
+    matchLabels:
+      k8s-app: cilium
+  podMetricsEndpoints:
+    - port: prometheus
+      interval: 60s
+    - port: hubble-metrics
+      interval: 60s

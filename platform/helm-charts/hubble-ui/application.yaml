@@ -1,0 +1,56 @@
+# Standalone Hubble UI: agent and relay come from the Terraform-rendered Cilium release in infra/cluster/cilium.tf.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hubble-ui-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://helm.cilium.io/
+    chart: cilium
+    targetRevision: 1.20.1
+    helm:
+      releaseName: hubble-ui
+      values: |
+        agent: false
+        operator:
+          enabled: false
+        cni:
+          install: false
+        envoy:
+          enabled: false
+        tls:
+          secretsNamespace:
+            create: false
+        hubble:
+          enabled: false
+          relay:
+            enabled: false
+          ui:
+            enabled: true
+            standalone:
+              enabled: true
+            # The backend's FLOWS_API_ADDR defaults to "hubble-relay:80", so the UI must live in the relay's namespace.
+            backend:
+              # Sizing: first pass, no history yet; re-measure after 2026-10-11 (repo convention: 32Mi floor, limit = max(1.5x request, 1.25x peak)).
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  memory: 96Mi
+            frontend:
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 48Mi
+  destination:
+    namespace: kube-system
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
