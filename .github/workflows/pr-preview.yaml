@@ -117,7 +117,7 @@ jobs:
           for attempt in 1 2 3; do
             if helm upgrade --install argocd-preview argo-cd \
                 --repo https://argoproj.github.io/argo-helm \
-                --version 10.8.4 \
+                --version 10.9.0 \
                 --namespace argocd-preview \
                 --create-namespace \
                 --values target-branch/.github/argocd-preview-values.yaml \
