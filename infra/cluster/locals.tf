@@ -1,7 +1,8 @@
 locals {
   # Families the Cilium chart dashboards read. The Cilium ServiceMonitors keep
   # only these (see cilium.tf): a blanket cilium_.* would add ~1.9K series that
-  # no dashboard references.
+  # no dashboard references. The endpoint-regeneration buckets (576 series for
+  # one panel) are dropped like port-distribution was.
   cilium_dashboard_families = [
     "cilium_agent_api_process_time_seconds_count",
     "cilium_agent_api_process_time_seconds_sum",
@@ -17,7 +18,6 @@ locals {
     "cilium_datapath_conntrack_gc_entries",
     "cilium_drop_bytes_total",
     "cilium_drop_count_total",
-    "cilium_endpoint_regeneration_time_stats_seconds_bucket",
     "cilium_endpoint_regenerations_total",
     "cilium_endpoint_state",
     "cilium_errors_warnings_total",

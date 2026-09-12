@@ -42,9 +42,8 @@ spec:
         clusterMetrics:
           enabled: true
           collector: alloy-metrics
-          # Free tier budget: 10K active series (~14.5K scraped before tuning).
-          # kube_pod_status_reason/phase are near-empty for healthy pods and
-          # covered by kube_pod_info; dropping them saves ~1.1K series.
+          # Free tier budget: 10K active series. Measured 2026-09-12: the series
+          # below are referenced by no dashboard or alert and cost ~2.6K.
           kube-state-metrics:
             metricsTuning:
               # NetworkPolicy objects (~100 series): the default allowlist omits them.
@@ -53,6 +52,25 @@ spec:
               excludeMetrics:
                 - kube_pod_status_reason
                 - kube_pod_status_phase
+                - kube_replicaset_.*
+                - kube_deployment_status_condition
+                - kube_pod_owner
+          kubelet:
+            metricsTuning:
+              excludeMetrics:
+                - kubelet_pod_start_duration_seconds_bucket
+          cadvisor:
+            metricsTuning:
+              excludeMetrics:
+                - container_memory_usage_bytes
+                - container_fs_writes_total
+                - container_fs_writes_bytes_total
+                - container_fs_reads_bytes_total
+                - container_fs_reads_total
+                - container_network_receive_packets_total
+                - container_network_transmit_packets_total
+                - container_network_receive_packets_dropped_total
+                - container_network_transmit_packets_dropped_total
         hostMetrics:
           enabled: true
           collector: alloy-metrics
@@ -110,6 +128,8 @@ spec:
                 - "http_.*"
                 - "argocd_kubectl_(request_duration_seconds|rate_limiter_duration_seconds|response_size_bytes|request_size_bytes|requests_total).*"
                 - "controller_runtime_.*"
+                # Longhorn replica states (~130 series): no dashboard reads them.
+                - longhorn_replica_state
 
         # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
         # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.

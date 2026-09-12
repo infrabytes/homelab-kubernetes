@@ -1,0 +1,15 @@
+# Cilium only proxies DNS for endpoints with DNS policy, so hubble's dns_* metrics
+# (Hubble / DNS Overview dashboard) are empty without one. Egress stays as open
+# as today; ingress policies are unaffected. Delete to revert.
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: dns-visibility
+spec:
+  description: Route pod DNS through Cilium's proxy so hubble_dns_* metrics exist.
+  endpointSelector: {}
+  egress:
+    - toEntities:
+        - all
+    - toFQDNs:
+        - matchPattern: "*"

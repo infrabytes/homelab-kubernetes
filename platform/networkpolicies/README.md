@@ -17,6 +17,12 @@ Every covered namespace ends up with:
 4. hand-written supplements in this directory, one policy per file, for
    anything the chart's values cannot express.
 
+**DNS visibility** (`dns-visibility.yaml`): a cluster-wide egress policy with a
+match-everything `toFQDNs` rule. Cilium only forwards DNS through its proxy for
+endpoints that have DNS policy, and the proxy is what emits the `hubble_dns_*`
+metrics behind the Hubble DNS dashboard. `toEntities: all` keeps egress exactly
+as open as it is today, and ingress policies are untouched.
+
 ## Verified rules
 
 **Policies match the post-DNAT pod and port, in both directions.** For traffic to
