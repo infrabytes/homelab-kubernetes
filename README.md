@@ -23,6 +23,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | External Secrets Operator   | Syncs Secrets from OpenBao through per-consumer namespaced stores (k8s auth, one read-only role scoped to a single secret path each); e.g. the ARC runner PAT (`arc-runner-auth`) |
 | Longhorn                     | Block storage on the worker nodes (dedicated disk labels); UI at longhorn.icaninto.space |
 | Grafana Cloud (free tier)    | Metrics (Prometheus remote-write) + logs (Loki), via the `k8s-monitoring` Helm chart; also ingests Talos syslog (port 5140) |
+| grafana-operator             | Delivers the chart-shipped Grafana dashboards to the stack from `platform/grafana-dashboards/` (Cilium ×6, Hubble flows, External Secrets, OpenBao): an external `Grafana` CR plus one `GrafanaDashboard` CR per chart dashboard, imported from the chart ConfigMaps (or the chart's OCI artifact) |
 | Hubble Observer + CF2CNP     | Streams Cilium Hubble flows (DROPPED verdicts) to Loki; Grafana dashboard "Cilium Flows - Hubble Observer" (grafana.com #23862) in the Grafana Cloud stack; CF2CNP web UI generates CiliumNetworkPolicies from flows at cf2cnp.icaninto.space |
 | Hubble UI                    | Cilium's live service map (allowed vs dropped edges per namespace/workload), deployed standalone from the Cilium chart by ArgoCD in `kube-system`; exposed on the LAN at hubble.icaninto.space and on the tailnet as `hubble-ui`, both unauthenticated and neither public |
 | Network Policies dashboard   | Grafana Cloud dashboard "Network Policies": endpoint enforcement status (`cilium_policy_endpoint_enforcement_status` = wide-open endpoints), policies per namespace and namespaces without any policy (KSM `kube_networkpolicy_*`), allowed-vs-denied flows and drop reasons (Hubble metrics); scraped through the `cilium-agent` PodMonitor |
@@ -63,6 +64,8 @@ platform/           ArgoCD-managed cluster-level resources (network, issuer,
                     gha-runner-scale-set-controller, grafana-cloud,
                     hubble-observer, hubble-ui, longhorn, openbao,
                     prometheus-operator-crds, spegel, tailscale-operator, vcluster)
+  grafana-dashboards/  the external Grafana CR + the GrafanaDashboard CRs
+                    grafana-operator syncs into the Grafana Cloud stack
 apps/               ArgoCD-managed applications (one subdir per app)
 .github/            CI workflows + scripts (pre-commit, PR preview diff)
 .pre-commit-config.yaml  the single lint/format gate

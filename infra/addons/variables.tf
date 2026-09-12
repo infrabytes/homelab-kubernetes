@@ -102,6 +102,13 @@ variable "grafana_cloud_loki_token" {
   sensitive   = true
 }
 
+variable "grafana_cloud_dashboards_token" {
+  description = "Grafana Cloud access-policy/service-account token with dashboards:read, dashboards:write, folders:read and folders:write, consumed by grafana-operator via the grafana-operator-token Secret."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "openbao_seal_key" {
   description = "OpenBao static seal key (32 random bytes, base64-encoded). Written into the openbao-seal Secret (binary_data current.key) mounted at /openbao/seal/current.key; OpenBao auto-unseals by reading it at startup."
   type        = string

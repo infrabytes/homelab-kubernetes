@@ -1,0 +1,24 @@
+# The chart's own CR resolves its datasource to the internal alert-state Loki; the JSON comes from the chart's OCI artifact.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: cilium-flows-hubble-observer
+  namespace: hubble-observer
+spec:
+  uid: ozk-cilium-flows-hubble-observer
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  allowCrossNamespaceImport: true
+  folder: Cilium
+  resyncPeriod: 1h
+  oci:
+    reference: ghcr.io/onzack/helm-charts/hubble-observer:2.5.0
+    path: hubble-observer/dashboard/cilium-hubble-flows.json
+  datasources:
+    - inputName: DS_LOKI
+      datasourceName: grafanacloud-logs
+    - inputName: VAR_HUBBLEOBSERVERNAMESPACE
+      datasourceName: hubble-observer
+    - inputName: VAR_HUBBLEOBSERVERCF2CNPURL
+      datasourceName: https://cf2cnp.icaninto.space

@@ -175,6 +175,11 @@ locals {
     grafana_cloud_loki_username       = local.secrets.grafana_cloud_loki_username
     grafana_cloud_loki_token          = local.secrets.grafana_cloud_loki_token
 
+    # grafana-operator's stack credential (dashboards + folders read/write),
+    # materialized as the grafana-operator-token Secret in the grafana-cloud
+    # namespace. try() keeps the units valid until the token lands in SOPS.
+    grafana_cloud_dashboards_token = try(local.secrets.grafana_cloud_dashboards_token, "")
+
     # OpenBao static seal key (32 random bytes, base64) and the root token
     # (filled in once, after the one-time `bao operator init` bootstrap).
     openbao_seal_key   = local.secrets.openbao_seal_key
@@ -197,10 +202,11 @@ locals {
   }
 
   # Grafana Cloud stack API access for the grafana/grafana provider. Manages
-  # dashboards, folders, alerting (rule groups, contact points, notification
-  # policies, message templates), org preferences and Adaptive Metrics on the
-  # existing stack. Order-independent unit: it talks to the Grafana Cloud API,
-  # not the cluster.
+  # the folders, the hand-authored network-policies dashboard, the alerting
+  # rule groups and (in adaptive_metrics.tf) Adaptive Metrics. Chart-shipped
+  # dashboards are NOT managed here: grafana-operator delivers them from the
+  # charts (platform/grafana-dashboards). Order-independent unit: it talks to
+  # the Grafana Cloud API, not the cluster.
   grafana_cloud = {
     grafana_cloud_stack_url      = local.secrets.grafana_cloud_stack_url
     grafana_cloud_stack_sa_token = local.secrets.grafana_cloud_stack_sa_token

@@ -1,8 +1,11 @@
-# Grafana Cloud stack resources (dashboards, folders, alerting, settings).
+# Grafana Cloud stack resources (folders, hand-authored dashboards, alerting).
 #
-# Managed here: the alerting folder + rule groups. Adopt the hand-configured
-# UI state (dashboards, contact points, notification policy, org
-# preferences) via the import workflow in README.md.
+# Chart-shipped dashboards are NOT managed here: grafana-operator delivers them
+# from the charts into the same folders (platform/grafana-dashboards). This unit
+# keeps the custom network-policies dashboard, the folders, the alerting rule
+# groups and Adaptive Metrics (adaptive_metrics.tf). Adopt hand-configured UI
+# state (contact points, notification policy, org preferences) via the import
+# workflow in README.md.
 
 # Grafana Cloud auto-provisions the managed Prometheus/Loki datasources on
 # every stack; they cannot be managed with Terraform, only referenced. The
@@ -16,10 +19,6 @@ data "grafana_data_source" "prom" {
   name = "grafanacloud-${local.stack_slug}-prom"
 }
 
-data "grafana_data_source" "logs" {
-  name = "grafanacloud-${local.stack_slug}-logs"
-}
-
 # Alerting rule groups must live in a folder. Dashboards can be adopted into
 # this folder later (see the adopt-workflow in README.md).
 resource "grafana_folder" "talos" {
@@ -27,23 +26,24 @@ resource "grafana_folder" "talos" {
   uid   = "talos"
 }
 
-# Cilium Flows - Hubble Observer (grafana.com #23862), managed here instead of
-# the chart's grafanaDashboard (that needs the grafana-operator CRD, which this
-# cluster does not run). The JSON in dashboards/ is pre-resolved for the
-# release namespace and CF2CNP URL; the single ${DS_LOKI} placeholder is filled
-# with the managed Loki datasource uid at apply time.
+# Cilium folder: holds the hand-authored network-policies dashboard below plus
+# the chart-shipped Cilium/Hubble dashboards grafana-operator resolves by title.
 resource "grafana_folder" "cilium" {
   title = "Cilium"
   uid   = "cilium"
 }
 
-resource "grafana_dashboard" "cilium_hubble_flows" {
-  folder = grafana_folder.cilium.id
-  config_json = replace(
-    file("${path.module}/dashboards/cilium-hubble-flows.json"),
-    "$${DS_LOKI}",
-    data.grafana_data_source.logs.uid,
-  )
+# The Cilium Flows - Hubble Observer dashboard (grafana.com #23862) moved to
+# platform/grafana-dashboards/flows-dashboard.yaml (same uid, same folder): the
+# operator now owns it. `removed` drops it from state without deleting the
+# remote dashboard, so the operator adopts the existing one instead of
+# Terraform deleting it on the next apply.
+removed {
+  from = grafana_dashboard.cilium_hubble_flows
+
+  lifecycle {
+    destroy = false
+  }
 }
 
 # Policy posture: enforcement status, wide-open namespaces, flow verdicts. The

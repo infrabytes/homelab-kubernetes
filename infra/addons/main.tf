@@ -400,6 +400,18 @@ resource "kubernetes_secret_v1" "grafana_cloud_credentials" {
   }
 }
 
+# Stack credential for grafana-operator (platform/helm-charts/grafana-operator),
+# referenced by the Grafana CR's external.apiKey in platform/grafana-dashboards.
+resource "kubernetes_secret_v1" "grafana_operator_token" {
+  metadata {
+    name      = "grafana-operator-token"
+    namespace = kubernetes_namespace_v1.grafana_cloud.metadata[0].name
+  }
+  data = {
+    token = var.grafana_cloud_dashboards_token
+  }
+}
+
 resource "kubernetes_namespace_v1" "arc_systems" {
   metadata { name = "arc-systems" }
 }
