@@ -1,5 +1,5 @@
-# Cilium agent (9962) + Hubble (9965) + operator (9963) metrics; the podMonitors
-# allowlist keeps all cilium_*/hubble_* families for the chart dashboards.
+# Cilium agent/Hubble/operator metrics; podTargetLabels mirror the chart's own
+# ServiceMonitors because the chart dashboards filter on k8s_app/io_cilium_app.
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -12,6 +12,8 @@ spec:
   selector:
     matchLabels:
       k8s-app: cilium
+  podTargetLabels:
+    - k8s-app
   podMetricsEndpoints:
     - port: prometheus
       interval: 60s
@@ -30,10 +32,8 @@ spec:
   selector:
     matchLabels:
       io.cilium/app: operator
+  podTargetLabels:
+    - io.cilium/app
   podMetricsEndpoints:
     - port: prometheus
       interval: 60s
-      # The operator dashboard's process panels filter on io_cilium_app.
-      relabelings:
-        - sourceLabels: [__meta_kubernetes_pod_label_io_cilium_app]
-          targetLabel: io_cilium_app
