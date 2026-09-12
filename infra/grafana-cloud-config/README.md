@@ -2,11 +2,18 @@
 
 Manages the **Grafana Cloud side** of the stack as code with the
 [grafana/grafana](https://registry.terraform.io/providers/grafana/grafana/latest)
-provider: dashboards, folders, alerting (rule groups, contact points,
+provider: the custom dashboards, folders, alerting (rule groups, contact points,
 notification policies, message templates, mute timings) and org preferences.
 [Adaptive Metrics](#adaptive-metrics) is managed with the
 [grafana/grafana-adaptive-metrics](https://registry.terraform.io/providers/grafana/grafana-adaptive-metrics/latest)
 provider.
+
+Chart-shipped dashboards are **not** managed here: `grafana-operator` delivers
+them from the charts into the same folders (`platform/grafana-dashboards/`,
+wired by an external `Grafana` CR and the scoped `grafana_cloud_dashboards_token`
+the addons unit materializes). The Cilium Flows dashboard moved there in place
+(same uid): `main.tf` forgets it through a `removed` block so the remote
+dashboard survives the handover instead of being deleted on the next apply.
 
 This is the companion to `platform/helm-charts/grafana-cloud/`, which handles
 the **data flow** into Grafana Cloud (Alloy collectors pushing metrics/logs).
@@ -71,7 +78,9 @@ ordering: after `addons`, before `argocd-config`).
 
 ## Adding something new
 
-- **Dashboard**: drop the exported JSON in `dashboards/`, add a
+- **Dashboard**: chart-shipped dashboards belong to
+  `platform/grafana-dashboards/` (a `GrafanaDashboard` CR per chart dashboard).
+  For a hand-authored one, drop the exported JSON in `dashboards/`, add a
   `grafana_dashboard` resource with `config_json = file("...")`, `terragrunt apply`.
 - **Alert rule**: add a `grafana_rule_group` (see the live groups in `main.tf`).
   Queries hit the auto-provisioned managed Prometheus datasource

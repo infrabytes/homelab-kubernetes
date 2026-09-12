@@ -85,13 +85,12 @@ spec:
         prometheusOperatorObjects:
           enabled: true
           collector: alloy-metrics
-          # Cilium agent + Hubble metrics (platform/helm-charts/grafana-cloud/cilium-podmonitor.yaml):
-          # two policy families plus everything hubble_*; the rest of cilium_* is per-API-path churn.
+          # Every cilium_*/hubble_* family so the chart dashboards have data;
+          # accepts the series-budget headroom (adaptive metrics trims later).
           podMonitors:
             metricsTuning:
               includeMetrics:
-                - cilium_policy$
-                - cilium_policy_endpoint_enforcement_status
+                - cilium_.*
                 - hubble_.*
           # Series budget (10K free-tier cap): drop runtime/library internals
           # measured live (Aug 2026) at 16,459 total before this block.

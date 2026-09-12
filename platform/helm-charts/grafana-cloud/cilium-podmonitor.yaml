@@ -1,5 +1,5 @@
-# Agent metrics (port prometheus, 9962) + Hubble metrics (9965), enabled in
-# infra/cluster/cilium.tf; the podMonitors allowlist keeps only policy/flow families.
+# Cilium agent (9962) + Hubble (9965) + operator (9963) metrics; the podMonitors
+# allowlist keeps all cilium_*/hubble_* families for the chart dashboards.
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -17,3 +17,23 @@ spec:
       interval: 60s
     - port: hubble-metrics
       interval: 60s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: cilium-operator
+  namespace: grafana-cloud
+spec:
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  selector:
+    matchLabels:
+      io.cilium/app: operator
+  podMetricsEndpoints:
+    - port: prometheus
+      interval: 60s
+      # The operator dashboard's process panels filter on io_cilium_app.
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_io_cilium_app]
+          targetLabel: io_cilium_app

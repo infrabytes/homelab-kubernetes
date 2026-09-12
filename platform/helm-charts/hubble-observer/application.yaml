@@ -14,8 +14,7 @@ spec:
       values: |
         fullnameOverride: hubble-observer
 
-        # No grafana-operator CRD in this cluster; the dashboard ships via the
-        # grafana-cloud-config unit (infra/grafana-cloud-config, grafana.com ID 23862).
+        # Chart CR disabled: it resolves ${datasource} to the internal alert-state Loki (platform/grafana-dashboards/flows-dashboard.yaml).
         grafanaDashboard:
           enabled: false
 
