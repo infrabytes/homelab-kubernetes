@@ -71,8 +71,9 @@ spec:
 
                 service_registration "kubernetes" {}
 
+                # Retain > usage_gauge_period (10m), else the dashboard's usage gauges vanish between refreshes.
                 telemetry {
-                  prometheus_retention_time = "30s"
+                  prometheus_retention_time = "15m"
                   disable_hostname = true
                 }
           dataStorage:
