@@ -1,11 +1,11 @@
 # Grafana Cloud stack resources (folders, hand-authored dashboards, alerting).
 #
 # Chart-shipped dashboards are NOT managed here: grafana-operator delivers them
-# from the charts into the same folders (platform/grafana-dashboards). This unit
-# keeps the custom network-policies dashboard, the folders, the alerting rule
-# groups and Adaptive Metrics (adaptive_metrics.tf). Adopt hand-configured UI
-# state (contact points, notification policy, org preferences) via the import
-# workflow in README.md.
+# from the charts (platform/grafana-dashboards, creating the External Secrets
+# and OpenBao folders itself). This unit keeps the custom network-policies
+# dashboard, the talos/cilium folders, the alerting rule groups and Adaptive
+# Metrics (adaptive_metrics.tf). Adopt hand-configured UI state (contact points,
+# notification policy, org preferences) via the import workflow in README.md.
 
 # Grafana Cloud auto-provisions the managed Prometheus/Loki datasources on
 # every stack; they cannot be managed with Terraform, only referenced. The
