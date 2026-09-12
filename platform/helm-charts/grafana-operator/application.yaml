@@ -13,6 +13,10 @@ spec:
     helm:
       releaseName: grafana-operator
       values: |
+        # Seccomp profile missing from the chart defaults (PSA restricted warning).
+        securityContext:
+          seccompProfile:
+            type: RuntimeDefault
         # New component (2026-09-12): initial estimate; re-measure after two weeks.
         resources:
           requests:
