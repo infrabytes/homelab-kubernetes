@@ -85,13 +85,15 @@ spec:
         prometheusOperatorObjects:
           enabled: true
           collector: alloy-metrics
-          # Every cilium_*/hubble_* family so the chart dashboards have data;
+          # cilium_*/hubble_* plus the ESO families its dashboard reads;
           # accepts the series-budget headroom (adaptive metrics trims later).
           podMonitors:
             metricsTuning:
               includeMetrics:
                 - cilium_.*
                 - hubble_.*
+                - controller_runtime_(active_workers|max_concurrent_reconciles|reconcile_total|reconcile_time_seconds_.*|webhook_latency_seconds_.*|webhook_requests_in_flight|webhook_requests_total)
+                - workqueue_depth
           # Series budget (10K free-tier cap): drop runtime/library internals
           # measured live (Aug 2026) at 16,459 total before this block.
           # Add new families here as components grow.
