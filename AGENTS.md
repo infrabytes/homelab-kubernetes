@@ -52,6 +52,10 @@ cd infra && terragrunt validate --all
 cd infra && terragrunt plan --all
 cd infra && terragrunt apply --all   # CAUTION: mutates the live cluster
 cd infra && terragrunt destroy --all # CAUTION: destroys everything
+# Infra changes are normally applied by Atlantis from PRs (automerge on):
+# atlantis.yaml at the repo root defines the projects/workflow; the server
+# runs on the windrunner VM (atlantis.icaninto.space, deploy files in
+# ~/appdata/atlantis on that host, outside this repo).
 sops infra/secrets.sops.yaml         # edit secrets (re-encrypts on save)
 .github/scripts/test-renovate.py     # local Renovate dry-run; verify dep extraction/updates (no branches/PRs)
 ```
@@ -116,7 +120,7 @@ Verify renovate changes with `.github/scripts/test-renovate.py` before pushing (
 ## Rules & guardrails
 
 - **Never** push to `main`, force-push, or rewrite history. All changes go through a branch + PR: create a dedicated git worktree under `.worktrees/` (or use the `github` tool's `pr_checkout`), commit there, push the branch, and open a PR to `main` — no direct commits to `main`, no asking first. Auth: gh CLI credential helper (`gh auth git-credential`, HTTPS, no SSH).
-- **Never** run `terragrunt apply` / `destroy` / `import` against the live cluster unless the user explicitly asks. These are destructive, real-world operations.
+- **Never** run `terragrunt apply` / `destroy` / `import` against the live cluster unless the user explicitly asks. These are destructive, real-world operations. Note: opening a PR that touches `infra/` (or `env.hcl`) lets Atlantis auto-apply on the PR and auto-merge — treat pushing a branch + PR as an apply trigger for infra units.
 - **Never** commit unencrypted secrets, private keys, or Terraform state. `.terraform/`, `.terragrunt-cache/`, `*.tfstate*`, and `artifacts/` are gitignored, so don't force-add them.
 - **Never** edit `infra/secrets.sops.yaml` as plaintext or decrypt it into a committed file. Re-encrypt with `sops -e -i` (CI rejects unencrypted `*.sops.yaml`).
 - **Never** delete or regenerate machine secrets (`talos_machine_secrets`); the local state and `artifacts/talosconfig` carry cluster identity. Losing them means the cluster can't be re-adopted.
