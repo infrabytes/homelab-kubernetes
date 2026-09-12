@@ -156,9 +156,11 @@ manifest to the running cluster, which is what actually rolls the agent.
 
 > Change only the values in `cilium.tf`'s `values` block to enable extras
 > (e.g. Hubble `hubble.enabled=true`, or kube-proxy-free), then re-apply.
-> `prometheus.enabled` (agent metrics) and `hubble.metrics.enabled` feed the
-> Grafana Cloud "Network Policies" dashboard through the PodMonitor in
-> `platform/helm-charts/grafana-cloud/`.
+> `prometheus.enabled` (agent metrics), `hubble.metrics.enabled` (families plus
+> their namespace context labels) and the `dashboards`/`operator.dashboards`
+> toggles feed both the custom Network Policies dashboard and the chart
+> dashboards in `platform/grafana-dashboards/`, scraped through the PodMonitors
+> in `platform/helm-charts/grafana-cloud/`.
 
 ## Upgrades (Talos & Kubernetes)
 
