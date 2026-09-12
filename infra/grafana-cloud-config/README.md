@@ -9,11 +9,13 @@ notification policies, message templates, mute timings) and org preferences.
 provider.
 
 Chart-shipped dashboards are **not** managed here: `grafana-operator` delivers
-them from the charts into the same folders (`platform/grafana-dashboards/`,
-wired by an external `Grafana` CR and the scoped `grafana_cloud_dashboards_token`
-the addons unit materializes). The Cilium Flows dashboard moved there in place
-(same uid): `main.tf` forgets it through a `removed` block so the remote
-dashboard survives the handover instead of being deleted on the next apply.
+them from the charts (`platform/grafana-dashboards/`, wired by an external
+`Grafana` CR and the scoped `grafana_cloud_dashboards_token` the addons unit
+materializes), creating the External Secrets and OpenBao folders itself. The
+Cilium Flows dashboard moved there in place (same uid): `main.tf` forgets it
+through a `removed` block so the remote dashboard survives the handover
+instead of being deleted on the next apply. The `talos` and `cilium` folders,
+the Network Policies dashboard and the alerting stay here.
 
 This is the companion to `platform/helm-charts/grafana-cloud/`, which handles
 the **data flow** into Grafana Cloud (Alloy collectors pushing metrics/logs).
