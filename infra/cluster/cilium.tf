@@ -150,11 +150,12 @@ data "helm_template" "cilium" {
       enabled: true
     hubble:
       # Hubble metrics on :9965 (hostPort), scraped through the same PodMonitor:
-      # flow = allowed vs denied per verdict, drop = reasons, tcp = flag
-      # counters, dns/http/icmp/port-distribution = the matching dashboard
-      # panels. Only the namespace context labels are enabled (the two
-      # namespace dashboards group by them); workload/pod labels would add
-      # thousands of series, so the L7-by-workload dashboard stays empty.
+      # flow/drop/tcp = verdicts, reasons, flags, dns/http/icmp = the matching
+      # dashboard panels; namespace context labels only (the two namespace
+      # dashboards group by them - workload/pod labels would add thousands of
+      # series, so the L7-by-workload dashboard stays empty).
+      # port-distribution is off: 649 series for one panel, and the 2026-09-12
+      # series triage (steady state 9.5K vs the 9000-series alert) chose the trim.
       metrics:
         enabled:
           - flow:labelsContext=source_namespace,destination_namespace
@@ -163,7 +164,6 @@ data "helm_template" "cilium" {
           - dns:labelsContext=source_namespace,destination_namespace
           - http:labelsContext=source_namespace,destination_namespace
           - icmp:labelsContext=source_namespace,destination_namespace
-          - port-distribution:labelsContext=source_namespace,destination_namespace
         dashboards:
           enabled: true
       tls:
