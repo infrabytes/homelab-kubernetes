@@ -212,6 +212,16 @@ selfHeal).
 
 ### Day-2 workflows
 
+Infra changes go through PRs: open a PR touching `infra/` (or an `env.hcl`
+version bump) and [Atlantis](https://www.runatlantis.io) autoposts a
+`terragrunt plan` per affected unit; when all plans succeed, Atlantis applies
+and squash-merges the PR (`automerge`). Comment commands (`atlantis plan`,
+`atlantis apply -d <unit>`) still work for targeted runs. Applies run
+sequentially in `atlantis.yaml` project order (cluster first), so the
+terragrunt dependency graph, `errors.retry` and `-parallelism=1` all hold.
+
+Manual runs still work from a host with the age key:
+
 ```sh
 cd infra
 terragrunt plan --all     # infra changes: nodes, versions, Talos/Cilium config
@@ -230,7 +240,11 @@ controlplane first, workers one at a time) and rolls Kubernetes via Talos's
 
 Pushes to this repo also trigger an instant ArgoCD app refresh via a GitHub
 webhook (shared secret + payload cap; see
-[`infra/addons/README.md`](infra/addons/README.md#argocd-github-webhook)).
+[`infra/addons/README.md`](infra/addons/README.md#argocd-github-webhook)),
+and a second webhook drives Atlantis PR automation
+(`atlantis.icaninto.space`, self-hosted on the `windrunner` VM via SWAG; the
+Atlantis user token, webhook secret and the SOPS age key live in its
+`atlantis.env`, outside this repo).
 
 Secrets: edit `infra/secrets.sops.yaml` with `sops` (re-encrypts on save). The
 age key is not in the repo; all units decrypt via `env.hcl`. Runtime secrets
