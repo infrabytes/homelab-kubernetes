@@ -1,5 +1,6 @@
-# Cilium agent/Hubble/operator metrics; podTargetLabels mirror the chart's own
-# ServiceMonitors because the chart dashboards filter on k8s_app/io_cilium_app.
+# One PodMonitor per endpoint: the single multi-endpoint PodMonitor silently lost
+# its targets when the agent pods were recreated, while single-endpoint ones keep
+# working. The dashboards' pod label (k8s_app) is set with relabelings.
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -12,13 +13,31 @@ spec:
   selector:
     matchLabels:
       k8s-app: cilium
-  podTargetLabels:
-    - k8s-app
   podMetricsEndpoints:
     - port: prometheus
       interval: 60s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_k8s_app]
+          targetLabel: k8s_app
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: cilium-hubble
+  namespace: grafana-cloud
+spec:
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  selector:
+    matchLabels:
+      k8s-app: cilium
+  podMetricsEndpoints:
     - port: hubble-metrics
       interval: 60s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_k8s_app]
+          targetLabel: k8s_app
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
@@ -32,8 +51,9 @@ spec:
   selector:
     matchLabels:
       io.cilium/app: operator
-  podTargetLabels:
-    - io.cilium/app
   podMetricsEndpoints:
     - port: prometheus
       interval: 60s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_io_cilium_app]
+          targetLabel: io_cilium_app
