@@ -1,0 +1,54 @@
+version: 3
+automerge: true
+projects:
+  - name: cluster
+    dir: infra/cluster
+    workflow: terragrunt
+    apply_requirements: [mergeable]
+    autoplan:
+      when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl", "modules/**/*.tf"]
+      enabled: true
+  - name: viewer-kubeconfig
+    dir: infra/viewer-kubeconfig
+    workflow: terragrunt
+    apply_requirements: [mergeable]
+    autoplan:
+      when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
+      enabled: true
+  - name: addons
+    dir: infra/addons
+    workflow: terragrunt
+    apply_requirements: [mergeable]
+    autoplan:
+      when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
+      enabled: true
+  - name: argocd-config
+    dir: infra/argocd-config
+    workflow: terragrunt
+    apply_requirements: [mergeable]
+    autoplan:
+      when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
+      enabled: true
+  - name: grafana-cloud-config
+    dir: infra/grafana-cloud-config
+    workflow: terragrunt
+    apply_requirements: [mergeable]
+    autoplan:
+      when_modified: ["../env.hcl", "*.tf", "*.hcl"]
+      enabled: true
+workflows:
+  terragrunt:
+    plan:
+      steps:
+        - env:
+            name: SOPS_AGE_KEY_FILE
+            value: /tmp/sops-age-keys.txt
+        - run: printenv SOPS_AGE_KEY > /tmp/sops-age-keys.txt && chmod 600 /tmp/sops-age-keys.txt
+        - run: terragrunt plan -no-color -input=false
+    apply:
+      steps:
+        - env:
+            name: SOPS_AGE_KEY_FILE
+            value: /tmp/sops-age-keys.txt
+        - run: printenv SOPS_AGE_KEY > /tmp/sops-age-keys.txt && chmod 600 /tmp/sops-age-keys.txt
+        - run: terragrunt apply -no-color -input=false -auto-approve
