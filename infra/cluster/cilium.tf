@@ -152,17 +152,18 @@ data "helm_template" "cilium" {
       # Hubble metrics on :9965 (hostPort), scraped through the same PodMonitor:
       # flow = allowed vs denied per verdict, drop = reasons, tcp = flag
       # counters, dns/http/icmp/port-distribution = the matching dashboard
-      # panels. Context options stay off (they add pod/workload labels and with
-      # them thousands of series).
+      # panels. Only the namespace context labels are enabled (the two
+      # namespace dashboards group by them); workload/pod labels would add
+      # thousands of series, so the L7-by-workload dashboard stays empty.
       metrics:
         enabled:
-          - flow
-          - drop
-          - tcp
-          - dns
-          - http
-          - icmp
-          - port-distribution
+          - flow:labelsContext=source_namespace,destination_namespace
+          - drop:labelsContext=source_namespace,destination_namespace
+          - tcp:labelsContext=source_namespace,destination_namespace
+          - dns:labelsContext=source_namespace,destination_namespace
+          - http:labelsContext=source_namespace,destination_namespace
+          - icmp:labelsContext=source_namespace,destination_namespace
+          - port-distribution:labelsContext=source_namespace,destination_namespace
         dashboards:
           enabled: true
       tls:
