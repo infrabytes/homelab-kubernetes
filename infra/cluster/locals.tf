@@ -4,6 +4,8 @@ locals {
   # no dashboard references. The endpoint-regeneration buckets (576 series for
   # one panel) are dropped like port-distribution was.
   cilium_dashboard_families = [
+    # Source of the dashboards' cluster variable (label_values(cilium_version, cluster)).
+    "cilium_version",
     "cilium_agent_api_process_time_seconds_count",
     "cilium_agent_api_process_time_seconds_sum",
     "cilium_bpf_map_ops_total",
