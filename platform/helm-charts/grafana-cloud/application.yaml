@@ -85,58 +85,13 @@ spec:
         prometheusOperatorObjects:
           enabled: true
           collector: alloy-metrics
-          # Exactly what the chart dashboards read: hubble_*, the cilium_*
-          # families below (blanket cilium_.* is ~1.9K series no dashboard
-          # references) and the ESO families. Accepts the headroom.
+          # ESO families its dashboard reads (cilium metrics come from the
+          # Cilium chart's own ServiceMonitors, see infra/cluster/cilium.tf).
           podMonitors:
             metricsTuning:
               includeMetrics:
-                - hubble_.*
                 - controller_runtime_(active_workers|max_concurrent_reconciles|reconcile_total|reconcile_time_seconds_.*|webhook_latency_seconds_.*|webhook_requests_in_flight|webhook_requests_total)
                 - workqueue_depth
-                - cilium_agent_api_process_time_seconds_count
-                - cilium_agent_api_process_time_seconds_sum
-                - cilium_bpf_map_ops_total
-                - cilium_bpf_map_pressure
-                - cilium_bpf_maps_virtual_memory_max_bytes
-                - cilium_bpf_progs_virtual_memory_max_bytes
-                - cilium_controllers_failing
-                - cilium_controllers_runs_duration_seconds_count
-                - cilium_controllers_runs_duration_seconds_sum
-                - cilium_controllers_runs_total
-                - cilium_datapath_conntrack_dump_resets_total
-                - cilium_datapath_conntrack_gc_entries
-                - cilium_drop_bytes_total
-                - cilium_drop_count_total
-                - cilium_endpoint_regeneration_time_stats_seconds_bucket
-                - cilium_endpoint_regenerations_total
-                - cilium_endpoint_state
-                - cilium_errors_warnings_total
-                - cilium_forward_bytes_total
-                - cilium_forward_count_total
-                - cilium_ip_addresses
-                - cilium_k8s_client_api_calls_total
-                - cilium_k8s_client_api_latency_time_seconds_count
-                - cilium_k8s_client_api_latency_time_seconds_sum
-                - cilium_kubernetes_events_received_total
-                - cilium_kubernetes_events_total
-                - cilium_nodes_all_events_received_total
-                - cilium_nodes_all_num
-                - cilium_operator_ipam_resync_total
-                - cilium_operator_process_cpu_seconds_total
-                - cilium_operator_process_resident_memory_bytes
-                - cilium_policy
-                - cilium_policy_change_total
-                - cilium_policy_endpoint_enforcement_status
-                - cilium_policy_implementation_delay_bucket
-                - cilium_policy_incremental_update_duration_bucket
-                - cilium_policy_l7_total
-                - cilium_process_cpu_seconds_total
-                - cilium_process_open_fds
-                - cilium_process_resident_memory_bytes
-                - cilium_process_virtual_memory_bytes
-                - cilium_unreachable_health_endpoints
-                - cilium_unreachable_nodes
           # Series budget (10K free-tier cap): drop runtime/library internals
           # measured live (Aug 2026) at 16,459 total before this block.
           # Add new families here as components grow.

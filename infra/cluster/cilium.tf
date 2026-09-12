@@ -139,11 +139,20 @@ data "helm_template" "cilium" {
       ca:
         cert: ${base64encode(tls_self_signed_cert.cilium_ca.cert_pem)}
         key: ${base64encode(tls_private_key.cilium_ca.private_key_pem)}
-    # Serves cilium_* agent metrics on :9962 (hostPort); the Grafana Cloud
-    # PodMonitor allowlists every cilium_* family for the agent/operator
-    # dashboards (deliberately reversing the earlier policy-only series cut).
+    # Serves cilium_* agent metrics on :9962 (hostPort). The chart's
+    # ServiceMonitors are the collection path: they carry the k8s_app /
+    # io_cilium_app target labels the dashboards filter on, and keep only
+    # local.cilium_dashboard_families.
     prometheus:
       enabled: true
+      serviceMonitor:
+        enabled: true
+        # The chart render is local (no cluster to validate the CRDs against).
+        trustCRDsExist: true
+        metricRelabelings:
+          - action: keep
+            sourceLabels: [__name__]
+            regex: "${join("|", local.cilium_dashboard_families)}"
     # Six dashboard ConfigMaps (agent, operator, four Hubble) land in
     # kube-system; platform/grafana-dashboards imports them into the stack.
     dashboards:
@@ -166,6 +175,9 @@ data "helm_template" "cilium" {
           - icmp:labelsContext=source_namespace,destination_namespace
         dashboards:
           enabled: true
+        serviceMonitor:
+          enabled: true
+          trustCRDsExist: true
       tls:
         auto:
           enabled: false
@@ -202,6 +214,14 @@ data "helm_template" "cilium" {
     operator:
       dashboards:
         enabled: true
+      prometheus:
+        serviceMonitor:
+          enabled: true
+          trustCRDsExist: true
+          metricRelabelings:
+            - action: keep
+              sourceLabels: [__name__]
+              regex: "${join("|", local.cilium_dashboard_families)}"
       resources:
         requests:
           cpu: 20m
