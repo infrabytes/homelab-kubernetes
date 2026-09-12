@@ -1,15 +1,30 @@
-# Cilium only proxies DNS for endpoints with DNS policy, so hubble's dns_* metrics
-# (Hubble / DNS Overview dashboard) are empty without one. Egress stays as open
-# as today; ingress policies are unaffected. Delete to revert.
+# The hubble_dns_* metrics behind the Hubble DNS dashboard come from Cilium's DNS
+# proxy, which only intercepts queries for endpoints with a DNS rule. The rule
+# must name kube-dns with toPorts[].rules.dns: a bare toFQDNs rule is realized
+# but does not engage the proxy (measured 2026-09-12). Egress stays as open as
+# today; ingress policies are unaffected. Delete to revert.
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
 metadata:
   name: dns-visibility
 spec:
   description: Route pod DNS through Cilium's proxy so hubble_dns_* metrics exist.
-  endpointSelector: {}
+  endpointSelector:
+    matchLabels: {}
   egress:
-    - toEntities:
-        - all
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: '*'
     - toFQDNs:
-        - matchPattern: "*"
+        - matchPattern: '*'
+    - toEntities:
+        - cluster
+        - world
