@@ -6,6 +6,8 @@
   "labels": [
     "dependencies"
   ],
+  "automergeType": "pr",
+  "automergeStrategy": "squash",
   "ignorePaths": [
     "**/.terragrunt-cache/**",
     "**/artifacts/**"
@@ -309,6 +311,30 @@
       ],
       "groupName": "cilium chart",
       "groupSlug": "cilium-chart"
+    },
+    {
+      "description": "Hold majors for review regardless of changelog content",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "Automerge routine updates 3 days after release",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Atlantis is the sole merger for infra PRs (apply-before-merge)",
+      "matchFileNames": [
+        "infra/**"
+      ],
+      "automerge": false
     }
   ]
 }
