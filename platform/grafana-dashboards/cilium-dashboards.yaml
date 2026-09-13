@@ -96,6 +96,13 @@ spec:
   datasources:
     - inputName: DS_PROMETHEUS
       datasourceName: grafanacloud-prom
+  variables:
+    # server-side reporter is the one with data, and the source workload is
+    # empty for cross-node traffic, so default to a view that renders.
+    - name: reporter
+      value: server
+    - name: source_workload
+      value: ".*"
 ---
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
