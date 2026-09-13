@@ -1,0 +1,130 @@
+name: renovate-gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, dismissed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to evaluate"
+        required: true
+        type: string
+
+concurrency:
+  group: renovate-gate-${{ github.event.pull_request.number || github.event.pull_request_review.pull_request.number || github.event.inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  breaking-change-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+      pull-requests: read
+    steps:
+      - name: Evaluate breaking-change gate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          import urllib.error
+          import urllib.request
+
+          API = "https://api.github.com"
+          REPO = os.environ["GITHUB_REPOSITORY"]
+          HEADERS = {
+              "Authorization": "Bearer " + os.environ["GITHUB_TOKEN"],
+              "Accept": "application/vnd.github+json",
+              "User-Agent": "renovate-gate",
+          }
+
+          BREAKING_PATTERNS = [
+              (re.compile(r"\bbreaking[ -]?changes?\b", re.I), "breaking change mention"),
+              (re.compile(r"^-*\s*BREAKING[ -]?(CHANGE|CHANGES):", re.M), "BREAKING CHANGE trailer"),
+              (re.compile(r"^[a-z][a-z]*(\([^)]*\))?!:", re.M), "conventional-commit !:"),
+          ]
+          MAJOR_ROW = re.compile(r"\|\s*major\s*\|", re.I)
+          MAJOR_TITLE = re.compile(r"[(\[]major[)\]]$", re.I)
+
+
+          def api(path):
+              req = urllib.request.Request(API + path, headers=HEADERS)
+              with urllib.request.urlopen(req) as resp:
+                  return json.load(resp)
+
+
+          def post_status(sha, state, description, target_url):
+              body = json.dumps(
+                  {
+                      "state": state,
+                      "context": "breaking-change-gate",
+                      "description": description[:140],
+                      "target_url": target_url,
+                  }
+              ).encode()
+              req = urllib.request.Request(
+                  f"{API}/repos/{REPO}/statuses/{sha}",
+                  data=body,
+                  method="POST",
+                  headers=HEADERS,
+              )
+              with urllib.request.urlopen(req) as resp:
+                  return resp.status
+
+
+          with open(os.environ["GITHUB_EVENT_PATH"]) as fh:
+              event = json.load(fh)
+
+          pr_number = (
+              (event.get("pull_request") or {}).get("number")
+              or ((event.get("pull_request_review") or {}).get("pull_request") or {}).get("number")
+              or (event.get("inputs") or {}).get("pr_number")
+          )
+          if not pr_number:
+              sys.exit("no PR number in event")
+
+          pr = api(f"/repos/{REPO}/pulls/{pr_number}")
+          author = pr["user"]["login"]
+          head_sha = pr["head"]["sha"]
+          body = pr.get("body") or ""
+          title = pr.get("title") or ""
+          pr_url = pr["html_url"]
+
+          if author != "renovate[bot]":
+              state, desc = "success", "not a Renovate PR"
+          else:
+              reviews = api(f"/repos/{REPO}/pulls/{pr_number}/reviews")
+              latest = {}
+              for review in reviews:
+                  latest[review["user"]["login"]] = review
+              approved = any(
+                  review.get("state") == "APPROVED"
+                  and review.get("author_association") in {"OWNER", "MEMBER", "COLLABORATOR"}
+                  for review in latest.values()
+              )
+              if approved:
+                  state, desc = "success", "approved by write-access user"
+              elif MAJOR_ROW.search(body) or MAJOR_TITLE.search(title):
+                  state, desc = "failure", "major bump: hold for review"
+              else:
+                  hit = next((label for pattern, label in BREAKING_PATTERNS if pattern.search(body)), None)
+                  if hit:
+                      state, desc = "failure", f"breaking changes in release notes ({hit})"
+                  else:
+                      state, desc = "success", "clean routine update"
+
+          print(f"gate decision: {state} — {desc}")
+          try:
+              code = post_status(head_sha, state, desc, pr_url)
+              print(f"status posted: {code} on {head_sha}")
+          except urllib.error.HTTPError as exc:
+              if exc.code == 403:
+                  print("warning: status POST forbidden (fork PR); skipping", file=sys.stderr)
+                  sys.exit(0)
+              raise
+          PY

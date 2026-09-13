@@ -180,6 +180,43 @@ is needed.
 Any workflow that later moves to the self-hosted runner just uses the same
 setup actions; the warming workflow keeps the cache warm.
 
+## Dependency automerge
+
+Renovate automerges routine dependency PRs (see `renovate.json`): minor, patch
+and digest updates merge themselves by squash once the release is at least
+3 days old; major bumps never automerge. Infra PRs (`infra/**`) are the
+exception — Atlantis is their sole merger (plan → apply → squash-merge,
+apply-before-merge preserved), so Renovate never merges an infra PR.
+
+Both automation paths are gated by the same two required checks on `main`:
+`pre-commit` and `breaking-change-gate`. The gate
+(`.github/workflows/renovate-gate.yaml`) is red for any `renovate[bot]` PR
+that bumps a major version or whose release notes carry breaking-change
+markers (`BREAKING CHANGE:` trailers, conventional `!:` commits, "breaking
+change" mentions); a write-access approval turns it green and automation
+resumes. Non-infra breaking PRs then need one manual merge click; infra PRs
+flow apply → merge via Atlantis automatically.
+
+One-time admin setup (idempotent, re-runnable):
+
+```sh
+gh api -X PATCH repos/infrabytes/homelab-kubernetes -F allow_squash_merge=true
+gh api -X PUT repos/infrabytes/homelab-kubernetes/branches/main/protection --input - <<'EOF'
+{
+  "required_status_checks": {"strict": false, "contexts": ["pre-commit", "breaking-change-gate"]},
+  "enforce_admins": true,
+  "required_pull_request_reviews": null,
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+EOF
+```
+
+`pre-commit` runs on the self-hosted runner, so a stalled runner stalls all
+merges (required checks never complete); Renovate retries on later runs and
+nothing is lost.
+
 ## Getting started
 
 ### Prerequisites
