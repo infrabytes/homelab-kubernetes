@@ -1,0 +1,24 @@
+# cf2cnp is already reachable from cluster and world (chart CNP, L3/L4). Adding
+# an HTTP rule makes its requests L7-visible to Hubble, which is what the
+# L7-by-workload dashboard needs; matching every path keeps today's traffic
+# allowed.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: hubble-observer-cf2cnp-http-visibility
+  namespace: hubble-observer
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: cf2cnp
+  ingress:
+    - fromEntities:
+        - cluster
+        - world
+      toPorts:
+        - ports:
+            - port: "http"
+              protocol: TCP
+          rules:
+            http:
+              - path: "/.*"
