@@ -56,6 +56,10 @@ cd infra && terragrunt destroy --all # CAUTION: destroys everything
 # atlantis.yaml at the repo root defines the projects/workflow; the server
 # runs on the windrunner VM (atlantis.icaninto.space, deploy files in
 # ~/appdata/atlantis on that host, outside this repo).
+# Apply consumes the plan written by plan (-out $PLANFILE), so a failed or
+# stale plan blocks apply: comment `atlantis plan` again before `atlantis apply`.
+# The image also carries kubectl (the cluster unit's converge.tf local-exec
+# needs it) and is tagged atlantis-homelab:vX.Y.Z there.
 sops infra/secrets.sops.yaml         # edit secrets (re-encrypts on save)
 .github/scripts/test-renovate.py     # local Renovate dry-run; verify dep extraction/updates (no branches/PRs)
 ```
