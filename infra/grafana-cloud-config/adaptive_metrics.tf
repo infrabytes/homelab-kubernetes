@@ -20,6 +20,15 @@ resource "grafana-adaptive-metrics_recommendations_config" "singleton" {
     "deployment",
     "daemonset",
     "statefulset",
+    # Hubble labels the chart dashboards read (type/subtype/protocol on the flow
+    # family, flag on tcp_flags, qtypes on dns, method/reporter on http).
+    "protocol",
+    "subtype",
+    "type",
+    "flag",
+    "qtypes",
+    "method",
+    "reporter",
   ]
 
   # Auto-apply is on: Grafana aggregates labels it sees no queries for, accepted

@@ -169,6 +169,18 @@ After a policy change, Grafana Cloud propagates scopes unevenly across edge
 nodes, so that call can intermittently return `401 invalid scope requested` for
 a few minutes — retry before debugging the config.
 
+## Chart-dashboard labels
+
+The chart dashboards group by `type`/`subtype`/`protocol` (hubble flows), `flag`
+(tcp flags), `qtypes` (dns) and `method`/`reporter` (http). Those labels are in
+`keep_labels` in `adaptive_metrics.tf`, which only prevents *new*
+recommendations: the rules that already aggregate them - applied by auto-apply
+before the dashboards existed - keep dropping them until they are pruned once.
+Pruning through the API needs an access-policy token with
+`adaptive-metrics-rules:write` (the config token here has only `read`, so
+`POST /aggregations/rules` answers 400); the portal's Adaptive Metrics page can
+edit the rules instead.
+
 ## Caveats
 
 - Resources created here are flagged **provisioned** in the Grafana UI: stop
