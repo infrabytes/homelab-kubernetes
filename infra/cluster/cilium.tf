@@ -171,7 +171,9 @@ data "helm_template" "cilium" {
           - drop:labelsContext=source_namespace,destination_namespace
           - tcp:labelsContext=source_namespace,destination_namespace
           - dns:labelsContext=source_namespace,destination_namespace
-          - http:labelsContext=source_namespace,destination_namespace
+          # Workload labels only on http: its dashboard groups by workload, the
+          # others only need namespaces (and workload pairs multiply series).
+          - http:labelsContext=source_namespace,destination_namespace,source_workload,destination_workload
           - icmp:labelsContext=source_namespace,destination_namespace
         dashboards:
           enabled: true
