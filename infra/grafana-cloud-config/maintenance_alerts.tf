@@ -13,14 +13,14 @@ data "grafana_data_source" "loki" {
 resource "grafana_rule_group" "proxmox_maintenance" {
   name             = "proxmox-maintenance"
   folder_uid       = grafana_folder.talos.uid
-  interval_seconds = 3600
+  interval_seconds = 300
 
   rule {
     name           = "Proxmox maintenance run failed"
     for            = "0s"
     condition      = "threshold"
     no_data_state  = "OK"
-    exec_err_state = "Alerting"
+    exec_err_state = "Error"
 
     annotations = {
       summary = "A Proxmox host-maintenance run failed or aborted — check the Loki line for the failing host and step"
@@ -48,6 +48,28 @@ resource "grafana_rule_group" "proxmox_maintenance" {
       })
     }
     data {
+      ref_id         = "reduce"
+      datasource_uid = "__expr__"
+      query_type     = ""
+      relative_time_range {
+        from = 0
+        to   = 0
+      }
+      model = jsonencode({
+        conditions = []
+        datasource = {
+          type = "__expr__"
+          uid  = "__expr__"
+        }
+        expression    = "query"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+        reducer       = "max"
+        refId         = "reduce"
+        type          = "reduce"
+      })
+    }
+    data {
       ref_id         = "threshold"
       datasource_uid = "__expr__"
       query_type     = "threshold"
@@ -66,7 +88,7 @@ resource "grafana_rule_group" "proxmox_maintenance" {
           type = "__expr__"
           uid  = "__expr__"
         }
-        expression    = "query"
+        expression    = "reduce"
         intervalMs    = 1000
         maxDataPoints = 43200
         refId         = "threshold"
@@ -80,7 +102,7 @@ resource "grafana_rule_group" "proxmox_maintenance" {
     for            = "1d"
     condition      = "threshold"
     no_data_state  = "Alerting"
-    exec_err_state = "Alerting"
+    exec_err_state = "Error"
 
     annotations = {
       summary = "No successful Proxmox host-maintenance run in 8 days — the windrunner timer or the playbook is broken"
@@ -108,6 +130,28 @@ resource "grafana_rule_group" "proxmox_maintenance" {
       })
     }
     data {
+      ref_id         = "reduce"
+      datasource_uid = "__expr__"
+      query_type     = ""
+      relative_time_range {
+        from = 0
+        to   = 0
+      }
+      model = jsonencode({
+        conditions = []
+        datasource = {
+          type = "__expr__"
+          uid  = "__expr__"
+        }
+        expression    = "query"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+        reducer       = "lastNotNull"
+        refId         = "reduce"
+        type          = "reduce"
+      })
+    }
+    data {
       ref_id         = "threshold"
       datasource_uid = "__expr__"
       query_type     = "threshold"
@@ -126,7 +170,7 @@ resource "grafana_rule_group" "proxmox_maintenance" {
           type = "__expr__"
           uid  = "__expr__"
         }
-        expression    = "query"
+        expression    = "reduce"
         intervalMs    = 1000
         maxDataPoints = 43200
         refId         = "threshold"
