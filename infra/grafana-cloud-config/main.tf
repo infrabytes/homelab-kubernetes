@@ -267,6 +267,69 @@ resource "grafana_rule_group" "critical" {
       })
     }
   }
+
+  rule {
+    name           = "Container crash-looping"
+    for            = "10m"
+    condition      = "threshold"
+    no_data_state  = "OK"
+    exec_err_state = "Error"
+
+    annotations = {
+      summary = "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} is crash-looping"
+    }
+    labels = {
+      severity = "warning"
+    }
+
+    data {
+      ref_id         = "query"
+      datasource_uid = data.grafana_data_source.prom.uid
+      query_type     = "prometheus"
+      relative_time_range {
+        from = 660
+        to   = 60
+      }
+      model = jsonencode({
+        datasource = {
+          type = "prometheus"
+          uid  = data.grafana_data_source.prom.uid
+        }
+        expr          = "max by (namespace, pod, container) (kube_pod_container_status_waiting_reason{reason=\"CrashLoopBackOff\"}) == 1"
+        instant       = true
+        intervalMs    = 1000
+        maxDataPoints = 43200
+        range         = false
+        refId         = "query"
+      })
+    }
+    data {
+      ref_id         = "threshold"
+      datasource_uid = "__expr__"
+      query_type     = "threshold"
+      relative_time_range {
+        from = 0
+        to   = 0
+      }
+      model = jsonencode({
+        conditions = [{
+          evaluator = {
+            params = [0]
+            type   = "gt"
+          }
+        }]
+        datasource = {
+          type = "__expr__"
+          uid  = "__expr__"
+        }
+        expression    = "query"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+        refId         = "threshold"
+        type          = "threshold"
+      })
+    }
+  }
 }
 
 # Capacity / lifecycle: full-cardinality and slow-moving checks.
