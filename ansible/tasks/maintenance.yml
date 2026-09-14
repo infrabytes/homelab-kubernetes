@@ -17,14 +17,15 @@
     - drain | bool
     - not ansible_check_mode
 
-- name: Evict workload pods (everything but Longhorn)
+- name: Evict workload and Longhorn support pods (everything but instance-managers)
   kubernetes.core.k8s_drain:
     kubeconfig: "{{ kubeconfig_path }}"
     name: "{{ talos_node }}"
     state: drain
     pod_selectors:
-      - '!longhorn.io/component'
+      - "longhorn.io/component!=instance-manager"
     delete_options:
+      force: true
       ignore_daemonsets: true
       delete_emptydir_data: true
       terminate_grace_period: 90
