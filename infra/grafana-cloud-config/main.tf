@@ -58,6 +58,20 @@ resource "grafana_dashboard" "network_policies" {
   )
 }
 
+# Rolling PVE host maintenance: per-host run results pushed by
+# ansible/proxmox-node-updates.yml to the managed Loki (job=proxmox-node-updates).
+# Lives in the talos folder next to the maintenance alert rules. The single
+# $${DS_LOKI} placeholder is filled with the managed Loki datasource uid at
+# apply time (same pattern as $${DS_PROM} above).
+resource "grafana_dashboard" "proxmox_maintenance" {
+  folder = grafana_folder.talos.id
+  config_json = replace(
+    file("${path.module}/dashboards/proxmox-maintenance.json"),
+    "$${DS_LOKI}",
+    data.grafana_data_source.loki.uid,
+  )
+}
+
 # Import: terragrunt import 'grafana_rule_group.<name>' "<folderUID>:<groupName>"
 
 resource "grafana_rule_group" "critical" {
