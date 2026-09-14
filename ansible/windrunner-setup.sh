@@ -40,6 +40,7 @@ if [ -n "$CURRENT" ] && ! echo "$CURRENT" | grep -q 'git@github.com:infrabytes/h
   git -C "$REPO" remote set-url origin git@github.com:infrabytes/homelab-kubernetes.git
 fi
 
+install -m 755 "$REPO/ansible/run-maintenance.sh" "$REPO/ansible/run-maintenance.sh"
 install -m 644 "$REPO/ansible/systemd/proxmox-node-updates.service" /etc/systemd/system/
 install -m 644 "$REPO/ansible/systemd/proxmox-node-updates.timer" /etc/systemd/system/
 systemctl daemon-reload

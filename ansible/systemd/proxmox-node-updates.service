@@ -7,8 +7,6 @@ Wants=network-online.target
 Type=oneshot
 User=deschain
 RuntimeDirectory=proxmox-node-updates
-WorkingDirectory=/home/deschain/homelab/homelab-kubernetes/ansible
-Environment=KUBECONFIG_PATH=/home/deschain/appdata/atlantis/data/artifacts/kubeconfig
-ExecStartPre=/usr/bin/git -C /home/deschain/homelab/homelab-kubernetes pull --ff-only
-ExecStart=/usr/bin/flock -n /run/proxmox-node-updates/lock /home/deschain/.local/bin/sops exec-env /home/deschain/homelab/homelab-kubernetes/infra/secrets.sops.yaml /home/deschain/.local/share/proxmox-maintenance/venv/bin/ansible-playbook -i inventory.yml proxmox-node-updates.yml
+ExecStartPre=/usr/bin/git -C %h/homelab/homelab-kubernetes pull --ff-only
+ExecStart=%h/homelab/homelab-kubernetes/ansible/run-maintenance.sh
 TimeoutStartSec=4h

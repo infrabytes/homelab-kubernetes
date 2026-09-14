@@ -104,7 +104,7 @@ def main():
         if match is None:
             errors.append(f"{name}: talos_node {host['hostname']} not in infra/env.hcl")
             continue
-        ip, node = match
+        _, node = match
         if node["proxmox_node"] != name:
             errors.append(f"{name}: env.hcl maps {host['hostname']} to {node['proxmox_node']}")
         if node["vm_id"] != host["vm_id"]:
