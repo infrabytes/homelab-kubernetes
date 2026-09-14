@@ -1,0 +1,30 @@
+---
+- name: Collect the run summary line
+  ansible.builtin.set_fact:
+    summary_line: >-
+      run=proxmox-node-updates
+      result=success
+      hosts_rolled={{ groups['pve'] | length }}
+      reboots={{ hostvars.values() | selectattr('reboot_required', 'defined') | selectattr('reboot_required', 'equalto', true) | list | length }}
+      check_mode={{ ansible_check_mode }}
+
+- name: Push the run summary to Loki
+  ansible.builtin.uri:
+    url: "{{ loki_url }}"
+    method: POST
+    url_username: "{{ grafana_cloud_loki_username }}"
+    url_password: "{{ grafana_cloud_loki_token }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: application/json
+    body_format: json
+    body:
+      streams:
+        - stream:
+            job: proxmox-node-updates
+            host: summary
+          values:
+            - - "{{ ansible_date_time.epoch ~ '000000000' }}"
+              - "{{ summary_line }}"
+    status_code: [200, 204]
+  when: not ansible_check_mode

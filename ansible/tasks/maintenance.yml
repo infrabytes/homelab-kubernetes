@@ -1,0 +1,161 @@
+---
+- name: Report what the check-mode run would do
+  ansible.builtin.debug:
+    msg: >-
+      CHECK MODE: {{ inventory_hostname }} would now be taken through the
+      maintenance window ({{ 'drain + ' if drain | bool else '' }}graceful VM
+      shutdown, patch, reboot, node Ready, {{ 'uncordon, ' if drain | bool else '' }}Longhorn healthy).
+  when: ansible_check_mode
+
+- name: Cordon the Talos node
+  kubernetes.core.k8s_drain:
+    kubeconfig: "{{ kubeconfig_path }}"
+    name: "{{ talos_node }}"
+    state: cordon
+  delegate_to: localhost
+  when:
+    - drain | bool
+    - not ansible_check_mode
+
+- name: Evict workload pods (everything but Longhorn)
+  kubernetes.core.k8s_drain:
+    kubeconfig: "{{ kubeconfig_path }}"
+    name: "{{ talos_node }}"
+    state: drain
+    pod_selectors:
+      - '!longhorn.io/component'
+    delete_options:
+      ignore_daemonsets: true
+      delete_emptydir_data: true
+      terminate_grace_period: 90
+  delegate_to: localhost
+  when:
+    - drain | bool
+    - not ansible_check_mode
+
+- name: Wait for Longhorn to release the instance-manager PDB
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: policy/v1
+    kind: PodDisruptionBudget
+    namespace: longhorn-system
+    label_selectors:
+      - "longhorn.io/component=instance-manager"
+      - "longhorn.io/node={{ talos_node }}"
+  register: im_pdbs
+  delegate_to: localhost
+  until: (im_pdbs.resources | default([])) | length == 0
+  retries: "{{ (drain_timeout // 10) | int }}"
+  delay: 10
+  when:
+    - drain | bool
+    - not ansible_check_mode
+
+- name: Drain the remaining Longhorn pods
+  kubernetes.core.k8s_drain:
+    kubeconfig: "{{ kubeconfig_path }}"
+    name: "{{ talos_node }}"
+    state: drain
+    delete_options:
+      ignore_daemonsets: true
+      delete_emptydir_data: true
+      terminate_grace_period: 90
+  delegate_to: localhost
+  register: longhorn_drain
+  retries: 20
+  delay: 15
+  until: longhorn_drain is not failed
+  when:
+    - drain | bool
+    - not ansible_check_mode
+
+- name: Gracefully stop the Talos VM
+  community.proxmox.proxmox_kvm:
+    api_host: "{{ pve_api_host.split(':')[0] }}"
+    api_port: "{{ pve_api_host.split(':')[1] }}"
+    api_user: "{{ pve_token_user }}"
+    api_token_id: "{{ pve_token_id }}"
+    api_token_secret: "{{ pve_token_secret }}"
+    node: "{{ pve_node }}"
+    vmid: "{{ pve_vmid }}"
+    state: stopped
+    force: false
+    timeout: "{{ vm_shutdown_timeout }}"
+    validate_certs: "{{ pve_validate_certs | bool }}"
+    api_timeout: 60
+  delegate_to: localhost
+  when: not ansible_check_mode
+
+- name: Reboot the host
+  ansible.builtin.reboot:
+    reboot_timeout: 900
+    pre_reboot_delay: 0
+    test_command: uptime
+  when: not ansible_check_mode
+
+- name: Wait for the host to come back
+  ansible.builtin.wait_for_connection:
+    timeout: 900
+  when: not ansible_check_mode
+
+- name: Start the Talos VM
+  community.proxmox.proxmox_kvm:
+    api_host: "{{ pve_api_host.split(':')[0] }}"
+    api_port: "{{ pve_api_host.split(':')[1] }}"
+    api_user: "{{ pve_token_user }}"
+    api_token_id: "{{ pve_token_id }}"
+    api_token_secret: "{{ pve_token_secret }}"
+    node: "{{ pve_node }}"
+    vmid: "{{ pve_vmid }}"
+    state: started
+    timeout: 900
+    validate_certs: "{{ pve_validate_certs | bool }}"
+    api_timeout: 60
+  delegate_to: localhost
+  when: not ansible_check_mode
+
+- name: Wait for the Talos node to be Ready
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: v1
+    kind: Node
+    name: "{{ talos_node }}"
+  register: talos_node_ready
+  delegate_to: localhost
+  retries: "{{ (node_ready_timeout // 15) | int }}"
+  delay: 15
+  until: >-
+    (talos_node_ready.resources | default([])) | length > 0
+    and talos_node_ready.resources[0].status.conditions
+      | selectattr('type', 'equalto', 'Ready')
+      | selectattr('status', 'equalto', 'True')
+      | list | length > 0
+  when: not ansible_check_mode
+
+- name: Uncordon the Talos node
+  kubernetes.core.k8s_drain:
+    kubeconfig: "{{ kubeconfig_path }}"
+    name: "{{ talos_node }}"
+    state: uncordon
+  delegate_to: localhost
+  when:
+    - drain | bool
+    - not ansible_check_mode
+
+- name: Wait for all Longhorn volumes to be healthy again
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: longhorn.io/v1beta2
+    kind: Volume
+    namespace: "{{ longhorn_namespace }}"
+  register: longhorn_after
+  delegate_to: localhost
+  retries: "{{ (longhorn_healthy_timeout // 15) | int }}"
+  delay: 15
+  until: >-
+    longhorn_after.resources | length > 0
+    and longhorn_after.resources
+      | selectattr('status.robustness', 'defined')
+      | selectattr('status.robustness', 'equalto', 'healthy') | list | length
+      == (longhorn_after.resources | length)
+  when: not ansible_check_mode

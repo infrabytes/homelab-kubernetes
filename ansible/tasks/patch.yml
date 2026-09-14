@@ -1,0 +1,101 @@
+---
+- name: Ensure needrestart is installed
+  ansible.builtin.apt:
+    name:
+      - needrestart
+    state: present
+    update_cache: false
+
+- name: Capture running kernel release
+  ansible.builtin.set_fact:
+    running_kernel: "{{ ansible_facts.kernel | regex_replace('-pve$', '') }}"
+
+- name: Snapshot reboot-relevant package versions before the upgrade
+  ansible.builtin.command: >-
+    dpkg-query -W -f='${Package} ${Version}\n'
+    'proxmox-kernel-*' pve-manager qemu-server zfsutils-linux libc6 systemd
+  register: relevant_before
+  changed_when: false
+  check_mode: false
+
+- name: Refresh apt indexes
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Apply upgrades
+  ansible.builtin.apt:
+    upgrade: full
+    autoremove: true
+    purge: true
+
+- name: Verify no pending upgrades remain
+  ansible.builtin.command: apt-get -sqq dist-upgrade
+  register: simulated_upgrade
+  changed_when: false
+  check_mode: false
+
+- name: Abort if the host still has pending upgrades
+  ansible.builtin.assert:
+    that:
+      - ansible_check_mode or ('Inst ' not in simulated_upgrade.stdout)
+    fail_msg: "{{ inventory_hostname }} still reports pending upgrades after the run."
+
+- name: Snapshot reboot-relevant package versions after the upgrade
+  ansible.builtin.command: >-
+    dpkg-query -W -f='${Package} ${Version}\n'
+    'proxmox-kernel-*' pve-manager qemu-server zfsutils-linux libc6 systemd
+  register: relevant_after
+  changed_when: false
+  check_mode: false
+
+- name: Read the reboot-required marker
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+    get_checksum: false
+    get_mime: false
+  register: reboot_required_stat
+  check_mode: false
+
+- name: List installed kernel image packages
+  ansible.builtin.command: dpkg-query -W -f='${binary:Package} ${Version}\n' 'proxmox-kernel-*-pve*' 'pve-kernel-*-pve*'
+  register: installed_kernels
+  changed_when: false
+  check_mode: false
+
+- name: Determine the newest installed kernel
+  vars:
+    kernel_lines: >-
+      {{ installed_kernels.stdout_lines
+         | select('match', '^(proxmox|pve)-kernel-[0-9][^ ]*-pve(-signed)? [0-9]') }}
+    kernel_versions: >-
+      {{ kernel_lines
+         | map('regex_replace', '^(?:proxmox|pve)-kernel-(\\d[^ ]*)-pve(?:-signed)? .*$', '\\1') }}
+  ansible.builtin.set_fact:
+    newest_kernel: "{{ kernel_versions | sort | last | default(running_kernel) }}"
+
+- name: Determine reboot-required packages that changed
+  ansible.builtin.set_fact:
+    relevant_changed: >-
+      {{ relevant_before.stdout_lines | difference(relevant_after.stdout_lines) | length > 0 }}
+
+- name: Determine whether the reboot-required marker exists
+  ansible.builtin.set_fact:
+    marker_exists: "{{ reboot_required_stat.stat.exists }}"
+
+- name: Determine whether the newest installed kernel differs from the running one
+  ansible.builtin.set_fact:
+    kernel_differs: "{{ newest_kernel != running_kernel }}"
+
+- name: Decide whether the host needs a reboot
+  ansible.builtin.set_fact:
+    reboot_required: "{{ kernel_differs or marker_exists or relevant_changed }}"
+    reboot_reason: >-
+      {{ 'newest installed kernel differs from the running one'
+         if kernel_differs
+         else ('/var/run/reboot-required exists' if marker_exists
+         else 'reboot-relevant packages were upgraded') }}
+
+- name: Show the reboot decision
+  ansible.builtin.debug:
+    msg: >-
+      reboot={{ reboot_required }} reason={{ reboot_reason }}

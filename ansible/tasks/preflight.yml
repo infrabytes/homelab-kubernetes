@@ -1,0 +1,140 @@
+---
+- name: Assert the kubeconfig path is available
+  vars:
+    kubeconfig_path: "{{ lookup('ansible.builtin.env', 'KUBECONFIG_PATH', default=inventory_dir ~ '/../../../infra/cluster/artifacts/kubeconfig') }}"
+  ansible.builtin.assert:
+    that:
+      - kubeconfig_path | length > 0
+    fail_msg: "KUBECONFIG_PATH is set but empty — unset it or point it at infra/cluster/artifacts/kubeconfig."
+
+- name: Publish the kubeconfig path as a play variable
+  ansible.builtin.set_fact:
+    kubeconfig_path: "{{ lookup('ansible.builtin.env', 'KUBECONFIG_PATH', default=inventory_dir ~ '/../../../infra/cluster/artifacts/kubeconfig') }}"
+
+- name: Assert secrets are present in the environment
+  vars:
+    env_proxmox_api_token: "{{ lookup('ansible.builtin.env', 'proxmox_api_token') }}"
+    env_loki_username: "{{ lookup('ansible.builtin.env', 'grafana_cloud_loki_username') }}"
+    env_loki_token: "{{ lookup('ansible.builtin.env', 'grafana_cloud_loki_token') }}"
+  ansible.builtin.assert:
+    that:
+      - env_proxmox_api_token | length > 0
+      - env_loki_username | length > 0
+      - env_loki_token | length > 0
+    fail_msg: >-
+      Missing proxmox_api_token / grafana_cloud_loki_username /
+      grafana_cloud_loki_token — wrap the run in
+      `sops exec-env infra/secrets.sops.yaml`.
+
+- name: Publish the secrets as play variables
+  ansible.builtin.set_fact:
+    proxmox_api_token: "{{ lookup('ansible.builtin.env', 'proxmox_api_token') }}"
+    grafana_cloud_loki_username: "{{ lookup('ansible.builtin.env', 'grafana_cloud_loki_username') }}"
+    grafana_cloud_loki_token: "{{ lookup('ansible.builtin.env', 'grafana_cloud_loki_token') }}"
+
+- name: Read PVE cluster status from the API
+  community.proxmox.proxmox_cluster_status_info:
+    api_host: "{{ pve_api_host.split(':')[0] }}"
+    api_port: "{{ pve_api_host.split(':')[1] }}"
+    api_user: "{{ pve_token_user }}"
+    api_token_id: "{{ pve_token_id }}"
+    api_token_secret: "{{ pve_token_secret }}"
+    validate_certs: "{{ pve_validate_certs | bool }}"
+  register: pve_cluster
+  delegate_to: localhost
+  vars:
+    pve_token_user: "{{ proxmox_api_token.split('!')[0] }}"
+    pve_token_id: "{{ proxmox_api_token.split('!')[1].split('=')[0] }}"
+    pve_token_secret: "{{ proxmox_api_token.split('=')[1] }}"
+
+- name: Abort unless the PVE cluster is quorate
+  ansible.builtin.assert:
+    that:
+      - pve_cluster.cluster_status | selectattr('quorate', 'defined') | map(attribute='quorate') | select('equalto', true) | list | length == 1
+    fail_msg: "PVE cluster is not quorate — aborting before touching {{ inventory_hostname }}."
+
+- name: Query Talos nodes
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: v1
+    kind: Node
+  register: talos_nodes
+  delegate_to: localhost
+
+- name: Split the Proxmox API token into user, id and secret
+  ansible.builtin.set_fact:
+    pve_token_user: "{{ proxmox_api_token.split('!')[0] }}"
+    pve_token_id: "{{ proxmox_api_token.split('!')[1].split('=')[0] }}"
+    pve_token_secret: "{{ proxmox_api_token.split('=', 1)[1] }}"
+
+- name: Verify the Talos VM exists on this host
+  community.proxmox.proxmox_vm_info:
+    api_host: "{{ pve_api_host.split(':')[0] }}"
+    api_port: "{{ pve_api_host.split(':')[1] }}"
+    api_user: "{{ pve_token_user }}"
+    api_token_id: "{{ pve_token_id }}"
+    api_token_secret: "{{ pve_token_secret }}"
+    node: "{{ pve_node }}"
+    vmid: "{{ pve_vmid }}"
+    type: qemu
+    validate_certs: "{{ pve_validate_certs | bool }}"
+  register: talos_vm
+  delegate_to: localhost
+
+- name: Abort unless the Talos VM is present and running
+  vars:
+    vm_status: "{{ (talos_vm.proxmox_vms | default([])) | map(attribute='status') | first | default('not found') }}"
+  ansible.builtin.assert:
+    that:
+      - vm_status == 'running'
+    fail_msg: >-
+      VM {{ pve_vmid }} on {{ pve_node }} is not running ({{ vm_status }}) —
+      expected the {{ talos_role }} VM {{ talos_node }}.
+
+- name: Abort if any Talos node is cordoned
+  vars:
+    cordoned: >-
+      {{ talos_nodes.resources
+         | selectattr('spec.unschedulable', 'defined')
+         | selectattr('spec.unschedulable', 'equalto', true)
+         | map(attribute='metadata.name') | list }}
+  ansible.builtin.assert:
+    that:
+      - cordoned | length == 0
+    fail_msg: >-
+      Talos node(s) already cordoned ({{ cordoned | join(', ') }}) — a previous
+      roll may not have finished; uncordon or recover it first.
+
+- name: Abort unless every Talos node is Ready
+  ansible.builtin.assert:
+    that:
+      - talos_nodes.resources | length == 4
+      - talos_nodes.resources
+        | selectattr('status.conditions', 'defined')
+        | map(attribute='status.conditions') | flatten
+        | selectattr('type', 'equalto', 'Ready')
+        | selectattr('status', 'equalto', 'True') | list | length == 4
+    fail_msg: >-
+      Not all four Talos nodes are Ready — aborting before touching
+      {{ inventory_hostname }}.
+
+- name: Query Longhorn volumes
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: longhorn.io/v1beta2
+    kind: Volume
+    namespace: "{{ longhorn_namespace }}"
+  register: longhorn_volumes
+  delegate_to: localhost
+
+- name: Abort unless every Longhorn volume is healthy
+  ansible.builtin.assert:
+    that:
+      - longhorn_volumes.resources | length > 0
+      - longhorn_volumes.resources
+        | selectattr('status.robustness', 'defined')
+        | selectattr('status.robustness', 'equalto', 'healthy') | list | length
+        == (longhorn_volumes.resources | length)
+    fail_msg: >-
+      Not all Longhorn volumes are healthy — aborting before touching
+      {{ inventory_hostname }}.
