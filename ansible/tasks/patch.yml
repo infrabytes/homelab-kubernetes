@@ -56,22 +56,16 @@
   register: reboot_required_stat
   check_mode: false
 
-- name: List installed kernel image packages
-  ansible.builtin.command: dpkg-query -W -f='${binary:Package} ${Version}\n' 'proxmox-kernel-*-pve*' 'pve-kernel-*-pve*'
-  register: installed_kernels
+- name: Determine the newest installed kernel version
+  ansible.builtin.shell: |
+    set -o pipefail
+    { dpkg-query -W -f='${Version}\n' \
+        'proxmox-kernel-*-pve-signed' 'pve-kernel-*-pve-signed' 2>/dev/null \
+        || true; } \
+      | sort -V | tail -1
+  register: newest_kernel_cmd
   changed_when: false
   check_mode: false
-
-- name: Determine the newest installed kernel
-  vars:
-    kernel_lines: >-
-      {{ installed_kernels.stdout_lines
-         | select('match', '^(proxmox|pve)-kernel-[0-9][^ ]*-pve(-signed)? [0-9]') }}
-    kernel_versions: >-
-      {{ kernel_lines
-         | map('regex_replace', '^(?:proxmox|pve)-kernel-(\\d[^ ]*)-pve(?:-signed)? .*$', '\\1') }}
-  ansible.builtin.set_fact:
-    newest_kernel: "{{ kernel_versions | sort | last | default(running_kernel) }}"
 
 - name: Determine reboot-required packages that changed
   ansible.builtin.set_fact:
@@ -83,8 +77,10 @@
     marker_exists: "{{ reboot_required_stat.stat.exists }}"
 
 - name: Determine whether the newest installed kernel differs from the running one
+  vars:
+    newest_kernel: "{{ newest_kernel_cmd.stdout | trim }}"
   ansible.builtin.set_fact:
-    kernel_differs: "{{ newest_kernel != running_kernel }}"
+    kernel_differs: "{{ newest_kernel | length > 0 and newest_kernel != running_kernel }}"
 
 - name: Decide whether the host needs a reboot
   ansible.builtin.set_fact:

@@ -17,14 +17,15 @@
     - drain | bool
     - not ansible_check_mode
 
-- name: Evict workload pods (everything but Longhorn)
+- name: Evict workload and Longhorn support pods (everything but instance-managers)
   kubernetes.core.k8s_drain:
     kubeconfig: "{{ kubeconfig_path }}"
     name: "{{ talos_node }}"
     state: drain
     pod_selectors:
-      - '!longhorn.io/component'
+      - "longhorn.io/component!=instance-manager"
     delete_options:
+      force: true
       ignore_daemonsets: true
       delete_emptydir_data: true
       terminate_grace_period: 90
@@ -98,7 +99,25 @@
     timeout: 900
   when: not ansible_check_mode
 
-- name: Start the Talos VM
+- name: Wait for the Talos VM to auto-start (onboot)
+  community.proxmox.proxmox_vm_info:
+    api_host: "{{ pve_api_host.split(':')[0] }}"
+    api_port: "{{ pve_api_host.split(':')[1] }}"
+    api_user: "{{ pve_token_user }}"
+    api_token_id: "{{ pve_token_id }}"
+    api_token_secret: "{{ pve_token_secret }}"
+    node: "{{ pve_node }}"
+    vmid: "{{ pve_vmid }}"
+    type: qemu
+    validate_certs: "{{ pve_validate_certs | bool }}"
+  register: vm_autostart
+  delegate_to: localhost
+  retries: 12
+  delay: 10
+  until: (vm_autostart.proxmox_vms | default([])) | map(attribute='status') | first | default('') == 'running'
+  when: not ansible_check_mode
+
+- name: Start the Talos VM (fallback when onboot did not)
   community.proxmox.proxmox_kvm:
     api_host: "{{ pve_api_host.split(':')[0] }}"
     api_port: "{{ pve_api_host.split(':')[1] }}"
@@ -108,11 +127,13 @@
     node: "{{ pve_node }}"
     vmid: "{{ pve_vmid }}"
     state: started
-    timeout: 900
+    timeout: 300
     validate_certs: "{{ pve_validate_certs | bool }}"
     api_timeout: 60
   delegate_to: localhost
-  when: not ansible_check_mode
+  when:
+    - not ansible_check_mode
+    - (vm_autostart.proxmox_vms | default([])) | map(attribute='status') | first | default('') != 'running'
 
 - name: Wait for the Talos node to be Ready
   kubernetes.core.k8s_info:

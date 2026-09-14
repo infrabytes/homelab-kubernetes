@@ -1,0 +1,33 @@
+---
+- name: Collect the failure line
+  vars:
+    failed_step: "{{ ansible_failed_task.name | default('unknown') }}"
+    failed_error: "{{ ansible_failed_result.msg | default('unknown') | regex_replace('[\r\n]+', ' ') | truncate(200, true, '') }}"
+  ansible.builtin.set_fact:
+    failure_line: >-
+      host={{ inventory_hostname }}
+      result=failed
+      failed_step={{ failed_step | regex_replace('[^A-Za-z0-9 ._-]', '') }}
+      error={{ failed_error | regex_replace('[^A-Za-z0-9 ._:=-]', '') }}
+
+- name: Push the failure line to Loki
+  ansible.builtin.uri:
+    url: "{{ loki_url }}"
+    method: POST
+    url_username: "{{ lookup('ansible.builtin.env', 'grafana_cloud_loki_username') }}"
+    url_password: "{{ lookup('ansible.builtin.env', 'grafana_cloud_loki_token') }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: application/json
+    body_format: json
+    body:
+      streams:
+        - stream:
+            job: proxmox-node-updates
+            host: "{{ inventory_hostname }}"
+          values:
+            - - "{{ ansible_date_time.epoch ~ '000000000' }}"
+              - "{{ failure_line }}"
+    status_code: [200, 204]
+  when: not ansible_check_mode
+  failed_when: false

@@ -1,4 +1,6 @@
 all:
+  vars:
+    silence_duration_seconds: 14400
   children:
     pve:
       hosts:

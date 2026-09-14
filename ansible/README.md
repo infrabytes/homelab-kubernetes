@@ -11,7 +11,15 @@ be retired separately.
 
 ## What a run does
 
-1. **Preflight** (once per host, before anything changes): secrets present in
+1. **Alert silence** (once per run, before the first host): creates a Grafana
+   Alertmanager silence matching `grafana_folder=Talos` for
+   `silence_duration_seconds` (default 4h, matching the systemd
+   `TimeoutStartSec`), so the cluster-health alerts (`Node is down`,
+   `Longhorn manager down`, ...) don't page while a host is deliberately
+   down. The maintenance job's own alerts are in the same folder but only
+   fire on failure/silence — a failed run lifts the silence immediately (see
+   below). If the silence API is unreachable the run proceeds (fail-open).
+2. **Preflight** (once per host, before anything changes): secrets present in
    the environment, PVE quorate, all four Talos nodes `Ready`, every Longhorn
    volume healthy. Any failure aborts before the host is touched.
 2. **Patch**: installs `update-notifier-common` + `needrestart` (first run
@@ -29,15 +37,23 @@ be retired separately.
    the next host. `proxmox01` (single control plane `talos-cp-1`) is never
    cordoned or drained — graceful VM shutdown only. Expect ~2–5 min without
    the Kubernetes API during its reboot.
-5. **Report**: one JSON log line per host plus a run summary to Grafana Cloud
+6. **Report**: one k=v log line per host plus a run summary to Grafana Cloud
    Loki (`job="proxmox-node-updates"`). Alert rules live in
    `infra/grafana-cloud-config/maintenance_alerts.tf` (failed run + 8-day
-   dead-man).
+   dead-man). The silence is lifted after the last host; on a failed or
+   aborted run the rescue lifts it first and pushes a `result=failed` line,
+   so the failed-run alert fires instead of being muted. The silence also
+   self-expires after 4h as a backstop (e.g. a `--limit` canary that ends
+   without reaching the last-host cleanup).
 
 Roll order is the inventory order: `proxmox02 → proxmox03 → proxmox04 →
 proxmox01` (`serial: 1`, `any_errors_fatal`). Any failed step aborts the
 remaining hosts, leaves the current node cordoned, and exits non-zero naming
-the host and step.
+the host and step. The secrets come from the same SOPS file as everything
+else: `proxmox_api_token`, `grafana_cloud_loki_username`,
+`grafana_cloud_loki_token`, `grafana_cloud_stack_url` and
+`grafana_cloud_stack_sa_token` (the stack service-account token, used for
+the silence API).
 
 ## Commands
 

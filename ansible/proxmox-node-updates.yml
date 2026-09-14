@@ -6,20 +6,103 @@
   order: inventory
   gather_facts: true
   tasks:
-    - name: Preflight gates
-      ansible.builtin.include_tasks: tasks/preflight.yml
-    - name: Apply upgrades
-      ansible.builtin.include_tasks: tasks/patch.yml
-    - name: Maintenance window (drain, VM stop, reboot)
-      ansible.builtin.include_tasks: tasks/maintenance.yml
-      when: reboot_required | bool
-    - name: Report host result to Loki
-      ansible.builtin.include_tasks: tasks/report.yml
+    - name: Assert the Grafana stack credentials are available
+      vars:
+        env_stack_url: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_url') }}"
+        env_stack_token: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_sa_token') }}"
+      ansible.builtin.assert:
+        that:
+          - env_stack_url | length > 0
+          - env_stack_token | length > 0
+        fail_msg: >-
+          Missing grafana_cloud_stack_url / grafana_cloud_stack_sa_token —
+          wrap the run in `sops exec-env infra/secrets.sops.yaml`.
+      when: inventory_hostname == (ansible_play_hosts_all | first)
 
-- name: Run summary
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  tasks:
-    - name: Report run summary to Loki
-      ansible.builtin.include_tasks: tasks/report_summary.yml
+    - name: Silence the Talos folder alerts for the maintenance window
+      vars:
+        stack_url: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_url') }}"
+        stack_token: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_sa_token') }}"
+      ansible.builtin.uri:
+        url: "{{ stack_url }}api/alertmanager/grafana/api/v2/silences"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ stack_token }}"
+          Content-Type: application/json
+        body_format: json
+        body:
+          matchers:
+            - name: grafana_folder
+              value: Talos
+              isRegex: false
+              isEqual: true
+          startsAt: "{{ ansible_date_time.iso8601 }}"
+          endsAt: "{{ '%Y-%m-%dT%H:%M:%SZ' | strftime((ansible_date_time.epoch | int) + silence_duration_seconds) }}"
+          createdBy: proxmox-node-updates
+          comment: Rolling PVE host maintenance
+        status_code: [200, 202]
+      register: silence_result
+      delegate_to: localhost
+      when:
+        - inventory_hostname == (ansible_play_hosts_all | first)
+        - not ansible_check_mode
+      failed_when: false
+
+    - name: Patch and roll this host
+      block:
+        - name: Preflight gates
+          ansible.builtin.include_tasks: tasks/preflight.yml
+        - name: Apply upgrades
+          ansible.builtin.include_tasks: tasks/patch.yml
+        - name: Maintenance window (drain, VM stop, reboot)
+          ansible.builtin.include_tasks: tasks/maintenance.yml
+          when: reboot_required | bool
+        - name: Report host result to Loki
+          ansible.builtin.include_tasks: tasks/report.yml
+        - name: Report run summary to Loki
+          ansible.builtin.include_tasks: tasks/report_summary.yml
+          when: inventory_hostname == (ansible_play_hosts_all | last)
+        - name: Lift the maintenance silence
+          vars:
+            stack_url: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_url') }}"
+            stack_token: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_sa_token') }}"
+            silence_id: "{{ hostvars[(ansible_play_hosts_all | first)].silence_result.json.silenceID | default('') }}"
+          ansible.builtin.uri:
+            url: "{{ stack_url }}api/alertmanager/grafana/api/v2/silence/{{ silence_id }}"
+            method: DELETE
+            headers:
+              Authorization: "Bearer {{ stack_token }}"
+            status_code: [200, 404]
+          delegate_to: localhost
+          when:
+            - inventory_hostname == (ansible_play_hosts_all | last)
+            - not ansible_check_mode
+            - silence_id | length > 0
+          failed_when: false
+      rescue:
+        - name: Report the failed host to Loki
+          ansible.builtin.include_tasks: tasks/report_failure.yml
+        - name: Lift the maintenance silence so the failure alerts fire
+          vars:
+            stack_url: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_url') }}"
+            stack_token: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_sa_token') }}"
+            silence_id: "{{ hostvars[(ansible_play_hosts_all | first)].silence_result.json.silenceID | default('') }}"
+          ansible.builtin.uri:
+            url: "{{ stack_url }}api/alertmanager/grafana/api/v2/silence/{{ silence_id }}"
+            method: DELETE
+            headers:
+              Authorization: "Bearer {{ stack_token }}"
+            status_code: [200, 404]
+          delegate_to: localhost
+          when:
+            - not ansible_check_mode
+            - silence_id | length > 0
+          failed_when: false
+        - name: Abort the roll
+          ansible.builtin.fail:
+            msg: >-
+              Host {{ inventory_hostname }} failed step
+              '{{ ansible_failed_task.name }}'
+              ({{ ansible_failed_result.msg | default('unknown error') }}) —
+              remaining hosts skipped; the node is left cordoned if the
+              failure came after the drain.
