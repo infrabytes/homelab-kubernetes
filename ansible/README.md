@@ -86,8 +86,11 @@ console into the VM from the PVE UI, then continue as above.
 venv with `ansible-core` + `proxmoxer` + `kubernetes` + the collections, the
 age key, known_hosts entries, and the system units:
 
-- `proxmox-node-updates.service`: `flock -n` lock +
-  `sops exec-env ... ansible-playbook`, `ExecStartPre` pulls the repo.
+- `proxmox-node-updates.service`: `ExecStartPre` pulls the repo, then
+  `run-maintenance.sh` takes the `flock -n` lock on
+  `/run/proxmox-node-updates/lock` (so a manual run colliding with the
+  Sunday roll exits immediately instead of rolling two hosts at once) and
+  wraps `sops exec-env ... ansible-playbook`.
 - `proxmox-node-updates.timer`: `OnCalendar=Sun *-*-* 04:00:00`
   (Europe/Vienna), `Persistent=true` (catch-up at the next boot).
 
