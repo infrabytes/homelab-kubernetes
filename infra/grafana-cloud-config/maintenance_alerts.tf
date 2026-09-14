@@ -146,7 +146,7 @@ resource "grafana_rule_group" "proxmox_maintenance" {
         expression    = "query"
         intervalMs    = 1000
         maxDataPoints = 43200
-        reducer       = "lastNotNull"
+        reducer       = "last"
         refId         = "reduce"
         type          = "reduce"
       })
