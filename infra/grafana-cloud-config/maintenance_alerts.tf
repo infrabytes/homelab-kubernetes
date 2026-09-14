@@ -32,7 +32,7 @@ resource "grafana_rule_group" "proxmox_maintenance" {
     data {
       ref_id         = "query"
       datasource_uid = data.grafana_data_source.loki.uid
-      query_type     = "loki"
+      query_type     = "range"
       relative_time_range {
         from = 900
         to   = 0
@@ -92,7 +92,7 @@ resource "grafana_rule_group" "proxmox_maintenance" {
     data {
       ref_id         = "query"
       datasource_uid = data.grafana_data_source.loki.uid
-      query_type     = "loki"
+      query_type     = "range"
       relative_time_range {
         from = 691200
         to   = 0

@@ -44,7 +44,10 @@ be retired separately.
    aborted run the rescue lifts it first and pushes a `result=failed` line,
    so the failed-run alert fires instead of being muted. The silence also
    self-expires after 4h as a backstop (e.g. a `--limit` canary that ends
-   without reaching the last-host cleanup).
+   without reaching the last-host cleanup). The results are visualised in the
+   "PVE Host Maintenance" dashboard (Talos folder in Grafana Cloud, managed by
+   `infra/grafana-cloud-config/dashboards/proxmox-maintenance.json`): run
+   health stats, reporting activity per host, and the raw log.
 
 Roll order is the inventory order: `proxmox02 → proxmox03 → proxmox04 →
 proxmox01` (`serial: 1`, `any_errors_fatal`). Any failed step aborts the
