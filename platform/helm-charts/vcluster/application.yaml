@@ -8,15 +8,32 @@ spec:
   source:
     repoURL: https://charts.loft.sh
     chart: vcluster
-    targetRevision: 0.37.0
+    targetRevision: 0.37.1
     helm:
       releaseName: vcluster
       values: |
         telemetry:
           enabled: false
-        # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
-        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
         controlPlane:
+          # Deployed etcd fixes the 0.37.0 warm-SQLite protection-hook crashloop (upstream #3343); external DBs are Pro-gated.
+          # Persistence stays forced on: /data holds the vcluster PKI, which the chart drops in deploy-etcd mode - regenerating it invalidates all SA tokens.
+          backingStore:
+            etcd:
+              deploy:
+                enabled: true
+                statefulSet:
+                  resources:
+                    requests:
+                      cpu: 20m
+                      memory: 150Mi
+                    limits:
+                      memory: 256Mi
+                  persistence:
+                    volumeClaim:
+                      enabled: true
+                      size: 5Gi
+                      retentionPolicy: Retain
+          # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h) measured with kine/SQLite in-container: re-derive syncer + etcd resources after ~2 weeks.
           statefulSet:
             resources:
               requests:
@@ -26,6 +43,9 @@ spec:
               limits:
                 memory: 1632Mi
                 ephemeral-storage: 10Gi
+            persistence:
+              volumeClaim:
+                enabled: true
         # Proxies the host metrics-server (read-only) - no metrics server is deployed in the vCluster.
         integrations:
           metricsServer:
