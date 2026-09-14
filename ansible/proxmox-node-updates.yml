@@ -1,0 +1,25 @@
+- name: Rolling Proxmox host maintenance
+  hosts: pve
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  serial: 1
+  order: inventory
+  gather_facts: true
+  tasks:
+    - name: Preflight gates
+      ansible.builtin.include_tasks: tasks/preflight.yml
+    - name: Apply upgrades
+      ansible.builtin.include_tasks: tasks/patch.yml
+    - name: Maintenance window (drain, VM stop, reboot)
+      ansible.builtin.include_tasks: tasks/maintenance.yml
+      when: reboot_required | bool
+    - name: Report host result to Loki
+      ansible.builtin.include_tasks: tasks/report.yml
+
+- name: Run summary
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Report run summary to Loki
+      ansible.builtin.include_tasks: tasks/report_summary.yml

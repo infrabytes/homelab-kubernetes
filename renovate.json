@@ -263,6 +263,29 @@
       "depNameTemplate": "registry.k8s.io/agent-sandbox/agent-sandbox-controller",
       "datasourceTemplate": "docker",
       "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "description": "sops binary version pinned in the windrunner setup script",
+      "managerFilePatterns": [
+        "/^ansible\\/windrunner-setup\\.sh$/"
+      ],
+      "matchStrings": [
+        "SOPS_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "getsops/sops",
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "description": "Ansible collection versions pinned in ansible/requirements.yml",
+      "managerFilePatterns": [
+        "/^ansible\\/requirements\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "- name: (?<depName>[a-z0-9.]+(?:\\.[a-z0-9-]+)+)\\n\\s+version: \\\"?(?<currentValue>[^\\\"\\s]+)\\\"?"
+      ],
+      "datasourceTemplate": "galaxy"
     }
   ],
   "packageRules": [

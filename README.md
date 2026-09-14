@@ -67,6 +67,8 @@ platform/           ArgoCD-managed cluster-level resources (network, issuer,
   grafana-dashboards/  the external Grafana CR + the GrafanaDashboard CRs
                     grafana-operator syncs into the Grafana Cloud stack
 apps/               ArgoCD-managed applications (one subdir per app)
+ansible/            rolling PVE host maintenance playbook (proxmox01-04) + windrunner
+                    systemd units; see ansible/README.md
 .github/            CI workflows + scripts (pre-commit, PR preview diff)
 .pre-commit-config.yaml  the single lint/format gate
 renovate.json       dependency automation
@@ -289,8 +291,23 @@ for workloads are synced from OpenBao by External Secrets Operator (see
 [`platform/helm-charts/openbao/README.md`](platform/helm-charts/openbao/README.md)).
 
 Validation: `pre-commit run --all-files` (terragrunt fmt/validate/tflint,
-yamllint, kubeconform, argocd-apps-check, detect-secrets, sops-encrypted, ruff,
-renovate-config-validator). CI runs the same on push/PR.
+yamllint, kubeconform, argocd-apps-check, ansible-lint, ansible-inventory-check,
+detect-secrets, sops-encrypted, ruff, renovate-config-validator). CI runs the
+same on push/PR.
+
+### PVE host maintenance
+
+The four PVE hosts are patched automatically every Sunday 04:00
+(Europe/Vienna) by the Ansible playbook in [`ansible/`](ansible/README.md),
+run from the windrunner systemd timer: one host at a time (workers first with
+cordon + drain, `proxmox01` last with a graceful VM shutdown only — expect
+~2-5 min without the Kubernetes API during its reboot), reboots only when
+required, waits for the Talos node and all Longhorn volumes to be healthy
+before the next host, and reports per-host lines to Grafana Cloud Loki
+(`job="proxmox-node-updates"`; failed-run + 8-day dead-man alerts live in
+`infra/grafana-cloud-config/maintenance_alerts.tf`). Manual dry run and
+single-host canary commands are in
+[`ansible/README.md`](ansible/README.md#commands).
 
 ## Further reading
 

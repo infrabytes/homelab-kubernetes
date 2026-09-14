@@ -1,0 +1,46 @@
+all:
+  children:
+    pve:
+      hosts:
+        proxmox02:
+          ansible_host: 192.168.0.12
+          ansible_user: root
+          pve_node: proxmox02
+          pve_vmid: 211
+          talos_node: talos-worker-1
+          talos_role: worker
+          drain: true
+        proxmox03:
+          ansible_host: 192.168.0.13
+          ansible_user: root
+          pve_node: proxmox03
+          pve_vmid: 212
+          talos_node: talos-worker-2
+          talos_role: worker
+          drain: true
+        proxmox04:
+          ansible_host: 192.168.0.14
+          ansible_user: root
+          pve_node: proxmox04
+          pve_vmid: 213
+          talos_node: talos-worker-3
+          talos_role: worker
+          drain: true
+        proxmox01:
+          ansible_host: 192.168.0.11
+          ansible_user: root
+          pve_node: proxmox01
+          pve_vmid: 210
+          talos_node: talos-cp-1
+          talos_role: controlplane
+          drain: false
+      vars:
+        pve_api_host: 192.168.0.11:8006
+        pve_validate_certs: false
+        kubeconfig_path_env: KUBECONFIG_PATH
+        loki_url: https://logs-prod-012.grafana.net/loki/api/v1/push
+        longhorn_namespace: longhorn-system
+        drain_timeout: 600
+        vm_shutdown_timeout: 600
+        node_ready_timeout: 900
+        longhorn_healthy_timeout: 900

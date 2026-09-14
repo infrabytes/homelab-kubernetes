@@ -51,8 +51,24 @@ repos:
     hooks:
       - id: ruff-check
 
+  - repo: https://github.com/ansible/ansible-lint
+    rev: v25.12.1
+    hooks:
+      - id: ansible-lint
+        args: [--offline]
+        files: ^ansible/.*\.(ya?ml)$
+        language_version: python3
+        pass_filenames: false
+        entry: bash -c 'cd ansible && ansible-lint --offline'
+
   - repo: local
     hooks:
+      - id: ansible-inventory-check
+        name: ansible inventory / env.hcl consistency
+        entry: .github/scripts/check-ansible-inventory.py
+        language: script
+        pass_filenames: false
+        files: ^(ansible/inventory\.ya?ml|infra/env\.hcl)$
       - id: argocd-apps-check
         name: argocd apps resolve and render
         entry: .github/scripts/check-argocd-apps.py

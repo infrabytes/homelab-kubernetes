@@ -1,0 +1,9 @@
+[Unit]
+Description=Weekly rolling Proxmox host maintenance (Sunday 04:00 Europe/Vienna)
+
+[Timer]
+OnCalendar=Sun *-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

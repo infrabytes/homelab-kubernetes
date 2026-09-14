@@ -1,0 +1,12 @@
+[Unit]
+Description=Rolling Proxmox host maintenance (drain-aware)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deschain
+RuntimeDirectory=proxmox-node-updates
+ExecStartPre=/usr/bin/git -C %h/homelab/homelab-kubernetes pull --ff-only
+ExecStart=%h/homelab/homelab-kubernetes/ansible/run-maintenance.sh
+TimeoutStartSec=4h
