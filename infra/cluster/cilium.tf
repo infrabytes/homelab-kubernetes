@@ -159,7 +159,7 @@ data "helm_template" "cilium" {
       enabled: true
     hubble:
       # Hubble metrics on :9965 (hostPort), scraped through the same PodMonitor:
-      # flow/drop/tcp = verdicts, reasons, flags, dns/http/icmp = the matching
+      # flow/drop/tcp = verdicts, reasons, flags, http/icmp = the matching
       # dashboard panels; namespace context labels only (the two namespace
       # dashboards group by them - workload/pod labels would add thousands of
       # series, so the L7-by-workload dashboard stays empty).
@@ -170,9 +170,6 @@ data "helm_template" "cilium" {
           - flow:labelsContext=source_namespace,destination_namespace
           - drop:labelsContext=source_namespace,destination_namespace
           - tcp:labelsContext=source_namespace,destination_namespace
-          # query adds the DNS name label the Top 10 DNS queries panel groups by
-          # (ignoreAAAA halves that label's cardinality).
-          - dns:query;ignoreAAAA;labelsContext=source_namespace,destination_namespace
           # Workload labels only on http: its dashboard groups by workload, the
           # others only need namespaces (and workload pairs multiply series).
           - http:labelsContext=source_namespace,destination_namespace,source_workload,destination_workload

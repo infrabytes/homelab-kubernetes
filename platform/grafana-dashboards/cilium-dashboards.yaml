@@ -62,25 +62,6 @@ spec:
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: hubble-dns-namespace
-  namespace: kube-system
-spec:
-  instanceSelector:
-    matchLabels:
-      grafanaInstance: main
-  allowCrossNamespaceImport: true
-  folder: Cilium
-  resyncPeriod: 1h
-  configMapRef:
-    name: hubble-dns-namespace
-    key: hubble-dns-namespace.json
-  datasources:
-    - inputName: DS_PROMETHEUS
-      datasourceName: grafanacloud-prom
----
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
   name: hubble-l7-http-metrics-by-workload
   namespace: kube-system
 spec:
