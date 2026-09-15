@@ -55,12 +55,13 @@ spec:
                 - port: 8200
                   protocol: TCP
         webhook:
+          # Re-derived 2026-09-09..09-15 (Grafana Cloud, ~6d): p95 87.8Mi, peak 90.5Mi (91% of baseline limit).
           resources:
             requests:
               cpu: 10m
-              memory: 64Mi
-            limits:
               memory: 96Mi
+            limits:
+              memory: 144Mi
           networkPolicy:
             enabled: true
             egress:

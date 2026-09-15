@@ -67,9 +67,11 @@ resource "helm_release" "argo_cd" {
         }
       }
       notifications = {
+        # Re-derived 2026-09-01..09-15 (Grafana Cloud, 14d): p95 28.2Mi (32Mi request holds),
+        # peak 46.2Mi (88% of the 48Mi baseline limit).
         resources = {
           requests = { cpu = "10m", memory = "32Mi" }
-          limits   = { memory = "48Mi" }
+          limits   = { memory = "64Mi" }
         }
       }
       redis = {
