@@ -42,8 +42,7 @@ spec:
         clusterMetrics:
           enabled: true
           collector: alloy-metrics
-          # Free tier budget: 10K active series. Measured 2026-09-12: the series
-          # below are referenced by no dashboard or alert and cost ~2.6K.
+          # Free tier budget: 10K active series; excludes are dated live reference checks (2026-09-12 ~2.6K, 2026-09-15 ~1.3K).
           kube-state-metrics:
             metricsTuning:
               # NetworkPolicy objects (~100 series): the default allowlist omits them.
@@ -53,12 +52,27 @@ spec:
                 - kube_pod_status_reason
                 - kube_pod_status_phase
                 - kube_replicaset_.*
-                - kube_deployment_status_condition
                 - kube_pod_owner
+                - kube_pod_restart_policy                          # 102
+                - kube_pod_start_time                              # 102
+                - kube_secret_metadata_resource_version            # 76
+                - kube_configmap_metadata_resource_version         # 72
+                - kube_persistentvolume_status_phase               # 60
+                - kube_namespace_status_phase                      # 54
+                - kube_pod_init_container_.*                       # ~318
+                # workload _metadata_generation stays: a workload dashboard counts it
+                - kube_deployment_spec_.*
+                - kube_deployment_status_.*                        # ~152, subsumes the 09-12 status_condition entry
+                - kube_daemonset_(created|deletion_timestamp|status_).*  # ~73
+                - kube_statefulset_(created|replicas|persistentvolumeclaim_retention_policy|status_).*  # ~88
+                - kube_persistentvolumeclaim_.*                    # 72
+                - kube_node_(created|labels|role|spec_pod_cidrs|spec_unschedulable|status_addresses|status_capacity)  # ~49
           kubelet:
             metricsTuning:
               excludeMetrics:
                 - kubelet_pod_start_duration_seconds_bucket
+                - storage_operation_duration_seconds.*   # ~86, unreferenced
+                - kubelet_pleg_relist_.*                 # ~100, unreferenced
           cadvisor:
             metricsTuning:
               excludeMetrics:
@@ -128,8 +142,11 @@ spec:
                 - "http_.*"
                 - "argocd_kubectl_(request_duration_seconds|rate_limiter_duration_seconds|response_size_bytes|request_size_bytes|requests_total).*"
                 - "controller_runtime_.*"
-                # Longhorn replica states (~130 series): no dashboard reads them.
-                - longhorn_replica_state
+                # 2026-09-15 re-triage: zero live references, incl. chart-shipped dashboards
+                - longhorn_.*                           # ~471, subsumes the 09-11 replica_state entry
+                - spegel_.*                             # ~135
+                - vault_.*                              # ~790, OpenBao per-endpoint/route internals
+                - hubble_metrics_http_handler_.*        # 60, :9965 self-metrics
 
         # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
         # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
