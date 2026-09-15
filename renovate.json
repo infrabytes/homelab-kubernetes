@@ -275,17 +275,6 @@
       ],
       "depNameTemplate": "getsops/sops",
       "datasourceTemplate": "github-releases"
-    },
-    {
-      "customType": "regex",
-      "description": "Ansible collection versions pinned in ansible/requirements.yml",
-      "managerFilePatterns": [
-        "/^ansible\\/requirements\\.ya?ml$/"
-      ],
-      "matchStrings": [
-        "- name: (?<depName>[a-z0-9.]+(?:\\.[a-z0-9-]+)+)\\n\\s+version: \\\"?(?<currentValue>[^\\\"\\s]+)\\\"?"
-      ],
-      "datasourceTemplate": "galaxy"
     }
   ],
   "packageRules": [
