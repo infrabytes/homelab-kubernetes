@@ -1,0 +1,76 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: csi-driver-nfs-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
+    chart: csi-driver-nfs
+    targetRevision: 4.13.4
+    helm:
+      releaseName: csi-driver-nfs
+      values: |
+        storageClass:
+          create: false
+        controller:
+          # New component (2026-09-16): initial estimate; re-measure after two weeks.
+          resources:
+            csiProvisioner:
+              requests:
+                cpu: 10m
+                memory: 20Mi
+              limits:
+                memory: 100Mi
+            csiResizer:
+              requests:
+                cpu: 10m
+                memory: 20Mi
+              limits:
+                memory: 100Mi
+            csiSnapshotter:
+              requests:
+                cpu: 10m
+                memory: 20Mi
+              limits:
+                memory: 100Mi
+            livenessProbe:
+              requests:
+                cpu: 10m
+                memory: 20Mi
+              limits:
+                memory: 64Mi
+            nfs:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 128Mi
+        node:
+          resources:
+            livenessProbe:
+              requests:
+                cpu: 10m
+                memory: 20Mi
+              limits:
+                memory: 64Mi
+            nodeDriverRegistrar:
+              requests:
+                cpu: 10m
+                memory: 20Mi
+              limits:
+                memory: 64Mi
+            nfs:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 128Mi
+  destination:
+    namespace: kube-system
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

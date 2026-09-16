@@ -15,4 +15,4 @@ spec:
     key: dashboard.json
   datasources:
     - inputName: DS_PROMXY
-      datasourceName: grafanacloud-prom
+      datasourceName: victoriametrics

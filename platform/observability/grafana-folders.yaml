@@ -1,0 +1,23 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: talos
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  title: Talos
+  uid: talos
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: cilium
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  title: Cilium
+  uid: cilium

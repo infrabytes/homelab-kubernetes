@@ -199,6 +199,13 @@ locals {
     # static-client secret (openbao_oidc_client_secret) for the tailnet mount.
     dex_tailnet_github_client_id     = local.secrets.dex_tailnet_github_client_id
     dex_tailnet_github_client_secret = local.secrets.dex_tailnet_github_client_secret
+
+    # Local Grafana (observability namespace): break-glass admin password, the
+    # Dex generic_oauth client secret, and the Discord webhook the notification
+    # policy posts to. try() keeps the units valid until the webhook lands in SOPS.
+    grafana_admin_password      = local.secrets.grafana_admin_password
+    grafana_oauth_client_secret = local.secrets.grafana_oauth_client_secret
+    grafana_discord_webhook_url = try(local.secrets.grafana_discord_webhook_url, "")
   }
 
   # Grafana Cloud stack API access for the grafana/grafana provider. Manages

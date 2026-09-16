@@ -1,0 +1,24 @@
+# Applying this replaces the whole notification tree (root route -> Discord).
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaNotificationPolicy
+metadata:
+  name: default
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  route:
+    receiver: Discord
+    group_by:
+      - grafana_folder
+      - alertname
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      - receiver: Discord
+        object_matchers:
+          - ["severity", "=", "critical"]
+        group_wait: 0s
+        repeat_interval: 1h

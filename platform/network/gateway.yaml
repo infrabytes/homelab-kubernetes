@@ -90,3 +90,15 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: grafana-https
+      hostname: grafana.icaninto.space
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: grafana-tls
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All

@@ -1,0 +1,198 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: critical
+  namespace: observability
+spec:
+  name: critical
+  folderUID: talos
+  interval: 60s
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  rules:
+    - uid: node-is-down
+      title: Node is down
+      condition: threshold
+      for: 5m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: "Node {{ $labels.instance }} is down or unreachable"
+      labels:
+        severity: critical
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: 'up{job=~"integrations/kubernetes/kubelet"} == bool 0'
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: metrics-pipeline-silent
+      title: Metrics pipeline silent
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Metrics pipeline stopped reporting to the local VictoriaMetrics (Alloy collectors silent)
+      labels:
+        severity: critical
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: absent(grafana_kubernetes_monitoring_collector_info)
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    # ServiceMonitor targets use job=<namespace>/<servicemonitor-name>, not the Service name.
+    - uid: longhorn-manager-down
+      title: Longhorn manager down
+      condition: threshold
+      for: 5m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: "Longhorn manager {{ $labels.instance }} is down"
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: 'up{job=~".*longhorn.*"} == bool 0'
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: container-crash-looping
+      title: Container crash-looping
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Error
+      annotations:
+        summary: "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} is crash-looping"
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: 'max by (namespace, pod, container) (kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}) == 1'
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold

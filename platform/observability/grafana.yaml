@@ -1,0 +1,68 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: grafana
+  namespace: observability
+  labels:
+    grafanaInstance: main
+spec:
+  # Admin credentials come from the SOPS-backed grafana-admin-credentials Secret below.
+  disableDefaultAdminSecret: true
+  config:
+    server:
+      root_url: https://grafana.icaninto.space/
+    # LAN path: Dex (GitHub); the tailnet path reads the ingress proxy's Tailscale identity header.
+    auth.generic_oauth:
+      enabled: "true"
+      name: GitHub
+      allow_sign_up: "true"
+      client_id: grafana
+      scopes: openid profile email
+      auth_url: https://dex.icaninto.space/auth
+      token_url: https://dex.icaninto.space/token
+      api_url: https://dex.icaninto.space/userinfo
+      login_attribute_path: preferred_username
+      role_attribute_path: "preferred_username == 'bbayrakt' && 'GrafanaAdmin' || 'Viewer'"
+      use_pkce: "true"
+    auth.proxy:
+      enabled: "true"
+      header_name: Tailscale-User-Login
+      header_property: username
+      auto_sign_up: "true"
+      # Only the Tailscale ingress proxy (pod CIDR) may assert the identity header.
+      whitelist: 10.244.0.0/16
+  deployment:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: grafana
+              env:
+                - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-oauth-credentials
+                      key: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+                - name: GF_SECURITY_ADMIN_USER
+                  value: admin
+                - name: GF_SECURITY_ADMIN_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-admin-credentials
+                      key: GF_SECURITY_ADMIN_PASSWORD
+              # New component (2026-09-16): initial estimate; re-measure after two weeks.
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  memory: 512Mi
+  # SQLite only; the TSDBs stay off Longhorn.
+  persistentVolumeClaim:
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: longhorn
+      resources:
+        requests:
+          storage: 2Gi

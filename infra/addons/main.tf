@@ -246,6 +246,11 @@ resource "kubernetes_secret_v1" "dex_config" {
           redirectURIs:
             - https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback
             - http://localhost:8250/oidc/callback
+        - id: grafana
+          name: Grafana
+          secret: ${var.grafana_oauth_client_secret}
+          redirectURIs:
+            - https://grafana.icaninto.space/login/generic_oauth
       oauth2:
         skipApprovalScreen: true
       enablePasswordDB: false
@@ -420,4 +425,66 @@ resource "kubernetes_namespace_v1" "arc_systems" {
 
 resource "kubernetes_namespace_v1" "arc_runners" {
   metadata { name = "arc-runners" }
+}
+
+# Terraform owns the observability namespace (like openbao/dex): on a cold bootstrap this unit
+# runs before ArgoCD exists, so an ArgoCD-owned namespace would fail the apply.
+# Keep the import block: without it a re-apply fails on the already-existing namespace.
+import {
+  to = kubernetes_namespace_v1.observability
+  id = "observability"
+}
+
+resource "kubernetes_namespace_v1" "observability" {
+  metadata { name = "observability" }
+}
+
+# Local Grafana (platform/observability/grafana.yaml). The admin/OAuth data keys
+# match the env vars the Grafana CR injects; grafana-operator reads them back
+# from the live Deployment for its own API client. The notification Secrets are
+# read by the contact point's valuesFrom instead.
+import {
+  to = kubernetes_secret_v1.grafana_admin_credentials
+  id = "observability/grafana-admin-credentials"
+}
+
+import {
+  to = kubernetes_secret_v1.grafana_oauth_credentials
+  id = "observability/grafana-oauth-credentials"
+}
+
+import {
+  to = kubernetes_secret_v1.grafana_notification_secrets
+  id = "observability/grafana-notification-secrets"
+}
+
+resource "kubernetes_secret_v1" "grafana_admin_credentials" {
+  metadata {
+    name      = "grafana-admin-credentials"
+    namespace = kubernetes_namespace_v1.observability.metadata[0].name
+  }
+  data = {
+    "GF_SECURITY_ADMIN_USER"     = "admin"
+    "GF_SECURITY_ADMIN_PASSWORD" = var.grafana_admin_password
+  }
+}
+
+resource "kubernetes_secret_v1" "grafana_oauth_credentials" {
+  metadata {
+    name      = "grafana-oauth-credentials"
+    namespace = kubernetes_namespace_v1.observability.metadata[0].name
+  }
+  data = {
+    GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET = var.grafana_oauth_client_secret
+  }
+}
+
+resource "kubernetes_secret_v1" "grafana_notification_secrets" {
+  metadata {
+    name      = "grafana-notification-secrets"
+    namespace = kubernetes_namespace_v1.observability.metadata[0].name
+  }
+  data = {
+    discord_webhook_url = var.grafana_discord_webhook_url
+  }
 }

@@ -1,0 +1,36 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: victoriametrics
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  uid: victoriametrics
+  datasource:
+    name: victoriametrics
+    uid: victoriametrics
+    type: prometheus
+    access: proxy
+    url: http://vmsingle-victoria-metrics-single-server.observability.svc.cluster.local:8428
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: loki
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  uid: loki
+  datasource:
+    name: loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki.observability.svc.cluster.local:3100

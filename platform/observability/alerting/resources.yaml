@@ -1,0 +1,105 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: resources
+  namespace: observability
+spec:
+  name: resources
+  folderUID: talos
+  interval: 60s
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  rules:
+    - uid: container-oomkilled
+      title: Container OOMKilled
+      condition: threshold
+      for: 5m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} was OOMKilled and restarted"
+      labels:
+        severity: critical
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: '(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1) and on (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[1h]) > 0)'
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: container-memory-above-90
+      title: Container memory above 90% of limit
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} runs above 90% of its memory limit"
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: '(max_over_time(max by (namespace, pod, container) (container_memory_working_set_bytes)[5m:1m]) / on (namespace, pod, container) max by (namespace, pod, container) (kube_pod_container_resource_limits{resource="memory"})) > bool 0.9'
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold

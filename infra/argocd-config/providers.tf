@@ -24,6 +24,7 @@ provider "argocd" {
     cluster_ca_certificate = base64decode(local.kc_cluster.cluster["certificate-authority-data"])
     client_certificate     = base64decode(local.kc_user.user["client-certificate-data"])
     client_key             = base64decode(local.kc_user.user["client-key-data"])
-    config_context         = local.kc_context
+    # No config_context: the provider resolves it against the ambient kubeconfig (KUBECONFIG),
+    # not the file parsed above, so setting it fails whenever the two differ (Atlantis).
   }
 }

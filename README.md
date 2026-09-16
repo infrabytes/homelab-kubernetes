@@ -21,14 +21,17 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | Dex (standalone)             | OIDC provider for OpenBao GitHub SSO (`sso-admin`/`sso-user` roles, org-restricted GitHub connector); LAN only at dex.icaninto.space |
 | Tailscale Operator            | Exposes cluster services on the tailnet (OpenBao UI, second Dex for remote SSO, Hubble UI) and provides in-process API server proxy for kubectl from tailnet devices |
 | External Secrets Operator   | Syncs Secrets from OpenBao through per-consumer namespaced stores (k8s auth, one read-only role scoped to a single secret path each); e.g. the ARC runner PAT (`arc-runner-auth`) |
-| Longhorn                     | Block storage on the worker nodes (dedicated disk labels); UI at longhorn.icaninto.space |
-| Grafana Cloud (free tier)    | Metrics (Prometheus remote-write) + logs (Loki), via the `k8s-monitoring` Helm chart; also ingests Talos syslog (port 5140) |
-| grafana-operator             | Delivers the chart-shipped Grafana dashboards to the stack from `platform/grafana-dashboards/` (Cilium ×6, Hubble flows, External Secrets, OpenBao): an external `Grafana` CR plus one `GrafanaDashboard` CR per chart dashboard, imported from the chart ConfigMaps (or the chart's OCI artifact) |
-| Hubble Observer + CF2CNP     | Streams Cilium Hubble flows (DROPPED verdicts) to Loki; Grafana dashboard "Cilium Flows - Hubble Observer" (grafana.com #23862) in the Grafana Cloud stack; CF2CNP web UI generates CiliumNetworkPolicies from flows at cf2cnp.icaninto.space |
+| Longhorn                     | Block storage on the worker nodes (dedicated disk labels); UI at longhorn.icaninto.space. Carries small state only (Grafana's SQLite DB, ARC tool cache) — the observability TSDBs live on the NAS |
+| csi-driver-nfs + `nfs-nas`   | NFS CSI driver and the `nfs-nas` StorageClass (NAS 192.168.0.22:/nas, Retain): the storage home for the VictoriaMetrics and Loki PVCs |
+| VictoriaMetrics + Loki       | Self-hosted observability stores in namespace `observability`: VictoriaMetrics single-node (metrics, 90-day retention) and Loki single binary (logs, filesystem TSDB v13, 2160h retention), both on `nfs-nas` PVCs |
+| Grafana (OSS, local)         | Single Grafana instance managed by grafana-operator (namespace `observability`): datasources, folders, alert rules, contact point and notification policy are `platform/observability/` CRs; LAN at grafana.icaninto.space (Dex/GitHub SSO) and on the tailnet (Tailscale identity headers), both the same instance |
+| Grafana Cloud (free tier)    | Out-of-cluster watchdog only: the two `proxmox-maintenance` rules plus the `cluster-heartbeat` dead-man rule, notified to Discord; no cluster metrics/logs remote-write |
+| grafana-operator             | Manages the local Grafana instance and delivers the chart-shipped dashboards from `platform/grafana-dashboards/` (Cilium ×7 incl. the restored DNS Overview, Hubble flows, External Secrets, OpenBao), imported from the chart ConfigMaps (or the chart's OCI artifact) |
+| Hubble Observer + CF2CNP     | Streams Cilium Hubble flows (DROPPED verdicts) to Loki; Grafana dashboard "Cilium Flows - Hubble Observer" (grafana.com #23862) on the local instance; CF2CNP web UI generates CiliumNetworkPolicies from flows at cf2cnp.icaninto.space |
 | Hubble UI                    | Cilium's live service map (allowed vs dropped edges per namespace/workload), deployed standalone from the Cilium chart by ArgoCD in `kube-system`; exposed on the LAN at hubble.icaninto.space and on the tailnet as `hubble-ui`, both unauthenticated and neither public |
-| Network Policies dashboard   | Grafana Cloud dashboard "Network Policies": endpoint enforcement status (`cilium_policy_endpoint_enforcement_status` = wide-open endpoints), policies per namespace and namespaces without any policy (KSM `kube_networkpolicy_*`), allowed-vs-denied flows and drop reasons (Hubble metrics); scraped through the `cilium-agent` PodMonitor |
+| Network Policies dashboard   | Grafana dashboard "Network Policies" on the local instance: endpoint enforcement status (`cilium_policy_endpoint_enforcement_status` = wide-open endpoints), policies per namespace and namespaces without any policy (KSM `kube_networkpolicy_*`), allowed-vs-denied flows and drop reasons (Hubble metrics); scraped through the `cilium-agent` PodMonitor |
 | spegel                       | Peer-to-peer container image distribution between nodes              |
-| Agent Sandbox                | Sandboxed agent workloads (`agents.x-k8s.io` CRDs + controller, extensions enabled) from the upstream git-pinned Helm chart `v1.0.2`; ArgoCD-managed, metrics scraped by Grafana Cloud |
+| Agent Sandbox                | Sandboxed agent workloads (`agents.x-k8s.io` CRDs + controller, extensions enabled) from the upstream git-pinned Helm chart `v1.0.2`; ArgoCD-managed, metrics scraped into VictoriaMetrics |
 | vCluster                     | Virtual Kubernetes cluster in namespace `vcluster`; hosts the PR-preview Argo CD used for diff rendering; access via `vcluster connect` |
 | prometheus-operator-crds     | CRDs for the monitoring stack                                        |
 | Actions Runner Controller    | Self-hosted GitHub Actions runners in-cluster (ARC), scale set `homelab-runner` |
@@ -59,13 +62,18 @@ platform/           ArgoCD-managed cluster-level resources (network, issuer,
                     metrics-server, kubelet-serving-cert-approver,
                     homelab-runner + cluster-viewer RBAC)
   helm-charts/      one parent ArgoCD app (app-of-apps) for the Helm chart
-                    Applications (cert-manager, cloudnative-pg, dex,
-                    external-dns, external-secrets, gha-runner-scale-set,
+                    Applications (cert-manager, cloudnative-pg, csi-driver-nfs,
+                    dex, external-dns, external-secrets, gha-runner-scale-set,
                     gha-runner-scale-set-controller, grafana-cloud,
-                    hubble-observer, hubble-ui, longhorn, openbao,
-                    prometheus-operator-crds, spegel, tailscale-operator, vcluster)
-  grafana-dashboards/  the external Grafana CR + the GrafanaDashboard CRs
-                    grafana-operator syncs into the Grafana Cloud stack
+                    hubble-observer, hubble-ui, loki, longhorn, openbao,
+                    prometheus-operator-crds, spegel, tailscale-operator,
+                    vcluster, victoria-metrics)
+  grafana-dashboards/  the GrafanaDashboard CRs grafana-operator syncs into
+                    the local Grafana instance
+  observability/    namespace, local Grafana CR + datasources, routing
+                    (LAN HTTPRoute + tailnet Ingress), alert rule groups,
+                    contact point/notification policy, heartbeat CronJob
+  networkpolicies/  per-namespace NetworkPolicies + the DNS-visibility CCNP
 apps/               ArgoCD-managed applications (one subdir per app)
 ansible/            rolling PVE host maintenance playbook (proxmox01-04) + windrunner
                     systemd units; see ansible/README.md
@@ -107,7 +115,7 @@ produced. Coverage now: render errors in this workflow, raw-manifest schema
 validation (kubeconform) and chart render success (check-argocd-apps.py) in
 pre-commit, and human review of the diff. Runtime behavior (crashloops, image
 errors, webhook rejections) is a post-merge concern: ArgoCD syncs on merge,
-Grafana watches the result, rollback is a git revert. The workflow never
+the local Grafana watches the result, rollback is a git revert. The workflow never
 mutates the host cluster — host access is read-only (the `vcluster` namespace
 secrets/workloads the runner needs to reach the vCluster); everything the
 preview creates lives inside the vCluster and is cleaned up by

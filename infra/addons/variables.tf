@@ -155,3 +155,24 @@ variable "dex_tailnet_github_client_secret" {
   default     = ""
   sensitive   = true
 }
+
+variable "grafana_admin_password" {
+  description = "Local Grafana admin password (break-glass login; day-to-day access is Dex/OAuth). Written into the grafana-admin-credentials Secret consumed by the Grafana CR."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "grafana_oauth_client_secret" {
+  description = "Dex static-client secret for Grafana's generic_oauth login (client id \"grafana\"). Written into the grafana-oauth-credentials Secret and the dex-config Secret."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "grafana_discord_webhook_url" {
+  description = "Discord webhook URL for the local Grafana notification policy (and the Cloud watchdog contact point). Written into the grafana-notification-secrets Secret."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
