@@ -1,10 +1,21 @@
 version: 3
 automerge: true
+# A failed group must not let the next group run (a broken `cluster` apply must
+# not be followed by `addons`/`argocd-config`).
+abort_on_execution_order_fail: true
+# execution_order_group mirrors the Terragrunt DAG (cluster -> viewer-kubeconfig
+# /addons -> argocd-config); Atlantis sorts plans AND applies by it, which is the
+# only thing that orders a global `atlantis apply` (project order in this file
+# does not). Keep the groups in sync when adding a unit. Do NOT add `depends_on`:
+# combined with execution_order_group it blocks the *first* global apply with
+# "Can't apply your project unless you apply its dependencies"
+# (runatlantis/atlantis#5791), and on its own it does not order applies.
 projects:
   - name: cluster
     dir: infra/cluster
     workflow: terragrunt
     apply_requirements: [mergeable]
+    execution_order_group: 1
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl", "modules/**/*.tf"]
       enabled: true
@@ -12,6 +23,7 @@ projects:
     dir: infra/viewer-kubeconfig
     workflow: terragrunt
     apply_requirements: [mergeable]
+    execution_order_group: 2
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
       enabled: true
@@ -19,6 +31,7 @@ projects:
     dir: infra/addons
     workflow: terragrunt
     apply_requirements: [mergeable]
+    execution_order_group: 2
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
       enabled: true
@@ -26,13 +39,17 @@ projects:
     dir: infra/argocd-config
     workflow: terragrunt
     apply_requirements: [mergeable]
+    execution_order_group: 3
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
       enabled: true
+  # Order-independent (Grafana Cloud API, no cluster dependency): last group so
+  # its failure cannot abort the cluster units.
   - name: grafana-cloud-config
     dir: infra/grafana-cloud-config
     workflow: terragrunt
     apply_requirements: [mergeable]
+    execution_order_group: 4
     autoplan:
       when_modified: ["../env.hcl", "*.tf", "*.hcl"]
       enabled: true

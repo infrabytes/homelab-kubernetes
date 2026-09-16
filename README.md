@@ -255,9 +255,11 @@ Infra changes go through PRs: open a PR touching `infra/` (or an `env.hcl`
 version bump) and [Atlantis](https://www.runatlantis.io) autoposts a
 `terragrunt plan` per affected unit; when all plans succeed, Atlantis applies
 and squash-merges the PR (`automerge`). Comment commands (`atlantis plan`,
-`atlantis apply -d <unit>`) still work for targeted runs. Applies run
-sequentially in `atlantis.yaml` project order (cluster first), so the
-terragrunt dependency graph, `errors.retry` and `-parallelism=1` all hold.
+`atlantis apply -d <unit>`) still work for targeted runs. Plans and applies are
+ordered by each project's `execution_order_group` in `atlantis.yaml` (cluster,
+then viewer-kubeconfig/addons, then argocd-config), so the terragrunt dependency
+graph, `errors.retry` and `-parallelism=1` all hold; a failed group aborts the
+later ones.
 
 Manual runs still work from a host with the age key:
 
