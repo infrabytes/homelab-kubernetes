@@ -22,7 +22,8 @@ spec:
       token_url: https://dex.icaninto.space/token
       api_url: https://dex.icaninto.space/userinfo
       login_attribute_path: preferred_username
-      role_attribute_path: "preferred_username == 'bbayrakt@github' && 'GrafanaAdmin' || 'Viewer'"
+      # Matches both identities: the tailnet proxy sends `bbayrakt@github`, the LAN Dex login `bbayrakt`.
+      role_attribute_path: "contains(preferred_username, 'bbayrakt') && 'GrafanaAdmin' || 'Viewer'"
       use_pkce: "true"
     auth.proxy:
       enabled: "true"
