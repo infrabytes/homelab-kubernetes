@@ -101,6 +101,10 @@ spec:
                   memory: 48Mi
           alloy-logs:
             presets: [daemonset, filesystem-log-reader]
+            # Talos logs arrive on the node IP, so the listener needs `controller.hostNetwork` (ignored under `alloy`).
+            controller:
+              hostNetwork: true
+              dnsPolicy: ClusterFirstWithHostNet
             # Collector level, not under alloy.: nested there it lands in the
             # unused Alloy CR and the Talos syslog listener silently never runs.
             extraConfig: |
@@ -153,8 +157,6 @@ spec:
                 limits:
                   memory: 576Mi
               stabilityLevel: experimental
-              hostNetwork: true
-              dnsPolicy: ClusterFirstWithHostNet
             configReloader:
               resources:
                 requests:
