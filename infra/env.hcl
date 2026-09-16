@@ -209,12 +209,6 @@ locals {
   grafana_cloud = {
     grafana_cloud_stack_url      = local.secrets.grafana_cloud_stack_url
     grafana_cloud_stack_sa_token = local.secrets.grafana_cloud_stack_sa_token
-
-    # Only the Adaptive Metrics provider still reads these (its tenant singleton
-    # is destroyed this cycle; see versions.tf). Remove with the provider.
-    grafana_cloud_prometheus_url         = local.secrets.grafana_cloud_prometheus_url
-    grafana_cloud_prometheus_username    = local.secrets.grafana_cloud_prometheus_username
-    grafana_cloud_adaptive_metrics_token = try(local.secrets.grafana_cloud_adaptive_metrics_token, "")
   }
 
   argocd_config = {
