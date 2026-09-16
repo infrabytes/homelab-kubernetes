@@ -171,7 +171,8 @@ spec:
             datasource:
               type: prometheus
               uid: victoriametrics
-            expr: 'max by (namespace, pod, container) (kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}) == 1'
+            # The waiting-reason series flaps (11 samples/30m on a real crashloop), so a 10m `for` never accumulates; restarts only climb.
+            expr: 'max by (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[1h])) > bool 3'
             instant: true
             intervalMs: 1000
             maxDataPoints: 43200
