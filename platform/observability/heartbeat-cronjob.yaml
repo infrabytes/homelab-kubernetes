@@ -1,0 +1,48 @@
+# Cloud-side watchdog feed; the stack's Loki push URL matches ansible/inventory.yml.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cluster-heartbeat
+  namespace: grafana-cloud
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 60
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      ttlSecondsAfterFinished: 300
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: heartbeat
+              image: curlimages/curl:8.11.1
+              command:
+                - sh
+                - -c
+                - |
+                  TS="$(date +%s)000000000"
+                  curl -sf -u "$LOKI_USER:$LOKI_TOKEN" -H 'Content-Type: application/json' \
+                    -X POST "https://logs-prod-012.grafana.net/loki/api/v1/push" \
+                    -d "{\"streams\":[{\"stream\":{\"job\":\"cluster-heartbeat\",\"cluster\":\"talos-cluster\"},\"values\":[[\"$TS\",\"alive\"]]}]}"
+                  echo "heartbeat pushed at $TS"
+              env:
+                - name: LOKI_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: alloy-secrets
+                      key: loki-username
+                - name: LOKI_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: alloy-secrets
+                      key: loki-token
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  memory: 32Mi

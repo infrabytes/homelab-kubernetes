@@ -1,0 +1,106 @@
+# longhorn_volume_robustness carries a per-state label, verified live against the exporter.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: infra-health
+  namespace: observability
+spec:
+  name: infra-health
+  folderUID: talos
+  interval: 60s
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  rules:
+    - uid: longhorn-volume-unhealthy
+      title: Longhorn volume degraded or faulted
+      condition: threshold
+      for: 5m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: "Longhorn volume {{ $labels.volume }} ({{ $labels.pvc_namespace }}/{{ $labels.pvc }}) is {{ $labels.state }} on {{ $labels.node }}"
+      labels:
+        severity: critical
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: 'longhorn_volume_robustness{state=~"degraded|faulted"} == 1'
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: openbao-sealed
+      title: OpenBao sealed
+      condition: threshold
+      for: 5m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: "OpenBao {{ $labels.cluster }} is sealed"
+      labels:
+        severity: critical
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: vault_core_unsealed == 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold

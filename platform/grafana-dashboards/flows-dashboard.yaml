@@ -17,7 +17,7 @@ spec:
     path: hubble-observer/dashboard/cilium-hubble-flows.json
   datasources:
     - inputName: DS_LOKI
-      datasourceName: grafanacloud-logs
+      datasourceName: loki
     - inputName: VAR_HUBBLEOBSERVERNAMESPACE
       datasourceName: hubble-observer
     - inputName: VAR_HUBBLEOBSERVERCF2CNPURL

@@ -1,0 +1,59 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: capacity
+  namespace: observability
+spec:
+  name: capacity
+  folderUID: talos
+  interval: 300s
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  rules:
+    - uid: certificate-expiring-soon
+      title: Certificate expiring soon
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: "Certificate {{ $labels.name }} ({{ $labels.namespace }}) expires in less than 14 days"
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: certmanager_certificate_expiration_timestamp_seconds - time() < bool 86400 * 14
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold

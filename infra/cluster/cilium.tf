@@ -159,17 +159,19 @@ data "helm_template" "cilium" {
       enabled: true
     hubble:
       # Hubble metrics on :9965 (hostPort), scraped through the same PodMonitor:
-      # flow/drop/tcp = verdicts, reasons, flags, http/icmp = the matching
+      # flow/drop/tcp = verdicts, reasons, flags, http/icmp/dns = the matching
       # dashboard panels; namespace context labels only (the two namespace
       # dashboards group by them - workload/pod labels would add thousands of
       # series, so the L7-by-workload dashboard stays empty).
-      # port-distribution is off: 649 series for one panel, and the 2026-09-12
-      # series triage (steady state 9.5K vs the 9000-series alert) chose the trim.
+      # port-distribution stays off: 649 series for one panel. dns is back on
+      # (the 9000-series free-tier budget that justified dropping it is gone)
+      # and feeds the restored DNS Overview dashboard.
       metrics:
         enabled:
           - flow:labelsContext=source_namespace,destination_namespace
           - drop:labelsContext=source_namespace,destination_namespace
           - tcp:labelsContext=source_namespace,destination_namespace
+          - dns:labelsContext=source_namespace,destination_namespace
           # Workload labels only on http: its dashboard groups by workload, the
           # others only need namespaces (and workload pairs multiply series).
           - http:labelsContext=source_namespace,destination_namespace,source_workload,destination_workload

@@ -1,0 +1,20 @@
+# Secret comes from infra/addons (SOPS), unlike the ESO-synced app secrets.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaContactPoint
+metadata:
+  name: discord
+  namespace: observability
+spec:
+  name: Discord
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  receivers:
+    - type: discord
+      settings: {}
+      valuesFrom:
+        - targetPath: url
+          valueFrom:
+            secretKeyRef:
+              name: grafana-notification-secrets
+              key: discord_webhook_url

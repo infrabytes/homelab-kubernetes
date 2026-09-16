@@ -1,0 +1,52 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+  namespace: observability
+spec:
+  parentRefs:
+    # LAN only: RFC1918 gateway IP; the Cloudflare record must stay DNS-only.
+    - name: homelab
+      namespace: gateway
+      sectionName: grafana-https
+  hostnames:
+    - grafana.icaninto.space
+  rules:
+    - backendRefs:
+        - name: grafana-service
+          port: 3000
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana-http-redirect
+  namespace: observability
+spec:
+  parentRefs:
+    - name: homelab
+      namespace: gateway
+      sectionName: http
+  hostnames:
+    - grafana.icaninto.space
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: observability
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: grafana-service
+      port:
+        number: 3000
+  tls:
+    - hosts:
+        - grafana
