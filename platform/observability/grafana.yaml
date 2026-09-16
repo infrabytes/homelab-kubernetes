@@ -77,12 +77,3 @@ spec:
                   memory: 256Mi
                 limits:
                   memory: 512Mi
-  # SQLite only; the TSDBs stay off Longhorn.
-  persistentVolumeClaim:
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      storageClassName: longhorn
-      resources:
-        requests:
-          storage: 2Gi
