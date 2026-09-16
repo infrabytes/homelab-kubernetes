@@ -38,6 +38,11 @@ spec:
     spec:
       template:
         spec:
+          # v5.25 creates the PVC from persistentVolumeClaim but does not wire it in; without this the SQLite DB (users, dashboards, alert state) sits in an emptyDir and dies on each restart.
+          volumes:
+            - name: grafana-data
+              persistentVolumeClaim:
+                claimName: grafana-pvc
           # Grafana resolves the Dex issuer server-side (OIDC discovery + token exchange); the LAN name is not in cluster DNS, so pin it.
           hostAliases:
             - ip: 192.168.0.200
