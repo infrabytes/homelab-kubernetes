@@ -254,7 +254,13 @@ boots with (no separate ingress/load-balancer components):
   API CRDs (pinned to the version Cilium 1.20 documents, `v1.6.1`) are fetched
   by `addons.tf` and embedded as a controlplane inline manifest **before** the
   Cilium manifest. A `Gateway` (`platform/network/gateway.yaml`) with fixed
-  address `192.168.0.200` terminates HTTP/HTTPS; apps get `HTTPRoute`s.
+  address `192.168.0.200` terminates HTTP/HTTPS; apps get `HTTPRoute`s. After
+  adding a listener, check that it shows up in the Gateway's `status.listeners`
+  and that its `HTTPRoute`s get `Accepted=True` — Cilium's gateway controller can
+  keep serving a stale listener set (the listener and its route status stay
+  empty, external-dns then never creates the record, and the hostname is
+  unreachable). `kubectl -n kube-system rollout restart deploy/cilium-operator`
+  re-reconciles it.
 - **TLS + DNS**: cert-manager (Let's Encrypt DNS-01 via Cloudflare) issues certs
   for LAN-only hostnames; external-dns creates/updates Cloudflare records from
   Gateways/HTTPRoutes. Both are GitOps-managed (see below).
