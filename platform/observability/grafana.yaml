@@ -35,6 +35,11 @@ spec:
     spec:
       template:
         spec:
+          # Grafana resolves the Dex issuer server-side (OIDC discovery + token exchange); the LAN name is not in cluster DNS, so pin it.
+          hostAliases:
+            - ip: 192.168.0.200
+              hostnames:
+                - dex.icaninto.space
           containers:
             - name: grafana
               env:
