@@ -70,6 +70,11 @@ cd infra && terragrunt destroy --all # CAUTION: destroys everything
 # argocd-config), with abort_on_execution_order_fail; a new unit needs a group.
 # Never add `depends_on`: with groups it blocks the first global apply
 # (runatlantis/atlantis#5791).
+# Every project pins `terraform_distribution: opentofu` + `terraform_version`
+# (matching the image's tofu): without a distribution Atlantis looks for
+# Terraform, re-resolves the newest release its `required_version` allows on
+# every plan, and fails when its downloader rejects HashiCorp's content type.
+# Bump that pin and the image's tofu together.
 # The image also carries kubectl (the cluster unit's converge.tf local-exec
 # needs it) and is tagged atlantis-homelab:vX.Y.Z there.
 sops infra/secrets.sops.yaml         # edit secrets (re-encrypts on save)
@@ -111,6 +116,7 @@ Every change must pass `.pre-commit-config.yaml`; CI runs it on push/PR on the s
 - Raw manifests (`metrics-server`, `kubelet-serving-cert-approver`) → `kubernetes` manager (image + API versions).
 - `ansible/requirements.yml` collection pins → the built-in `ansible-galaxy` manager (`galaxy-collection` datasource on galaxy.ansible.com); no custom manager needed — the `galaxy` (roles) datasource cannot resolve collections and fails lookup.
 - `.github/workflows/pre-commit.yaml` + `.github/workflows/warm-tool-cache.yaml` CLI pins (terragrunt `tg_version`, tofu `tofu_version`, tflint `tflint_version`; kubeconform + pyyaml stay pre-commit-only) → regex custom managers whose `managerFilePatterns` cover both files; `.pre-commit-config.yaml` → `pre-commit` manager. The `actions/setup-python` `python-version` pin needs NO custom manager: the built-in `github-actions` manager already tracks it in every workflow file — don't add one.
+- `atlantis.yaml`: the per-project `terraform_version` (OpenTofu, matching the atlantis-homelab image) is tracked by the same regex custom manager as the workflows' `tofu_version`; never bump it alone.
 - `.github/workflows/pr-preview.yaml` + `.github/workflows/warm-tool-cache.yaml`: kubectl pin (`Azure/setup-kubectl`, must match `kubernetes_version` in `env.hcl`), the helm CLI pin (`Azure/setup-helm`), and the in-vCluster Argo CD chart version (helm datasource, `argoproj.github.io/argo-helm`) → regex custom managers. The `helm/helm` CLI pin custom manager covers all three workflow files.
 - Runner CLI pins (the CLIs without setup actions that the `pr-preview` workflow runs on the self-hosted runner: vcluster, argocd-diff-preview, gh, kind) → regex custom managers matching the job-env `*_VERSION` values in `.github/workflows/pr-preview.yaml` (github-releases datasource). Installed per-run by the workflow from those pins, so a bump is one env value. kubectl and helm are NOT pinned there; they come from the setup actions, which install into the pod-local `RUNNER_TOOL_CACHE` (`/opt/tool-cache/local/runner`, hydrated from the shared seed volume; see `README.md`).
 

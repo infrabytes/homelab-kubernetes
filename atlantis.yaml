@@ -3,6 +3,13 @@ automerge: true
 # A failed group must not let the next group run (a broken `cluster` apply must
 # not be followed by `addons`/`argocd-config`).
 abort_on_execution_order_fail: true
+# Every project pins OpenTofu explicitly: without a distribution Atlantis looks
+# for *Terraform*, re-resolves the newest release allowed by each unit's
+# `required_version` on every plan, and fails the whole plan when its downloader
+# rejects HashiCorp's content-type (`unexpected content-type: binary/octet-stream`).
+# The version must match the tofu the atlantis-homelab image ships (it is
+# installed there from this same pin); bump both together.
+#
 # execution_order_group mirrors the Terragrunt DAG (cluster -> viewer-kubeconfig
 # /addons -> argocd-config); Atlantis sorts plans AND applies by it, which is the
 # only thing that orders a global `atlantis apply` (project order in this file
@@ -15,6 +22,8 @@ projects:
     dir: infra/cluster
     workflow: terragrunt
     apply_requirements: [mergeable]
+    terraform_distribution: opentofu
+    terraform_version: 1.12.6
     execution_order_group: 1
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl", "modules/**/*.tf"]
@@ -23,6 +32,8 @@ projects:
     dir: infra/viewer-kubeconfig
     workflow: terragrunt
     apply_requirements: [mergeable]
+    terraform_distribution: opentofu
+    terraform_version: 1.12.6
     execution_order_group: 2
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
@@ -31,6 +42,8 @@ projects:
     dir: infra/addons
     workflow: terragrunt
     apply_requirements: [mergeable]
+    terraform_distribution: opentofu
+    terraform_version: 1.12.6
     execution_order_group: 2
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
@@ -39,6 +52,8 @@ projects:
     dir: infra/argocd-config
     workflow: terragrunt
     apply_requirements: [mergeable]
+    terraform_distribution: opentofu
+    terraform_version: 1.12.6
     execution_order_group: 3
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
@@ -49,6 +64,8 @@ projects:
     dir: infra/grafana-cloud-config
     workflow: terragrunt
     apply_requirements: [mergeable]
+    terraform_distribution: opentofu
+    terraform_version: 1.12.6
     execution_order_group: 4
     autoplan:
       when_modified: ["../env.hcl", "*.tf", "*.hcl"]
