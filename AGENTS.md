@@ -59,6 +59,11 @@ cd infra && terragrunt destroy --all # CAUTION: destroys everything
 # ~/appdata/atlantis on that host, outside this repo).
 # Apply consumes the plan written by plan (-out $PLANFILE), so a failed or
 # stale plan blocks apply: comment `atlantis plan` again before `atlantis apply`.
+# Plans and applies are ordered by each project's `execution_order_group`
+# (mirroring the Terragrunt DAG: cluster -> viewer-kubeconfig/addons ->
+# argocd-config), with abort_on_execution_order_fail; a new unit needs a group.
+# Never add `depends_on`: with groups it blocks the first global apply
+# (runatlantis/atlantis#5791).
 # The image also carries kubectl (the cluster unit's converge.tf local-exec
 # needs it) and is tagged atlantis-homelab:vX.Y.Z there.
 sops infra/secrets.sops.yaml         # edit secrets (re-encrypts on save)
