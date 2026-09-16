@@ -125,6 +125,8 @@ locals {
 
   addons = {
     kubeconfig_path           = local.kubeconfig_path
+    seaweedfs_access_key      = local.secrets.seaweedfs_access_key
+    seaweedfs_secret_key      = local.secrets.seaweedfs_secret_key
     gitops_repo_url           = local.gitops_repo_url
     github_pat                = local.secrets.github_pat
     cloudflare_api_token      = local.secrets.cloudflare_api_token

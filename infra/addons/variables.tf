@@ -155,3 +155,15 @@ variable "grafana_discord_webhook_url" {
   default     = ""
   sensitive   = true
 }
+
+variable "seaweedfs_access_key" {
+  description = "SeaweedFS S3 access key for the Grafana Postgres cluster's backup object store."
+  type        = string
+  sensitive   = true
+}
+
+variable "seaweedfs_secret_key" {
+  description = "SeaweedFS S3 secret key for the Grafana Postgres cluster's backup object store."
+  type        = string
+  sensitive   = true
+}
