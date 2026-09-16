@@ -166,19 +166,12 @@ locals {
     # Generate with: openssl rand -hex 32
     argocd_webhook_secret = try(local.secrets.argocd_webhook_secret, "")
 
-    # Grafana Cloud (free tier) remote-write credentials. Usernames are the
-    # stack instance IDs, tokens are access-policy/API tokens scoped to
-    # metrics:write and logs:write. Consumed by the k8s-monitoring chart via
-    # the alloy-secrets Secret in the grafana-cloud namespace.
-    grafana_cloud_prometheus_username = local.secrets.grafana_cloud_prometheus_username
-    grafana_cloud_prometheus_token    = local.secrets.grafana_cloud_prometheus_token
-    grafana_cloud_loki_username       = local.secrets.grafana_cloud_loki_username
-    grafana_cloud_loki_token          = local.secrets.grafana_cloud_loki_token
-
-    # grafana-operator's stack credential (dashboards + folders read/write),
-    # materialized as the grafana-operator-token Secret in the grafana-cloud
-    # namespace. try() keeps the units valid until the token lands in SOPS.
-    grafana_cloud_dashboards_token = try(local.secrets.grafana_cloud_dashboards_token, "")
+    # Grafana Cloud Loki credentials, kept for the cluster-heartbeat CronJob
+    # (platform/observability/heartbeat-cronjob.yaml) — the only consumer left in
+    # the grafana-cloud namespace. The prometheus-* keys were dropped with the
+    # Alloy repoint; the SOPS values stay for a full revert of the cutover.
+    grafana_cloud_loki_username = local.secrets.grafana_cloud_loki_username
+    grafana_cloud_loki_token    = local.secrets.grafana_cloud_loki_token
 
     # OpenBao static seal key (32 random bytes, base64) and the root token
     # (filled in once, after the one-time `bao operator init` bootstrap).
@@ -208,20 +201,17 @@ locals {
     grafana_discord_webhook_url = try(local.secrets.grafana_discord_webhook_url, "")
   }
 
-  # Grafana Cloud stack API access for the grafana/grafana provider. Manages
-  # the talos/cilium folders, the hand-authored network-policies dashboard, the
-  # alerting rule groups and (in adaptive_metrics.tf) Adaptive Metrics.
-  # Chart-shipped dashboards are NOT managed here: grafana-operator delivers
-  # them from the charts (platform/grafana-dashboards). Order-independent unit:
-  # it talks to the Grafana Cloud API, not the cluster.
+  # Grafana Cloud watchdog: stack API access for the grafana/grafana provider.
+  # Manages the Talos folder, the PVE-maintenance dashboard/rules and the
+  # cluster-heartbeat rule; the Discord contact point and notification policy are
+  # hand-configured (see infra/grafana-cloud-config/README.md). Order-independent
+  # unit: it talks to the Grafana Cloud API, not the cluster.
   grafana_cloud = {
     grafana_cloud_stack_url      = local.secrets.grafana_cloud_stack_url
     grafana_cloud_stack_sa_token = local.secrets.grafana_cloud_stack_sa_token
 
-    # Adaptive Metrics is served from the hosted Prometheus endpoint, not the
-    # stack URL, and takes a tenant ID + access-policy token rather than the
-    # stack service-account token. try() keeps the units valid until that
-    # access policy token lands in SOPS.
+    # Only the Adaptive Metrics provider still reads these (its tenant singleton
+    # is destroyed this cycle; see versions.tf). Remove with the provider.
     grafana_cloud_prometheus_url         = local.secrets.grafana_cloud_prometheus_url
     grafana_cloud_prometheus_username    = local.secrets.grafana_cloud_prometheus_username
     grafana_cloud_adaptive_metrics_token = try(local.secrets.grafana_cloud_adaptive_metrics_token, "")

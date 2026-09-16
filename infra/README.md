@@ -10,7 +10,7 @@ is order-independent and runs in parallel).
 | `cluster`              | Talos cluster + Cilium (kube-proxy-free, L2 LB, Gateway API CRDs)        |
 | `viewer-kubeconfig`    | Mints the view-only `viewer@talos-cluster` client cert (CSR API) + kubeconfig |
 | `addons`               | Installs ArgoCD, Cert Manager and ExternalDNS to bootstrap ArgoCD        |
-| `grafana-cloud-config` | Grafana Cloud as code (dashboards, alerting, settings) via the grafana/grafana provider; no cluster dependency |
+| `grafana-cloud-config` | Grafana Cloud **watchdog** (Talos folder, PVE-maintenance dashboard + rules, cluster-heartbeat rule) via the grafana/grafana provider; no cluster dependency |
 | `argocd-config`        | Configures ArgoCD resources (ApplicationSets); runs after ArgoCD exists  |
 
 Run everything with one command from this directory:
@@ -47,7 +47,7 @@ infra/
     terragrunt.hcl    # logic only: inputs = local.env.locals.addons
   argocd-config/      # unit: ArgoCD ApplicationSets (argocd provider)
     terragrunt.hcl    # logic only: inputs = local.env.locals.argocd_config
-  grafana-cloud-config/ # unit: Grafana Cloud as code (grafana/grafana provider)
+  grafana-cloud-config/ # unit: Grafana Cloud watchdog (grafana/grafana provider)
     terragrunt.hcl    # logic only: inputs = local.env.locals.grafana_cloud
 ```
 

@@ -6,10 +6,6 @@
 # datasource the kubelet/Longhorn rules use, only with `query_type: loki` and
 # range expressions instead of instant PromQL.
 
-data "grafana_data_source" "loki" {
-  name = "grafanacloud-${local.stack_slug}-logs"
-}
-
 resource "grafana_rule_group" "proxmox_maintenance" {
   name             = "proxmox-maintenance"
   folder_uid       = grafana_folder.talos.uid

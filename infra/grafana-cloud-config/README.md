@@ -1,30 +1,32 @@
-# grafana-cloud-config (Grafana Cloud as code)
+# grafana-cloud-config (Grafana Cloud watchdog)
 
-Manages the **Grafana Cloud side** of the stack as code with the
+Manages the **out-of-cluster watchdog** on Grafana Cloud Free with the
 [grafana/grafana](https://registry.terraform.io/providers/grafana/grafana/latest)
-provider: the custom dashboards, folders, alerting (rule groups, contact points,
-notification policies, message templates, mute timings) and org preferences.
-[Adaptive Metrics](#adaptive-metrics) is managed with the
-[grafana/grafana-adaptive-metrics](https://registry.terraform.io/providers/grafana/grafana-adaptive-metrics/latest)
-provider.
+provider. After the cutover the cluster's metrics and logs live in the local
+stack (`platform/observability`), so everything that used to be managed here —
+the cluster rule groups, the Cilium folder, the hand-authored Network Policies
+dashboard, Adaptive Metrics — moved there or was deleted. What is left is only
+what must survive the cluster dying:
 
-Chart-shipped dashboards are **not** managed here: `grafana-operator` delivers
-them from the charts (`platform/grafana-dashboards/`, wired by an external
-`Grafana` CR and the scoped `grafana_cloud_dashboards_token` the addons unit
-materializes), creating the External Secrets and OpenBao folders itself. The
-Cilium Flows dashboard moved there in place (same uid): `main.tf` forgets it
-through a `removed` block so the remote dashboard survives the handover
-instead of being deleted on the next apply. The `talos` and `cilium` folders,
-the Network Policies dashboard and the alerting stay here.
+- the **Talos folder** and the **PVE-maintenance dashboard**;
+- the **`proxmox-maintenance` rules** (fed by `ansible/proxmox-node-updates.yml`
+  pushing to Cloud Loki) and the **`watchdog` rule** ("Cluster heartbeat
+  missing", fed by `platform/observability/heartbeat-cronjob.yaml`).
 
-This is the companion to `platform/helm-charts/grafana-cloud/`, which handles
-the **data flow** into Grafana Cloud (Alloy collectors pushing metrics/logs).
-Everything managed here lives on the existing free-tier stack; the stack itself
-is not managed (single stack, no `grafana_cloud_stack` resource).
+This is a dead-man switch, not a monitoring stack: keep it small, and keep every
+rule's data source something the cluster cannot deliver itself. The heartbeat
+rule is the one that catches "the cluster is gone"; the maintenance rules catch
+"the maintenance automation is gone".
+
+The **Discord contact point (`GrafanaBot`) and the notification policy rooted at
+it are hand-configured** in the stack — the watchdog rules notify through them
+unchanged. Adopt them with the import workflow below if they should become
+managed (a `grafana_contact_point` + `grafana_notification_policy` pair; the
+webhook URL lives in the stack and is not readable back, so it would have to be
+supplied from SOPS).
 
 Order-independent unit: the provider talks to the Grafana Cloud API, not the
-cluster, so `apply --all` runs it in parallel with the other units (canonical
-ordering: after `addons`, before `argocd-config`).
+cluster, so `apply --all` runs it in parallel with the other units.
 
 ## Requirements
 
@@ -32,35 +34,22 @@ ordering: after `addons`, before `argocd-config`).
   - `grafana_cloud_stack_url`: stack base URL, e.g. `https://<stack-slug>.grafana.net/`
   - `grafana_cloud_stack_sa_token`: stack **service-account token with the
     Admin role** (Grafana Cloud → stack → Administration → Service accounts).
-    Admin covers dashboards/folders/alerting/org-preferences endpoints; a
-    tighter token with `grafana-dashboards-read-write`, `alerting:read/write`
-    and `datasources:read` scopes works too.
-  - `grafana_cloud_prometheus_url`: hosted Prometheus endpoint URL
-    (`https://<prom-url>.grafana.net`, from the Details page of the hosted
-    Prometheus endpoint). Base URL of the Adaptive Metrics API.
-  - `grafana_cloud_prometheus_username`: numeric stack instance ID (the
-    **Username / Instance ID** on the same Details page).
-  - `grafana_cloud_adaptive_metrics_token`: access-policy token with
-    `adaptive-metrics-config:read`, `adaptive-metrics-config:write` and
-    `adaptive-metrics-rules:read`. The portal exposes those for the config
-    endpoint even though the
-    [HTTP API docs](https://grafana.com/docs/grafana-cloud/adaptive-telemetry/adaptive-metrics/manage-as-code/adaptive-metrics-api/)
-    name a non-grantable `adaptive-metrics-recommendations:write`. Rules read is
-    not cosmetic: the provider fetches `GET /aggregations/segmented_rules` while
-    configuring itself, so a config-only token without it fails every plan with
-    `Could not initialize internal state. ... invalid scope requested`.
-    `adaptive-metrics-recommendations:read` only matters for listing
-    recommendations; the provider does not need it.
-- `infra/env.hcl` maps them into `locals.grafana_cloud`, wired by
+    Admin covers dashboards/folders/alerting endpoints; a tighter token with
+    `grafana-dashboards-read-write`, `alerting:read/write` and
+    `datasources:read` scopes works too.
+  - `grafana_cloud_loki_username` / `grafana_cloud_loki_token` are **not** used
+    by this unit: they belong to the heartbeat CronJob and the Ansible playbook
+    (the addons unit materializes them into the `alloy-secrets` Secret).
+- `infra/env.hcl` maps the two stack values into `locals.grafana_cloud`, wired by
   `terragrunt.hcl` (`inputs = local.env.locals.grafana_cloud`).
 
 ## Adopting existing (hand-configured) resources
 
-1. Export every existing dashboard from the UI (Share → Export → Download
-   JSON) into `dashboards/<name>.json`, keeping the original `uid`s. Note the
-   folder UIDs, alert-rule group names and contact point names in use.
-2. Write the matching resources in `main.tf` so the config matches the
-   live state (same uids, same rule-group names, same contact point names).
+1. Export any existing dashboard from the UI (Share → Export → Download JSON)
+   into `dashboards/<name>.json`, keeping the original `uid`. Note the folder
+   UIDs, alert-rule group names and contact point names in use.
+2. Write the matching resources in `main.tf` so the config matches the live
+   state (same uids, same rule-group names, same contact point names).
 3. Import each resource into state (config must exist first, then import):
 
    ```sh
@@ -69,7 +58,6 @@ ordering: after `addons`, before `argocd-config`).
    terragrunt import 'grafana_dashboard.<name>' "<uid>"
    terragrunt import 'grafana_contact_point.<name>' "<name>"
    terragrunt import 'grafana_rule_group.<name>' "<folderUID>:<groupName>"
-   terragrunt import 'grafana_message_template.<name>' "<name>"
    terragrunt import 'grafana_notification_policy.root' "policy"
    terragrunt import 'grafana_organization_preferences.main' "<orgID>"
    ```
@@ -78,108 +66,18 @@ ordering: after `addons`, before `argocd-config`).
    Treat any diff as a decision: keep the live state (adopt the config to
    match it) or accept the config (apply overwrites the UI state).
 
-## Adding something new
+## Adding a rule
 
-- **Dashboard**: chart-shipped dashboards belong to
-  `platform/grafana-dashboards/` (a `GrafanaDashboard` CR per chart dashboard).
-  For a hand-authored one, drop the exported JSON in `dashboards/`, add a
-  `grafana_dashboard` resource with `config_json = file("...")`, `terragrunt apply`.
-- **Alert rule**: add a `grafana_rule_group` (see the live groups in `main.tf`).
-  Queries hit the auto-provisioned managed Prometheus datasource
-  (`grafanacloud-<stack-slug>-prom`, resolved read-only via
-  `data.grafana_data_source.prom.uid` in `main.tf`). Every rule is an
-  **instant** query (`instant: true`, `range: false`, `query_type =
-  "prometheus"`) feeding a threshold expression (`expression = "query"`,
-  `gt 0`). PromQL comparisons need the `bool` modifier (`up == bool 0`,
-  `count(...) > bool 9000`): plain comparisons keep the matching sample's
-  original value (0) instead of yielding 1, so the threshold never fires.
-  `no_data_state = "OK"` keeps healthy (empty) results quiet.
-- **Contact point / mute timing / message template**: add the matching
-  resource, reference it from `grafana_notification_policy`.
-- **Settings**: `grafana_organization_preferences` is a per-org singleton —
-  do not add a second one.
-
-## Adaptive Metrics
-
-Adaptive Metrics analyzes how metrics are queried and recommends aggregations
-that drop unused labels. `adaptive_metrics.tf` manages the tenant-wide
-recommendations config: `keep_labels` (labels that must never be aggregated)
-and `auto_apply` (whether Grafana Cloud applies the rest on its own).
-
-The provider is pinned in `versions.tf`. It authenticates against the **hosted
-Prometheus endpoint** with `<instance-id>:<access-policy-token>` — not the stack
-URL and not the stack service-account token used by the `grafana` provider, so
-it has its own `url`/`api_key` inputs (see Requirements above).
-
-Policy:
-
-- **`keep_labels`** lists the labels dashboards and alerts depend on. It only
-  constrains *new* recommendations: rules that already aggregate one of these
-  labels stay as they are. Recommendations generated before a label joined the
-  list keep proposing to drop it until the service regenerates them — when
-  auto-apply was enabled, 82 of 160 pending recommendations still proposed
-  dropping `pod`, `node`, `instance`, `namespace`, `container` or `job`, and
-  those are applied anyway. That risk was accepted deliberately: Grafana only
-  recommends aggregating labels it sees no queries for, so only queries built
-  afterwards can read `<aggregated>`.
-- **Auto-apply is on** (`auto_apply.enabled = true`). While it is on, no new
-  custom rules can be created (existing ones keep working).
-- **The `no-increase` gate is held server-side, not in HCL.** No released
-  provider version has the `gate` attribute (0.3.3-0.3.6 have none; it exists
-  only on the provider's unreleased `main`), and OpenTofu drops unrecognized
-  keys inside a nested attribute object — so declaring it keeps
-  `terragrunt validate` green while POSTing a config with **no gate at all**,
-  i.e. ungated auto-apply that looks gated in review. Do not re-add the block
-  until a release supports it, and confirm what actually landed with
-  `terragrunt state show 'grafana-adaptive-metrics_recommendations_config.singleton'`
-  rather than by reading HCL.
-
-Every apply of this resource POSTs the whole config **without** `gate`, so the
-gate is cleared whenever `keep_labels` or `auto_apply` changes. Re-set it right
-after such an apply:
-
-```sh
-# reads the live config, forces auto-apply on with the gate, writes it back
-curl -sS -u "$TENANT:$TOKEN" "$URL/aggregations/recommendations/config" \
-  | jq '.auto_apply = {enabled: true, gate: {policy: "no-increase"}}' \
-  | curl -sS -u "$TENANT:$TOKEN" -X POST -H 'Content-Type: application/json' \
-      --data-binary @- "$URL/aggregations/recommendations/config"
-```
-
-`GET /aggregations/recommendations/config` echoes `auto_apply.gate` back when it
-is set and omits it when it is not — that is the only reliable check, since
-Terraform neither manages nor misses the gate. Renovate tracks the provider, so
-the release that makes this declarable arrives as a PR.
-
-The config is a tenant singleton: `create` only records it in state and
-`delete` only forgets it, so the resource is not importable. A UI-side edit
-shows up as drift on the next `terragrunt plan`: apply to overwrite it, or move
-the change into `adaptive_metrics.tf`. A UI-side *gate* change is invisible to
-`plan` — the provider has no such attribute — so only the API or the UI shows
-it.
-
-Add a per-metric `grafana-adaptive-metrics_exemption` to keep full cardinality
-for a specific metric — that is the lever for the pending recommendations that
-still propose dropping a kept label.
-
-Auth note: the provider's `Configure` calls
-`GET /aggregations/segmented_rules`, so the token needs
-`adaptive-metrics-rules:read` even though this resource never touches rules.
-After a policy change, Grafana Cloud propagates scopes unevenly across edge
-nodes, so that call can intermittently return `401 invalid scope requested` for
-a few minutes — retry before debugging the config.
-
-## Chart-dashboard labels
-
-The chart dashboards group by `type`/`subtype`/`protocol` (hubble flows), `flag`
-(tcp flags), `qtypes` (dns) and `method`/`reporter` (http). Those labels are in
-`keep_labels` in `adaptive_metrics.tf`, which only prevents *new*
-recommendations: the rules that already aggregate them - applied by auto-apply
-before the dashboards existed - keep dropping them until they are pruned once.
-Pruning through the API needs an access-policy token with
-`adaptive-metrics-rules:write` (the config token here has only `read`, so
-`POST /aggregations/rules` answers 400); the portal's Adaptive Metrics page can
-edit the rules instead.
+Add a `grafana_rule_group` (see `main.tf`). Loki rules read the auto-provisioned
+managed Loki datasource (`grafanacloud-<stack-slug>-logs`, resolved read-only via
+`data.grafana_data_source.loki.uid`) with `query_type = "range"` and a 900s
+window, feed a `reduce` expression (`reducer = "last"`) and a threshold;
+`no_data_state = "Alerting"` is what makes a dead-man rule fire when the data
+disappears (any other state turns the silence into no alert at all). Prometheus
+rules, if one is ever needed here, resolve
+`grafanacloud-<stack-slug>-prom` the same way and must use the `bool` modifier
+for comparisons (`up == bool 0`) — a plain comparison keeps the sample's value
+instead of yielding 1, so the threshold never fires.
 
 ## Caveats
 
@@ -187,10 +85,9 @@ edit the rules instead.
   hand-editing them, or `terragrunt plan` reports drift.
 - `grafana_notification_policy` **replaces the entire policy tree** on apply —
   it must always contain the full routing (root contact point + all nested
-  policies).
+  policies). It is deliberately not managed here yet (see above).
 - Free tier: one stack only; SLOs and stack-level settings are out of scope
-  (they need a cloud access-policy token and the `grafana.cloud` provider
-  block — possible follow-up).
-- Alternative dashboard syncs: Grafana Cloud's Git Sync covers dashboards and
-  folders only and is capped at 1 repo / 20 resources on the free tier — this
-  unit is the full-coverage path.
+  (they need a cloud access-policy token and the `grafana.cloud` provider block).
+- The Cloud dashboards the chart-shipped dashboards used to be delivered into
+  (Cilium/External Secrets/OpenBao) are gone; grafana-operator now renders them
+  into the local instance instead (`platform/grafana-dashboards/`).
