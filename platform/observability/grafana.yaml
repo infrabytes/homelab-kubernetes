@@ -24,6 +24,8 @@ spec:
       login_attribute_path: preferred_username
       # Matches both identities: the tailnet proxy sends `bbayrakt@github`, the LAN Dex login `bbayrakt`.
       role_attribute_path: "contains(preferred_username, 'bbayrakt') && 'GrafanaAdmin' || 'Viewer'"
+      # Without this Grafana caps the mapped role at Admin, so the GrafanaAdmin above never lands.
+      allow_assign_grafana_admin: "true"
       use_pkce: "true"
     auth.proxy:
       enabled: "true"
