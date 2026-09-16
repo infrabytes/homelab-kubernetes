@@ -45,7 +45,8 @@ spec:
           seccompProfile:
             type: RuntimeDefault
 
-        # Only DROPPED flows are logged to Loki (free-tier log budget).
+        # The chart's observer ships only DROPPED flows (--verdict DROPPED): still the
+        # right volume/noise trade-off now that the local Loki has no budget.
         # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
         # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
         resources:
