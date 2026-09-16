@@ -119,19 +119,19 @@ spec:
               }
 
               loki.process "talos" {
-                stage.parse_json {
+                stage.json {
                   expressions = {
                     talos_time    = "talos-time",
                     talos_level   = "talos-level",
                     talos_service = "talos-service",
-                    talos_node    = "node",
+                    node          = "node",
                     msg           = "msg",
                   }
                 }
 
                 stage.template {
-                  source = "line"
-                  format = "{{ .msg }}"
+                  source   = "line"
+                  template = "{{ .msg }}"
                 }
 
                 stage.timestamp {
