@@ -22,7 +22,7 @@ spec:
       token_url: https://dex.icaninto.space/token
       api_url: https://dex.icaninto.space/userinfo
       login_attribute_path: preferred_username
-      role_attribute_path: "preferred_username == 'bbayrakt' && 'GrafanaAdmin' || 'Viewer'"
+      role_attribute_path: "preferred_username == 'bbayrakt@github' && 'GrafanaAdmin' || 'Viewer'"
       use_pkce: "true"
     auth.proxy:
       enabled: "true"
