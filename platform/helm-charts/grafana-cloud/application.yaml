@@ -101,6 +101,50 @@ spec:
                   memory: 48Mi
           alloy-logs:
             presets: [daemonset, filesystem-log-reader]
+            # Collector level, not under alloy.: nested there it lands in the
+            # unused Alloy CR and the Talos syslog listener silently never runs.
+            extraConfig: |
+              loki.source.syslog "talos" {
+                listener {
+                  address            = "0.0.0.0:5140"
+                  protocol           = "tcp"
+                  syslog_format      = "raw"
+                  max_message_length = 65536
+                }
+                forward_to = [loki.process.talos.receiver]
+              }
+
+              loki.process "talos" {
+                stage.parse_json {
+                  expressions = {
+                    talos_time    = "talos-time",
+                    talos_level   = "talos-level",
+                    talos_service = "talos-service",
+                    talos_node    = "node",
+                    msg           = "msg",
+                  }
+                }
+
+                stage.template {
+                  source = "line"
+                  format = "{{ .msg }}"
+                }
+
+                stage.timestamp {
+                  source = "talos_time"
+                  format = "RFC3339Nano"
+                }
+
+                stage.labels {
+                  values = {
+                    talos_level   = "",
+                    talos_service = "",
+                    node          = "",
+                  }
+                }
+
+                forward_to = [loki.write.loki.receiver]
+              }
             alloy:
               resources:
                 requests:
@@ -111,48 +155,6 @@ spec:
               stabilityLevel: experimental
               hostNetwork: true
               dnsPolicy: ClusterFirstWithHostNet
-              extraConfig: |
-                loki.source.syslog "talos" {
-                  listener {
-                    address            = "0.0.0.0:5140"
-                    protocol           = "tcp"
-                    syslog_format      = "raw"
-                    max_message_length = 65536
-                  }
-                  forward_to = [loki.process.talos.receiver]
-                }
-
-                loki.process "talos" {
-                  stage.parse_json {
-                    expressions = {
-                      talos_time    = "talos-time",
-                      talos_level   = "talos-level",
-                      talos_service = "talos-service",
-                      talos_node    = "node",
-                      msg           = "msg",
-                    }
-                  }
-
-                  stage.template {
-                    source = "line"
-                    format = "{{ .msg }}"
-                  }
-
-                  stage.timestamp {
-                    source = "talos_time"
-                    format = "RFC3339Nano"
-                  }
-
-                  stage.labels {
-                    values = {
-                      talos_level   = "",
-                      talos_service = "",
-                      node          = "",
-                    }
-                  }
-
-                  forward_to = [loki.write.loki.receiver]
-                }
             configReloader:
               resources:
                 requests:

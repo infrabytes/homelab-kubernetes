@@ -1,68 +1,38 @@
-# Grafana Cloud stack resources (folders, hand-authored dashboards, alerting).
+# Grafana Cloud watchdog (out-of-cluster dead man).
 #
-# Chart-shipped dashboards are NOT managed here: grafana-operator delivers them
-# from the charts (platform/grafana-dashboards, creating the External Secrets
-# and OpenBao folders itself). This unit keeps the custom network-policies
-# dashboard, the talos/cilium folders, the alerting rule groups and Adaptive
-# Metrics (adaptive_metrics.tf). Adopt hand-configured UI state (contact points,
-# notification policy, org preferences) via the import workflow in README.md.
+# After the cutover the cluster's metrics and logs live in the local stack
+# (platform/observability); this unit keeps only what must survive the cluster
+# dying with them: the PVE-maintenance rules (fed by the Ansible playbook) and
+# the cluster-heartbeat rule (fed by platform/observability/heartbeat-cronjob.yaml
+# pushing into Cloud Loki). Both notify through the hand-configured `GrafanaBot`
+# Discord contact point and the notification policy rooted at it — they are not
+# managed here; see README ("Adopting existing resources") to import them.
+#
+# This unit is order-independent: the provider talks to the Grafana Cloud API,
+# not the cluster. Adopt hand-configured UI state (org preferences) via the
+# import workflow in README.md.
 
-# Grafana Cloud auto-provisions the managed Prometheus/Loki datasources on
-# every stack; they cannot be managed with Terraform, only referenced. The
-# name pattern is always `grafanacloud-<stack-slug>-<type>`, with the slug
-# taken from the stack URL.
 locals {
   stack_slug = regex("^https://([a-z0-9-]+)\\.grafana\\.net/?$", var.grafana_cloud_stack_url)[0]
 }
 
-data "grafana_data_source" "prom" {
-  name = "grafanacloud-${local.stack_slug}-prom"
+# Grafana Cloud auto-provisions the managed Loki datasource on every stack; it
+# cannot be managed with Terraform, only referenced. The name pattern is always
+# `grafanacloud-<stack-slug>-logs`, with the slug taken from the stack URL.
+data "grafana_data_source" "loki" {
+  name = "grafanacloud-${local.stack_slug}-logs"
 }
 
-# Alerting rule groups must live in a folder. Dashboards can be adopted into
-# this folder later (see the adopt-workflow in README.md).
+# Alerting rule groups must live in a folder; dashboards are adopted into it.
 resource "grafana_folder" "talos" {
   title = "Talos"
   uid   = "talos"
 }
 
-# Cilium folder: holds the hand-authored network-policies dashboard below plus
-# the chart-shipped Cilium/Hubble dashboards grafana-operator resolves by title.
-resource "grafana_folder" "cilium" {
-  title = "Cilium"
-  uid   = "cilium"
-}
-
-# The Cilium Flows - Hubble Observer dashboard (grafana.com #23862) moved to
-# platform/grafana-dashboards/flows-dashboard.yaml (same uid, same folder): the
-# operator now owns it. `removed` drops it from state without deleting the
-# remote dashboard, so the operator adopts the existing one instead of
-# Terraform deleting it on the next apply.
-removed {
-  from = grafana_dashboard.cilium_hubble_flows
-
-  lifecycle {
-    destroy = false
-  }
-}
-
-# Policy posture: enforcement status, wide-open namespaces, flow verdicts. The
-# single $${DS_PROM} placeholder is filled with the managed Prometheus
-# datasource uid at apply time (same pattern as the Loki placeholder above).
-resource "grafana_dashboard" "network_policies" {
-  folder = grafana_folder.cilium.id
-  config_json = replace(
-    file("${path.module}/dashboards/network-policies.json"),
-    "$${DS_PROM}",
-    data.grafana_data_source.prom.uid,
-  )
-}
-
 # Rolling PVE host maintenance: per-host run results pushed by
 # ansible/proxmox-node-updates.yml to the managed Loki (job=proxmox-node-updates).
-# Lives in the talos folder next to the maintenance alert rules. The single
-# $${DS_LOKI} placeholder is filled with the managed Loki datasource uid at
-# apply time (same pattern as $${DS_PROM} above).
+# The single $${DS_LOKI} placeholder is filled with the managed Loki datasource
+# uid at apply time.
 resource "grafana_dashboard" "proxmox_maintenance" {
   folder = grafana_folder.talos.id
   config_json = replace(
@@ -72,417 +42,24 @@ resource "grafana_dashboard" "proxmox_maintenance" {
   )
 }
 
-# Import: terragrunt import 'grafana_rule_group.<name>' "<folderUID>:<groupName>"
-
-resource "grafana_rule_group" "critical" {
-  name             = "critical"
+# Dead-man switch for the cluster itself: the heartbeat CronJob pushes
+# {job="cluster-heartbeat"} every 5 minutes from inside the cluster, so 15
+# minutes of silence means the cluster (or its CronJob) is gone. Nothing local
+# can alert on that — the local Grafana goes down with the cluster.
+resource "grafana_rule_group" "watchdog" {
+  name             = "watchdog"
   folder_uid       = grafana_folder.talos.uid
   interval_seconds = 60
 
   rule {
-    name           = "Node is down"
-    for            = "5m"
+    name           = "Cluster heartbeat missing"
+    for            = "0s"
     condition      = "threshold"
-    no_data_state  = "OK"
-    exec_err_state = "Alerting"
-
-    annotations = {
-      summary = "Node {{ $labels.instance }} is down or unreachable"
-    }
-    labels = {
-      severity = "critical"
-    }
-
-    data {
-      ref_id         = "query"
-      datasource_uid = data.grafana_data_source.prom.uid
-      query_type     = "prometheus"
-      relative_time_range {
-        from = 660
-        to   = 60
-      }
-      model = jsonencode({
-        datasource = {
-          type = "prometheus"
-          uid  = data.grafana_data_source.prom.uid
-        }
-        expr          = "up{job=~\"integrations/kubernetes/kubelet\"} == bool 0"
-        instant       = true
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        range         = false
-        refId         = "query"
-      })
-    }
-    data {
-      ref_id         = "threshold"
-      datasource_uid = "__expr__"
-      query_type     = "threshold"
-      relative_time_range {
-        from = 0
-        to   = 0
-      }
-      model = jsonencode({
-        conditions = [{
-          evaluator = {
-            params = [0]
-            type   = "gt"
-          }
-        }]
-        datasource = {
-          type = "__expr__"
-          uid  = "__expr__"
-        }
-        expression    = "query"
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        refId         = "threshold"
-        type          = "threshold"
-      })
-    }
-  }
-
-  rule {
-    name           = "Metrics pipeline silent"
-    for            = "10m"
-    condition      = "threshold"
-    no_data_state  = "OK"
-    exec_err_state = "Alerting"
-
-    annotations = {
-      summary = "Metrics pipeline stopped reporting to Grafana Cloud (Alloy collectors silent)"
-    }
-    labels = {
-      severity = "critical"
-    }
-
-    data {
-      ref_id         = "query"
-      datasource_uid = data.grafana_data_source.prom.uid
-      query_type     = "prometheus"
-      relative_time_range {
-        from = 660
-        to   = 60
-      }
-      model = jsonencode({
-        datasource = {
-          type = "prometheus"
-          uid  = data.grafana_data_source.prom.uid
-        }
-        expr          = "absent(grafana_kubernetes_monitoring_collector_info)"
-        instant       = true
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        range         = false
-        refId         = "query"
-      })
-    }
-    data {
-      ref_id         = "threshold"
-      datasource_uid = "__expr__"
-      query_type     = "threshold"
-      relative_time_range {
-        from = 0
-        to   = 0
-      }
-      model = jsonencode({
-        conditions = [{
-          evaluator = {
-            params = [0]
-            type   = "gt"
-          }
-        }]
-        datasource = {
-          type = "__expr__"
-          uid  = "__expr__"
-        }
-        expression    = "query"
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        refId         = "threshold"
-        type          = "threshold"
-      })
-    }
-  }
-
-  rule {
-    name           = "Longhorn manager down"
-    for            = "5m"
-    condition      = "threshold"
-    no_data_state  = "OK"
-    exec_err_state = "Alerting"
-
-    annotations = {
-      summary = "Longhorn manager {{ $labels.instance }} is down"
-    }
-    labels = {
-      severity = "warning"
-    }
-
-    data {
-      ref_id         = "query"
-      datasource_uid = data.grafana_data_source.prom.uid
-      query_type     = "prometheus"
-      relative_time_range {
-        from = 660
-        to   = 60
-      }
-      model = jsonencode({
-        datasource = {
-          type = "prometheus"
-          uid  = data.grafana_data_source.prom.uid
-        }
-        expr          = "up{job=\"longhorn-backend\"} == bool 0"
-        instant       = true
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        range         = false
-        refId         = "query"
-      })
-    }
-    data {
-      ref_id         = "threshold"
-      datasource_uid = "__expr__"
-      query_type     = "threshold"
-      relative_time_range {
-        from = 0
-        to   = 0
-      }
-      model = jsonencode({
-        conditions = [{
-          evaluator = {
-            params = [0]
-            type   = "gt"
-          }
-        }]
-        datasource = {
-          type = "__expr__"
-          uid  = "__expr__"
-        }
-        expression    = "query"
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        refId         = "threshold"
-        type          = "threshold"
-      })
-    }
-  }
-
-  rule {
-    name           = "Container crash-looping"
-    for            = "10m"
-    condition      = "threshold"
-    no_data_state  = "OK"
+    no_data_state  = "Alerting"
     exec_err_state = "Error"
 
     annotations = {
-      summary = "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} is crash-looping"
-    }
-    labels = {
-      severity = "warning"
-    }
-
-    data {
-      ref_id         = "query"
-      datasource_uid = data.grafana_data_source.prom.uid
-      query_type     = "prometheus"
-      relative_time_range {
-        from = 660
-        to   = 60
-      }
-      model = jsonencode({
-        datasource = {
-          type = "prometheus"
-          uid  = data.grafana_data_source.prom.uid
-        }
-        expr          = "max by (namespace, pod, container) (kube_pod_container_status_waiting_reason{reason=\"CrashLoopBackOff\"}) == 1"
-        instant       = true
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        range         = false
-        refId         = "query"
-      })
-    }
-    data {
-      ref_id         = "threshold"
-      datasource_uid = "__expr__"
-      query_type     = "threshold"
-      relative_time_range {
-        from = 0
-        to   = 0
-      }
-      model = jsonencode({
-        conditions = [{
-          evaluator = {
-            params = [0]
-            type   = "gt"
-          }
-        }]
-        datasource = {
-          type = "__expr__"
-          uid  = "__expr__"
-        }
-        expression    = "query"
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        refId         = "threshold"
-        type          = "threshold"
-      })
-    }
-  }
-}
-
-# Capacity / lifecycle: full-cardinality and slow-moving checks.
-resource "grafana_rule_group" "capacity" {
-  name             = "capacity"
-  folder_uid       = grafana_folder.talos.uid
-  interval_seconds = 300
-
-  rule {
-    name           = "Active series budget high"
-    for            = "15m"
-    condition      = "threshold"
-    no_data_state  = "OK"
-    exec_err_state = "Alerting"
-
-    annotations = {
-      summary = "Active series count exceeds 9000, approaching the 10K free-tier limit"
-    }
-    labels = {
-      severity = "warning"
-    }
-
-    data {
-      ref_id         = "query"
-      datasource_uid = data.grafana_data_source.prom.uid
-      query_type     = "prometheus"
-      relative_time_range {
-        from = 660
-        to   = 60
-      }
-      model = jsonencode({
-        datasource = {
-          type = "prometheus"
-          uid  = data.grafana_data_source.prom.uid
-        }
-        expr          = "count({__name__=~\".+\"}) > bool 9000"
-        instant       = true
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        range         = false
-        refId         = "query"
-      })
-    }
-    data {
-      ref_id         = "threshold"
-      datasource_uid = "__expr__"
-      query_type     = "threshold"
-      relative_time_range {
-        from = 0
-        to   = 0
-      }
-      model = jsonencode({
-        conditions = [{
-          evaluator = {
-            params = [0]
-            type   = "gt"
-          }
-        }]
-        datasource = {
-          type = "__expr__"
-          uid  = "__expr__"
-        }
-        expression    = "query"
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        refId         = "threshold"
-        type          = "threshold"
-      })
-    }
-  }
-
-  rule {
-    name           = "Certificate expiring soon"
-    for            = "10m"
-    condition      = "threshold"
-    no_data_state  = "OK"
-    exec_err_state = "Alerting"
-
-    annotations = {
-      summary = "Certificate {{ $labels.name }} ({{ $labels.namespace }}) expires in less than 14 days"
-    }
-    labels = {
-      severity = "warning"
-    }
-
-    data {
-      ref_id         = "query"
-      datasource_uid = data.grafana_data_source.prom.uid
-      query_type     = "prometheus"
-      relative_time_range {
-        from = 660
-        to   = 60
-      }
-      model = jsonencode({
-        datasource = {
-          type = "prometheus"
-          uid  = data.grafana_data_source.prom.uid
-        }
-        expr          = "certmanager_certificate_expiration_timestamp_seconds - time() < bool 86400 * 14"
-        instant       = true
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        range         = false
-        refId         = "query"
-      })
-    }
-    data {
-      ref_id         = "threshold"
-      datasource_uid = "__expr__"
-      query_type     = "threshold"
-      relative_time_range {
-        from = 0
-        to   = 0
-      }
-      model = jsonencode({
-        conditions = [{
-          evaluator = {
-            params = [0]
-            type   = "gt"
-          }
-        }]
-        datasource = {
-          type = "__expr__"
-          uid  = "__expr__"
-        }
-        expression    = "query"
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        refId         = "threshold"
-        type          = "threshold"
-      })
-    }
-  }
-}
-
-# Resource guards: the sizing re-audit's alert pair. The last-terminated gauge
-# latches until the next clean exit, so the restart increase pins the OOMKill
-# rule to a recent kill; the saturation rule compares the 5m working-set peak
-# against each container's own memory limit.
-resource "grafana_rule_group" "resources" {
-  name             = "resources"
-  folder_uid       = grafana_folder.talos.uid
-  interval_seconds = 60
-
-  rule {
-    name           = "Container OOMKilled"
-    for            = "5m"
-    condition      = "threshold"
-    no_data_state  = "OK"
-    exec_err_state = "Alerting"
-
-    annotations = {
-      summary = "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} was OOMKilled and restarted"
+      summary = "No cluster heartbeat in 15 minutes — the cluster is down or its heartbeat CronJob stopped pushing"
     }
     labels = {
       severity = "critical"
@@ -490,23 +67,42 @@ resource "grafana_rule_group" "resources" {
 
     data {
       ref_id         = "query"
-      datasource_uid = data.grafana_data_source.prom.uid
-      query_type     = "prometheus"
+      datasource_uid = data.grafana_data_source.loki.uid
+      query_type     = "range"
       relative_time_range {
-        from = 660
-        to   = 60
+        from = 900
+        to   = 0
       }
       model = jsonencode({
         datasource = {
-          type = "prometheus"
-          uid  = data.grafana_data_source.prom.uid
+          type = "loki"
+          uid  = data.grafana_data_source.loki.uid
         }
-        expr          = "(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\"} == 1) and on (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[1h]) > 0)"
-        instant       = true
+        expr          = "sum(count_over_time({job=\"cluster-heartbeat\"} |= \"alive\" [15m]))"
+        queryType     = "range"
+        refId         = "query"
+      })
+    }
+    data {
+      ref_id         = "reduce"
+      datasource_uid = "__expr__"
+      query_type     = ""
+      relative_time_range {
+        from = 0
+        to   = 0
+      }
+      model = jsonencode({
+        conditions = []
+        datasource = {
+          type = "__expr__"
+          uid  = "__expr__"
+        }
+        expression    = "query"
         intervalMs    = 1000
         maxDataPoints = 43200
-        range         = false
-        refId         = "query"
+        reducer       = "last"
+        refId         = "reduce"
+        type          = "reduce"
       })
     }
     data {
@@ -520,78 +116,15 @@ resource "grafana_rule_group" "resources" {
       model = jsonencode({
         conditions = [{
           evaluator = {
-            params = [0]
-            type   = "gt"
+            params = [1]
+            type   = "lt"
           }
         }]
         datasource = {
           type = "__expr__"
           uid  = "__expr__"
         }
-        expression    = "query"
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        refId         = "threshold"
-        type          = "threshold"
-      })
-    }
-  }
-
-  rule {
-    name           = "Container memory above 90% of limit"
-    for            = "15m"
-    condition      = "threshold"
-    no_data_state  = "OK"
-    exec_err_state = "Alerting"
-
-    annotations = {
-      summary = "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} runs above 90% of its memory limit"
-    }
-    labels = {
-      severity = "warning"
-    }
-
-    data {
-      ref_id         = "query"
-      datasource_uid = data.grafana_data_source.prom.uid
-      query_type     = "prometheus"
-      relative_time_range {
-        from = 660
-        to   = 60
-      }
-      model = jsonencode({
-        datasource = {
-          type = "prometheus"
-          uid  = data.grafana_data_source.prom.uid
-        }
-        expr          = "(max_over_time(max by (namespace, pod, container) (container_memory_working_set_bytes)[5m:1m]) / on (namespace, pod, container) max by (namespace, pod, container) (kube_pod_container_resource_limits{resource=\"memory\"})) > bool 0.9"
-        instant       = true
-        intervalMs    = 1000
-        maxDataPoints = 43200
-        range         = false
-        refId         = "query"
-      })
-    }
-    data {
-      ref_id         = "threshold"
-      datasource_uid = "__expr__"
-      query_type     = "threshold"
-      relative_time_range {
-        from = 0
-        to   = 0
-      }
-      model = jsonencode({
-        conditions = [{
-          evaluator = {
-            params = [0]
-            type   = "gt"
-          }
-        }]
-        datasource = {
-          type = "__expr__"
-          uid  = "__expr__"
-        }
-        expression    = "query"
+        expression    = "reduce"
         intervalMs    = 1000
         maxDataPoints = 43200
         refId         = "threshold"

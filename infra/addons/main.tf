@@ -392,30 +392,16 @@ resource "kubernetes_namespace_v1" "grafana_cloud" {
   }
 }
 
-# Credentials consumed by the k8s-monitoring chart (platform/helm-charts/
-# grafana-cloud). Key names match the destinations' usernameKey/passwordKey.
+# Loki credentials for the cluster-heartbeat CronJob, the only remaining
+# consumer in this namespace (the prometheus-* keys went with the Alloy repoint).
 resource "kubernetes_secret_v1" "grafana_cloud_credentials" {
   metadata {
     name      = "alloy-secrets"
     namespace = kubernetes_namespace_v1.grafana_cloud.metadata[0].name
   }
   data = {
-    "prometheus-username" = var.grafana_cloud_prometheus_username
-    "prometheus-token"    = var.grafana_cloud_prometheus_token
-    "loki-username"       = var.grafana_cloud_loki_username
-    "loki-token"          = var.grafana_cloud_loki_token
-  }
-}
-
-# Stack credential for grafana-operator (platform/helm-charts/grafana-operator),
-# referenced by the Grafana CR's external.apiKey in platform/grafana-dashboards.
-resource "kubernetes_secret_v1" "grafana_operator_token" {
-  metadata {
-    name      = "grafana-operator-token"
-    namespace = kubernetes_namespace_v1.grafana_cloud.metadata[0].name
-  }
-  data = {
-    token = var.grafana_cloud_dashboards_token
+    "loki-username" = var.grafana_cloud_loki_username
+    "loki-token"    = var.grafana_cloud_loki_token
   }
 }
 

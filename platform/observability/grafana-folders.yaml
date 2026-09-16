@@ -1,3 +1,5 @@
+# Degraded in ArgoCD until its GrafanaFolder health check learns the negative-polarity
+# FolderUIDMismatch condition (upstream #29395, not in v3.5.2); cosmetic.
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaFolder
 metadata:
