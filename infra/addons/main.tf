@@ -22,11 +22,12 @@ resource "helm_release" "argo_cd" {
         service = { type = "ClusterIP" }
         ingress = { enabled = false }
         metrics = { enabled = true }
-        # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
-        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
+        # Re-derived 2026-09-16 (pod age 2d, local VictoriaMetrics): p95 169Mi → 192Mi
+        # request; limit = max(1.5x request, 1.25x peak 174Mi) = 288Mi (was 128Mi/192Mi,
+        # which left the server 32% over its request and at 90% of its limit).
         resources = {
-          requests = { cpu = "10m", memory = "128Mi" }
-          limits   = { memory = "192Mi" }
+          requests = { cpu = "10m", memory = "192Mi" }
+          limits   = { memory = "288Mi" }
         }
       }
       applicationSet = {
