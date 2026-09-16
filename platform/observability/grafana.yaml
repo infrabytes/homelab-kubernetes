@@ -36,8 +36,16 @@ spec:
       whitelist: 10.244.0.0/16
   deployment:
     spec:
+      # RWO SQLite volume: never let two Grafana pods run against it at once.
+      strategy:
+        type: Recreate
       template:
         spec:
+          # The Longhorn volume is root-owned and Grafana runs as uid 472; without fsGroup the container cannot create /var/lib/grafana/plugins.
+          securityContext:
+            fsGroup: 472
+            seccompProfile:
+              type: RuntimeDefault
           # v5.25 creates the PVC from persistentVolumeClaim but does not wire it in; without this the SQLite DB (users, dashboards, alert state) sits in an emptyDir and dies on each restart.
           volumes:
             - name: grafana-data
