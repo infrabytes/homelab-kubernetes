@@ -436,6 +436,25 @@ import {
 }
 
 import {
+  to = kubernetes_secret_v1.grafana_pg_backup_s3
+  id = "observability/grafana-pg-backup-s3"
+}
+
+# Barman object store credentials for the Grafana Postgres cluster
+# (platform/observability/grafana-postgres.yaml).
+resource "kubernetes_secret_v1" "grafana_pg_backup_s3" {
+  metadata {
+    name      = "grafana-pg-backup-s3"
+    namespace = kubernetes_namespace_v1.observability.metadata[0].name
+  }
+  type = "Opaque"
+  data = {
+    ACCESS_KEY_ID     = var.seaweedfs_access_key
+    SECRET_ACCESS_KEY = var.seaweedfs_secret_key
+  }
+}
+
+import {
   to = kubernetes_secret_v1.grafana_oauth_credentials
   id = "observability/grafana-oauth-credentials"
 }

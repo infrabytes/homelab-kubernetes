@@ -11,6 +11,13 @@ spec:
   config:
     server:
       root_url: https://grafana.icaninto.space/
+    # Database is the CloudNativePG cluster in grafana-postgres.yaml; the password comes from the secret it generates.
+    database:
+      type: postgres
+      host: grafana-pg-rw.observability.svc.cluster.local
+      name: grafana
+      user: grafana
+      ssl_mode: require
     # LAN path: Dex (GitHub); the tailnet path reads the ingress proxy's Tailscale identity header.
     auth.generic_oauth:
       enabled: "true"
@@ -46,6 +53,11 @@ spec:
           containers:
             - name: grafana
               env:
+                - name: GF_DATABASE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-pg-app
+                      key: password
                 - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
                   valueFrom:
                     secretKeyRef:
