@@ -65,6 +65,10 @@ cd infra && terragrunt destroy --all # CAUTION: destroys everything
 # ~/appdata/atlantis on that host, outside this repo).
 # Apply consumes the plan written by plan (-out $PLANFILE), so a failed or
 # stale plan blocks apply: comment `atlantis plan` again before `atlantis apply`.
+# Atlantis plans and applies the *branch*, so a branch that predates another
+# merge to the same unit re-applies the old values and silently reverts it —
+# hence `execution_order_group`, and hence: rebase/re-plan a PR after anything
+# else in its unit merged (a stale apply of #228 reverted #227's argo-cd sizing).
 # Plans and applies are ordered by each project's `execution_order_group`
 # (mirroring the Terragrunt DAG: cluster -> viewer-kubeconfig/addons ->
 # argocd-config), with abort_on_execution_order_fail; a new unit needs a group.

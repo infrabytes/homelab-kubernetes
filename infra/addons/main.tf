@@ -23,8 +23,8 @@ resource "helm_release" "argo_cd" {
         ingress = { enabled = false }
         metrics = { enabled = true }
         # Re-derived 2026-09-16 (pod age 2d, local VictoriaMetrics): p95 169Mi → 192Mi
-        # request; limit = max(1.5x request, 1.25x peak 174Mi) = 288Mi (was 128Mi/192Mi,
-        # which left the server 32% over its request and at 90% of its limit).
+        # request; limit = max(1.5x request, 1.25x peak 174Mi) = 288Mi. The 128Mi/192Mi
+        # it replaces left the server 32% over its request and at 90% of its limit.
         resources = {
           requests = { cpu = "10m", memory = "192Mi" }
           limits   = { memory = "288Mi" }
