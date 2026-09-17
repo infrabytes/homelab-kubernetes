@@ -1,0 +1,27 @@
+name: renovate-atlantis-apply
+
+on:
+  workflow_run:
+    workflows: [pre-commit, renovate-gate]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: read
+  statuses: read
+
+concurrency:
+  group: renovate-atlantis-apply-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  request-apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Request atlantis apply when every gate is green
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/renovate-atlantis-apply.py

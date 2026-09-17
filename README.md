@@ -208,6 +208,19 @@ change" mentions); a write-access approval turns it green and automation
 resumes. Non-infra breaking PRs then need one manual merge click; infra PRs
 flow apply → merge via Atlantis automatically.
 
+Infra PRs get their apply comment on their own: when the `pre-commit` or
+`renovate-gate` workflow completes, `.github/workflows/renovate-atlantis-apply.yaml`
+runs `.github/scripts/renovate-atlantis-apply.py`, which comments
+`atlantis apply` on the head SHA — at most once per SHA — and only when every
+commit status and check run on that SHA is green (`breaking-change-gate`
+included) and Atlantis has posted a successful `atlantis/plan` status for that
+same SHA. The comment is authored by `github-actions[bot]` with the workflow's
+`GITHUB_TOKEN`, adds no secret, and a rebase or new push is evaluated afresh.
+Because the trigger is those two workflow completions only, a plan that turns
+green after both have finished waits for the next event instead of being picked
+up immediately. Held major/breaking PRs stay uncommented until an approval
+re-runs `renovate-gate` green.
+
 One-time admin setup (idempotent, re-runnable):
 
 ```sh
