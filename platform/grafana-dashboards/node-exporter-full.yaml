@@ -6,6 +6,9 @@ kind: ConfigMap
 metadata:
   name: node-exporter-full
   namespace: observability
+  annotations:
+    # The 468 KB payload exceeds the 256KB last-applied annotation limit — per-resource Replace syncs it via create/PUT instead.
+    argocd.argoproj.io/sync-options: Replace=true
 data:
   node-exporter-full.json: |-
     {
