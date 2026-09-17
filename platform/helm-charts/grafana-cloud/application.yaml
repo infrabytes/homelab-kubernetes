@@ -38,6 +38,71 @@ spec:
         hostMetrics:
           enabled: true
           collector: alloy-metrics
+          linuxHosts:
+            enabled: true
+            metricsTuning:
+              # Chart default keeps only the default allowlist, which omits the node_disk_*/node_load*/netstat families Grafana 1860 reads.
+              useIntegrationAllowList: true
+              # 2026-09-16 measurement, 4 nodes: allowlists keep 499-1,171 series/node; these 58 bring it to ~756-1,587/node (~5,263 cluster-wide).
+              includeMetrics:
+                - node_pressure_cpu_waiting_seconds_total
+                - node_pressure_io_stalled_seconds_total
+                - node_pressure_io_waiting_seconds_total
+                - node_pressure_irq_stalled_seconds_total
+                - node_pressure_memory_stalled_seconds_total
+                - node_pressure_memory_waiting_seconds_total
+                - node_time_seconds
+                - node_scrape_collector_duration_seconds
+                - node_scrape_collector_success
+                - node_timex_frequency_adjustment_ratio
+                - node_timex_loop_time_constant
+                - node_timex_pps_calibration_total
+                - node_timex_pps_error_total
+                - node_timex_pps_frequency_hertz
+                - node_timex_pps_jitter_seconds
+                - node_timex_pps_jitter_total
+                - node_timex_pps_shift_seconds
+                - node_timex_pps_stability_exceeded_total
+                - node_timex_pps_stability_hertz
+                - node_timex_tai_offset_seconds
+                - node_timex_tick_seconds
+                - node_entropy_available_bits
+                - node_entropy_pool_size_bits
+                - node_forks_total
+                - node_procs_blocked
+                - node_schedstat_running_seconds_total
+                - node_schedstat_timeslices_total
+                - node_schedstat_waiting_seconds_total
+                - node_softnet_flow_limit_count_total
+                - node_softnet_received_rps_total
+                - node_cooling_device_cur_state
+                - node_cooling_device_max_state
+                - node_disk_io_now
+                - node_disk_reads_merged_total
+                - node_disk_writes_merged_total
+                - node_disk_discard_time_seconds_total
+                - node_disk_discarded_sectors_total
+                - node_disk_discards_completed_total
+                - node_disk_discards_merged_total
+                - node_disk_flush_requests_time_seconds_total
+                - node_disk_flush_requests_total
+                - node_network_receive_frame_total
+                - node_network_receive_nohandler_total
+                - node_network_transmit_carrier_total
+                - node_network_transmit_colls_total
+                - node_udp_queues
+                - node_netstat_Tcp_ActiveOpens
+                - node_netstat_Tcp_CurrEstab
+                - node_netstat_Tcp_PassiveOpens
+                - node_netstat_TcpExt_SyncookiesFailed
+                - node_netstat_TcpExt_SyncookiesRecv
+                - node_netstat_TcpExt_SyncookiesSent
+                - node_netstat_TcpExt_TCPOFOQueue
+                - node_netstat_TcpExt_TCPRcvQDrop
+                - node_netstat_TcpExt_TCPTimeouts
+                - node_sockstat_FRAG_memory
+                - process_virtual_memory_bytes
+                - process_virtual_memory_max_bytes
         podLogsViaLoki:
           enabled: true
           collector: alloy-logs

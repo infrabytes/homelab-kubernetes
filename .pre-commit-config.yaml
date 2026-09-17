@@ -10,6 +10,8 @@ repos:
       - id: check-json
       - id: check-merge-conflict
       - id: check-added-large-files
+        # 600 KB: the vendored Grafana 1860 dashboard JSON is 468 KB, over the 500 KB default once indented into its ConfigMap block.
+        args: [--maxkb=600]
       - id: detect-private-key
       - id: check-case-conflict
 
