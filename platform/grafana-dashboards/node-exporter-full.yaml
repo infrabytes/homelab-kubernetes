@@ -7,8 +7,8 @@ metadata:
   name: node-exporter-full
   namespace: observability
   annotations:
-    # The 468 KB payload exceeds the 256KB last-applied annotation limit — per-resource Replace syncs it via create/PUT instead.
-    argocd.argoproj.io/sync-options: Replace=true
+    # The 468 KB payload overflows the 256KB last-applied-configuration annotation that client-side apply stores, so this resource syncs with server-side apply.
+    argocd.argoproj.io/sync-options: ServerSideApply=true
 data:
   node-exporter-full.json: |-
     {
