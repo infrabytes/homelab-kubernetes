@@ -171,7 +171,9 @@ data "helm_template" "cilium" {
           - flow:labelsContext=source_namespace,destination_namespace
           - drop:labelsContext=source_namespace,destination_namespace
           - tcp:labelsContext=source_namespace,destination_namespace
-          - dns:labelsContext=source_namespace,destination_namespace
+          # query adds the DNS name label the Top 10 DNS queries panel groups by
+          # (ignoreAAAA halves that label's cardinality).
+          - dns:query;ignoreAAAA;labelsContext=source_namespace,destination_namespace
           # Workload labels only on http: its dashboard groups by workload, the
           # others only need namespaces (and workload pairs multiply series).
           - http:labelsContext=source_namespace,destination_namespace,source_workload,destination_workload
