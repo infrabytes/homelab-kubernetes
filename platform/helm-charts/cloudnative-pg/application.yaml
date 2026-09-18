@@ -28,6 +28,10 @@ spec:
             memory: 64Mi
           limits:
             memory: 96Mi
+        monitoring:
+          podMonitorEnabled: true
+          grafanaDashboard:
+            create: true
   destination:
     namespace: cnpg-system
     server: https://kubernetes.default.svc
