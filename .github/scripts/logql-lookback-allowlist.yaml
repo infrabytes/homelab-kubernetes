@@ -1,0 +1,5 @@
+allow:
+  - dashboard: container-logs
+    panel: Crash and kill events
+    interval: 7d
+    reason: "Killing/Unhealthy/Failed/BackOff events can go a week without a single occurrence"

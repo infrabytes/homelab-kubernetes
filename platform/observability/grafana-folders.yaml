@@ -23,3 +23,15 @@ spec:
       grafanaInstance: main
   title: Cilium
   uid: cilium
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: logs
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  title: Logs
+  uid: logs
