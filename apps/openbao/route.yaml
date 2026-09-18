@@ -9,12 +9,21 @@ spec:
     # publicly; keep the Cloudflare record DNS-only). TLS is terminated at the
     # gateway's openbao-https listener (cert-manager DNS-01, like argocd);
     # plaintext http is redirected to https by redirect.yaml.
-    - name: homelab
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab
       namespace: gateway
       sectionName: openbao-https
   hostnames:
     - bao.icaninto.space
   rules:
-    - backendRefs:
-        - name: openbao-active
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: openbao-active
           port: 8200
+          weight: 1

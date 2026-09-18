@@ -26,6 +26,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: argocd-tls
+            group: ""
             kind: Secret
       allowedRoutes:
         namespaces:
@@ -38,6 +39,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: openbao-tls
+            group: ""
             kind: Secret
       allowedRoutes:
         namespaces:
@@ -50,6 +52,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: dex-tls
+            group: ""
             kind: Secret
       allowedRoutes:
         namespaces:
@@ -62,6 +65,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: longhorn-tls
+            group: ""
             kind: Secret
       allowedRoutes:
         namespaces:
@@ -74,6 +78,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: cf2cnp-tls
+            group: ""
             kind: Secret
       allowedRoutes:
         namespaces:
@@ -86,6 +91,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: hubble-tls
+            group: ""
             kind: Secret
       allowedRoutes:
         namespaces:
@@ -98,6 +104,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: grafana-tls
+            group: ""
             kind: Secret
       allowedRoutes:
         namespaces:

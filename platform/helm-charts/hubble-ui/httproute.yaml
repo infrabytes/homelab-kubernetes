@@ -7,12 +7,21 @@ metadata:
   namespace: kube-system
 spec:
   parentRefs:
-    - name: homelab
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab
       namespace: gateway
       sectionName: hubble-https
   hostnames:
     - hubble.icaninto.space
   rules:
-    - backendRefs:
-        - name: hubble-ui
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: hubble-ui
           port: 80
+          weight: 1

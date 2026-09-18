@@ -15,17 +15,28 @@ metadata:
     external-dns.alpha.kubernetes.io/controller: "manual-dns"
 spec:
   parentRefs:
-    - name: homelab
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab
       namespace: gateway
       sectionName: https
     # Serves traffic forwarded by the edge SWAG instance (TLS terminated there,
     # plain HTTP with original Host header from the LAN).
-    - name: homelab
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab
       namespace: gateway
       sectionName: http
   hostnames:
     - argocd.icaninto.space
   rules:
-    - backendRefs:
-        - name: argocd-server
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: argocd-server
           port: 80
+          weight: 1
