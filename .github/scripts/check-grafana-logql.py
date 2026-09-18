@@ -12,6 +12,11 @@ streams without an error and renders a permanently blank panel. Queries whose
 data is legitimately sparse get a longer lookback from
 logql-lookback-allowlist.yaml; an empty result still fails.
 
+A dashboard whose `__inputs` are not mapped by the GrafanaDashboard's
+`datasources` also fails: those panels keep the literal `${INPUT}` as their
+datasource uid and 404 at render time (a CR `variables` entry only sets a
+template variable's value, it does not resolve an input).
+
 Usage: check-grafana-logql.py <dashboard.yaml>...
 """
 
@@ -80,14 +85,25 @@ def load_allowlist():
 
 
 def dashboards_in(path):
+    """Parse one pre-commit file into dashboards plus the inputs its CR maps."""
+    dashboards = []
+    mapped_inputs = set()
+    has_dashboard_cr = False
     try:
         docs = list(yaml.safe_load_all(path.read_text()))
     except yaml.YAMLError as exc:
         log(f"{path}: unparsable YAML: {exc}")
-        return []
-    found = []
+        return dashboards, mapped_inputs, has_dashboard_cr
     for doc in docs:
-        if not isinstance(doc, dict) or doc.get("kind") != "ConfigMap":
+        if not isinstance(doc, dict):
+            continue
+        if doc.get("kind") == "GrafanaDashboard":
+            has_dashboard_cr = True
+            for mapping in (doc.get("spec") or {}).get("datasources") or []:
+                if mapping.get("inputName"):
+                    mapped_inputs.add(mapping["inputName"])
+            continue
+        if doc.get("kind") != "ConfigMap":
             continue
         for key, text in (doc.get("data") or {}).items():
             if not (isinstance(text, str) and key.endswith(".json")):
@@ -98,8 +114,8 @@ def dashboards_in(path):
                 log(f"{path}: data.{key} is not valid JSON: {exc}")
                 continue
             if isinstance(parsed, dict) and "panels" in parsed:
-                found.append(parsed)
-    return found
+                dashboards.append(parsed)
+    return dashboards, mapped_inputs, has_dashboard_cr
 
 
 def is_loki(datasource):
@@ -190,7 +206,10 @@ def main():
         log("no dashboard files given, skipping")
         return 0
     allowlist = load_allowlist()
-    dashboards = [(path, dash) for path in paths for dash in dashboards_in(path)]
+    dashboards = []
+    for path in paths:
+        parsed, mapped_inputs, has_dashboard_cr = dashboards_in(path)
+        dashboards.extend((path, dashboard, mapped_inputs, has_dashboard_cr) for dashboard in parsed)
     if not dashboards:
         log(f"no Loki dashboard ConfigMaps in {len(paths)} file(s), skipping")
         return 0
@@ -201,8 +220,14 @@ def main():
     log(f"Loki at {base}")
     failures = 0
     checked = 0
-    for path, dashboard in dashboards:
+    for path, dashboard, mapped_inputs, has_dashboard_cr in dashboards:
         log(f"{path}: {dashboard.get('title') or dashboard.get('uid')}")
+        if has_dashboard_cr:
+            for name in [i.get("name") for i in dashboard.get("__inputs", []) if i.get("name") not in mapped_inputs]:
+                checked += 1
+                failures += 1
+                log(f"  FAIL input {name}: not mapped by the GrafanaDashboard datasources; panels keep "
+                    f"'${{{name}}}' as datasource uid and 404")
         for title, panel_type, expr in panel_queries(dashboard, allowlist):
             checked += 1
             unknown = unstubbed(expr)

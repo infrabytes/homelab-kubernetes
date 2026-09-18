@@ -794,11 +794,11 @@ spec:
   instanceSelector:
     matchLabels:
       grafanaInstance: main
-  folder: Logs
+  folderRef: logs
   resyncPeriod: 1h
   configMapRef:
     name: container-logs
     key: container-logs.json
-  variables:
-    - name: DS_LOKI
-      value: loki
+  datasources:
+    - inputName: DS_LOKI
+      datasourceName: loki
