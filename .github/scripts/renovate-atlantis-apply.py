@@ -22,6 +22,7 @@ import datetime
 import json
 import os
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 
@@ -116,14 +117,20 @@ def evaluate(
     return True, f"green: posting {APPLY_COMMENT!r} on {run_sha}"
 
 
-def request(url: str, *, method: str = "GET", payload: dict | None = None) -> tuple[object, dict]:
-    body = json.dumps(payload).encode() if payload is not None else None
+def build_headers(*, body: bool) -> dict:
     headers = {
         "Authorization": "Bearer " + os.environ["GITHUB_TOKEN"],
         "Accept": "application/vnd.github+json",
         "User-Agent": "renovate-atlantis-apply",
     }
-    req = urllib.request.Request(url, data=body, method=method, headers=headers)
+    if body:
+        headers["Content-Type"] = "application/json"
+    return headers
+
+
+def request(url: str, *, method: str = "GET", payload: dict | None = None) -> tuple[object, dict]:
+    body = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(url, data=body, method=method, headers=build_headers(body=body is not None))
     with urllib.request.urlopen(req) as response:
         raw = response.read()
         return (json.loads(raw) if raw else None), dict(response.headers)
@@ -325,15 +332,87 @@ SELF_TEST_CASES = [
 ]
 
 
+def stub_responses(sha: str, *, combined_state: str) -> dict:
+    return {
+        "/repos/o/r/pulls/7": {"state": "open", "user": {"login": RENOVATE_LOGIN}, "head": {"sha": sha}},
+        "/repos/o/r/pulls/7/files": [{"filename": "infra/env.hcl"}],
+        f"/repos/o/r/commits/{sha}/check-runs": {
+            "check_runs": [
+                {"name": "pre-commit", "status": "completed", "conclusion": "success", "details_url": "https://github.com/o/r/actions/runs/1/job/11"}
+            ]
+        },
+        f"/repos/o/r/commits/{sha}/status": {"state": combined_state},
+        f"/repos/o/r/commits/{sha}/statuses": [{"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"}],
+        "/repos/o/r/issues/7/comments": [],
+        f"/repos/o/r/commits/{sha}": {"commit": {"committer": {"date": FIXTURE_HEAD_DATE}}},
+    }
+
+
+def run_main_case(name: str, *, combined_state: str, expect_post: bool) -> int:
+    """Drive main() end to end over a stubbed transport, asserting what it posts."""
+    sha = FIXTURE_SHA
+    responses = stub_responses(sha, combined_state=combined_state)
+    posts: list = []
+
+    def stub(url: str, *, method: str = "GET", payload: dict | None = None) -> tuple[object, dict]:
+        path = url.replace(API_ROOT, "").split("?")[0]
+        if method != "GET":
+            posts.append((path, method, payload))
+            return {}, {}
+        if path not in responses:
+            raise AssertionError(f"unexpected GET {path}")
+        return responses[path], {}
+
+    event = {
+        "action": "completed",
+        "workflow_run": {"name": "pre-commit", "head_sha": sha, "id": FIXTURE_RUN_ID, "pull_requests": [{"number": 7}]},
+    }
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+        json.dump(event, handle)
+        event_path = handle.name
+
+    env_keys = ("GITHUB_EVENT_NAME", "GITHUB_EVENT_PATH", "GITHUB_REPOSITORY", "GITHUB_TOKEN")
+    original_env = {key: os.environ.get(key) for key in env_keys}
+    original_request = globals()["request"]
+    globals()["request"] = stub
+    os.environ.update(
+        {"GITHUB_EVENT_NAME": "workflow_run", "GITHUB_EVENT_PATH": event_path, "GITHUB_REPOSITORY": "o/r", "GITHUB_TOKEN": "self-test"}
+    )
+    try:
+        return_code = main()
+    finally:
+        globals()["request"] = original_request
+        for key, value in original_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        os.unlink(event_path)
+
+    expected = [("/repos/o/r/issues/7/comments", "POST", {"body": APPLY_COMMENT})] if expect_post else []
+    ok = return_code == 0 and posts == expected
+    print(f"{'PASS' if ok else 'FAIL'} {name}: posts={posts}")
+    return 0 if ok else 1
+
+
 def self_test() -> int:
     assert APPLY_COMMENT.strip() == APPLY_COMMENT and "\n" not in APPLY_COMMENT, "comment must be one line for multiLineRegex"
+    os.environ.setdefault("GITHUB_TOKEN", "self-test")
+    assert build_headers(body=True)["Content-Type"] == "application/json", "JSON bodies must declare their content type"
+    assert "Content-Type" not in build_headers(body=False), "bodyless requests must not claim a content type"
     failures = 0
     for name, kwargs, expect_apply, expect_reason in SELF_TEST_CASES:
         should_apply, reason = evaluate(**kwargs)
         ok = should_apply is expect_apply and expect_reason in reason
         print(f"{'PASS' if ok else 'FAIL'} {name}: {reason}")
         failures += 0 if ok else 1
-    print(f"{len(SELF_TEST_CASES) - failures}/{len(SELF_TEST_CASES)} fixtures passed")
+    for name, kwargs in (
+        ("main: posts exactly one apply comment when green", {"combined_state": "success", "expect_post": True}),
+        ("main: posts nothing when a status is red", {"combined_state": "failure", "expect_post": False}),
+    ):
+        failures += run_main_case(name, **kwargs)
+    total = len(SELF_TEST_CASES) + 2
+    print(f"{total - failures}/{total} fixtures passed")
     return 1 if failures else 0
 
 
