@@ -6,15 +6,24 @@ metadata:
 spec:
   parentRefs:
     # LAN only: RFC1918 gateway IP; the Cloudflare record must stay DNS-only.
-    - name: homelab
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab
       namespace: gateway
       sectionName: grafana-https
   hostnames:
     - grafana.icaninto.space
   rules:
-    - backendRefs:
-        - name: grafana-service
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: grafana-service
           port: 3000
+          weight: 1
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -23,13 +32,19 @@ metadata:
   namespace: observability
 spec:
   parentRefs:
-    - name: homelab
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab
       namespace: gateway
       sectionName: http
   hostnames:
     - grafana.icaninto.space
   rules:
-    - filters:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      filters:
         - type: RequestRedirect
           requestRedirect:
             scheme: https
