@@ -1,0 +1,21 @@
+# The chart ships only a sidecar-labeled ConfigMap; grafana-operator imports dashboards through CRs.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: cloudnative-pg
+  namespace: cnpg-system
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  allowCrossNamespaceImport: true
+  folder: CloudNativePG
+  resyncPeriod: 1h
+  configMapRef:
+    name: cnpg-grafana-dashboard
+    key: cnp.json
+  datasources:
+    - inputName: DS_PROMETHEUS
+      datasourceName: victoriametrics
+    - inputName: DS_EXPRESSION
+      datasourceName: __expr__
