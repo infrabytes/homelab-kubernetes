@@ -27,6 +27,9 @@ spec:
         automated:
           prune: true
           selfHeal: true
+        # Server-side apply: the vendored 1860 ConfigMap is 468 KB, over the 256KB last-applied-configuration limit.
+        syncOptions:
+          - ServerSideApply=true
         retry:
           limit: 5
           backoff:
