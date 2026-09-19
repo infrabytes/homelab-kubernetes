@@ -25,6 +25,21 @@ spec:
         server:
           # Overrides the chart's OnDelete default: rolls one pod at a time, Ready-gated, keeping raft quorum.
           updateStrategyType: RollingUpdate
+          # The chart's required anti-affinity deadlocks node drains: an evicted
+          # replica can only return to its own (cordoned) node, so it never
+          # becomes Ready, the PDB drops to 0 allowed and the next node's drain
+          # times out. Preferred keeps the spread, still allows co-location.
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    topologyKey: kubernetes.io/hostname
+                    labelSelector:
+                      matchLabels:
+                        app.kubernetes.io/instance: openbao
+                        app.kubernetes.io/name: openbao
+                        component: server
           authDelegator:
             # Chart-rendered ClusterRoleBinding (openbao-server-binding →
             # system:auth-delegator); enables k8s auth's TokenReview call.
