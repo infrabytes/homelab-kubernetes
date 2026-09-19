@@ -5,6 +5,8 @@ metadata:
   namespace: observability
 spec:
   instances: 1
+  # One instance: the operator PDB (minAvailable 1) can never allow an eviction, it only blocks node drains.
+  enablePDB: false
   storage:
     size: 5Gi
     storageClass: longhorn
