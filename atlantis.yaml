@@ -78,11 +78,11 @@ workflows:
             name: SOPS_AGE_KEY_FILE
             value: /tmp/sops-age-keys.txt
         - run: printenv SOPS_AGE_KEY > /tmp/sops-age-keys.txt && chmod 600 /tmp/sops-age-keys.txt
-        - run: terragrunt plan -no-color -input=false -out $PLANFILE
+        - run: terragrunt plan -input=false -out $PLANFILE
     apply:
       steps:
         - env:
             name: SOPS_AGE_KEY_FILE
             value: /tmp/sops-age-keys.txt
         - run: printenv SOPS_AGE_KEY > /tmp/sops-age-keys.txt && chmod 600 /tmp/sops-age-keys.txt
-        - run: terragrunt apply -no-color -input=false -auto-approve $PLANFILE
+        - run: terragrunt apply -input=false -auto-approve $PLANFILE
