@@ -26,7 +26,7 @@ locals {
     cluster_name     = "talos-cluster"
     cluster_endpoint = "https://192.168.0.67:6443"
 
-    talos_version            = "v1.14.0"
+    talos_version            = "v1.14.1"
     kubernetes_version       = "1.37.0"
     cilium_chart_version     = "1.20.1"
     gateway_api_crds_version = "v1.6.2"
