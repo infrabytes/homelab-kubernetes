@@ -25,6 +25,13 @@ spec:
           snapshotterReplicaCount: 2
         defaultSettings:
           defaultDataPath: /var/mnt/longhorn
+          # Nodes are rebooted, not removed, during upgrades: "block-if-contains-
+          # last-replica" (default) holds the instance-manager PDB after every
+          # volume has detached, which no 5-minute provider drain can outwait.
+          # "allow-if-last-replica-is-stopped" still blocks while a replica is
+          # running, then lets the eviction through; the replica data stays on
+          # the disk of the node that comes back.
+          nodeDrainPolicy: allow-if-last-replica-is-stopped
           createDefaultDiskLabeledNodes: true
           storageMinimalAvailablePercentage: "10"
           # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): the chart applies this to
