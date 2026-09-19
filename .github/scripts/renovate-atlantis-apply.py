@@ -2,10 +2,12 @@
 """renovate-atlantis-apply.py: request Atlantis apply on green Renovate infra PRs.
 
 Driven by .github/workflows/renovate-atlantis-apply.yaml, which fires when the
-`pre-commit` or `renovate-gate` workflow completes. Resolves the pull request
-behind the completed run's head SHA and comments `atlantis apply` once every
-gate on that SHA is green, so Atlantis applies the units and merges without a
-human in the loop.
+`pre-commit` or `renovate-gate` workflow completes or when any commit status
+changes. The status trigger is what lets an apply request land when Atlantis
+plans slower than those two workflows: the aggregate `atlantis/plan` update is
+commonly the last gate to turn green. Resolves the pull request behind the
+triggering SHA and comments `atlantis apply` once every gate on that SHA is
+green, so Atlantis applies the units and merges without a human in the loop.
 
 The comment body is deliberately the bare single line `atlantis apply`:
 Atlantis ignores a comment whose body has a second non-empty line
@@ -157,8 +159,8 @@ def api_pages(path: str, *, key: str | None = None) -> list:
     return items
 
 
-def resolve_pr_number(run: dict, repo: str, sha: str) -> int | None:
-    for candidate in run.get("pull_requests") or []:
+def resolve_pr_number(workflow_run: dict, repo: str, sha: str) -> int | None:
+    for candidate in workflow_run.get("pull_requests") or []:
         return candidate.get("number")
     for pull in api_pages(f"/repos/{repo}/commits/{sha}/pulls"):
         if pull.get("state") == "open":
@@ -166,20 +168,33 @@ def resolve_pr_number(run: dict, repo: str, sha: str) -> int | None:
     return None
 
 
+def trigger_sha(event: dict, event_name: str) -> str | None:
+    """SHA whose gates this event asks us to judge, or None when it is not ours.
+
+    The `status` event's commit is in the payload: the run itself executes in the
+    default-branch context, so GITHUB_SHA there is main, not the commit to judge.
+    """
+    if event_name == "workflow_run":
+        run = event.get("workflow_run") or {}
+        if event.get("action") != "completed" or run.get("name") not in TRIGGER_WORKFLOWS:
+            return None
+        return run.get("head_sha") or None
+    if event_name == "status":
+        return event.get("sha") or None
+    return None
+
+
 def main() -> int:
-    if os.environ.get("GITHUB_EVENT_NAME") != "workflow_run":
-        return 0
     with open(os.environ["GITHUB_EVENT_PATH"]) as handle:
         event = json.load(handle)
-    run = event.get("workflow_run") or {}
-    if event.get("action") != "completed" or run.get("name") not in TRIGGER_WORKFLOWS:
+    sha = trigger_sha(event, os.environ.get("GITHUB_EVENT_NAME", ""))
+    if sha is None:
         return 0
 
     repo = os.environ["GITHUB_REPOSITORY"]
-    sha = run["head_sha"]
-    run_id = str(run.get("id") or "")
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
 
-    pr_number = resolve_pr_number(run, repo, sha)
+    pr_number = resolve_pr_number(event.get("workflow_run") or {}, repo, sha)
     if pr_number is None:
         log(f"skip: no pull request for {sha}")
         return 0
@@ -332,13 +347,88 @@ SELF_TEST_CASES = [
 ]
 
 
-def stub_responses(sha: str, *, combined_state: str) -> dict:
+def workflow_run_event() -> dict:
+    return {
+        "action": "completed",
+        "workflow_run": {
+            "name": "pre-commit",
+            "head_sha": FIXTURE_SHA,
+            "id": FIXTURE_RUN_ID,
+            "pull_requests": [{"number": 7}],
+        },
+    }
+
+
+def status_event() -> dict:
+    return {"sha": FIXTURE_SHA, "context": PLAN_CONTEXT, "state": "success"}
+
+
+TRIGGER_SHA_CASES = [
+    ("trigger: completed run of ours", "workflow_run", workflow_run_event(), FIXTURE_SHA),
+    ("trigger: completed run of another workflow", "workflow_run", {"action": "completed", "workflow_run": {"name": "pr-preview"}}, None),
+    ("trigger: run is not completed", "workflow_run", {"action": "requested", "workflow_run": {"name": "pre-commit"}}, None),
+    ("trigger: status event", "status", status_event(), FIXTURE_SHA),
+    ("trigger: status event without sha", "status", {"context": PLAN_CONTEXT, "state": "success"}, None),
+    ("trigger: unrelated event", "push", {"after": FIXTURE_SHA}, None),
+]
+
+OWN_CHECK_RUN = {
+    "name": "request-apply",
+    "status": "in_progress",
+    "conclusion": None,
+    "details_url": f"https://github.com/o/r/actions/runs/{FIXTURE_RUN_ID}/job/33",
+}
+
+
+MAIN_CASES = [
+    {
+        "name": "main: workflow_run posts one apply comment when green",
+        "event_name": "workflow_run",
+        "event": workflow_run_event(),
+        "combined_state": "success",
+        "expect_post": True,
+    },
+    {
+        "name": "main: workflow_run posts nothing when a status is red",
+        "event_name": "workflow_run",
+        "event": workflow_run_event(),
+        "combined_state": "failure",
+        "expect_post": False,
+    },
+    {
+        "name": "main: status event posts one apply comment when green",
+        "event_name": "status",
+        "event": status_event(),
+        "combined_state": "success",
+        "expect_post": True,
+    },
+    {
+        "name": "main: status event posts nothing when a status is red",
+        "event_name": "status",
+        "event": status_event(),
+        "combined_state": "failure",
+        "expect_post": False,
+    },
+    {
+        "name": "main: own in-flight check run does not block posting",
+        "event_name": "status",
+        "event": status_event(),
+        "combined_state": "success",
+        "expect_post": True,
+        "extra_check_runs": [OWN_CHECK_RUN],
+    },
+]
+
+
+def stub_responses(sha: str, *, combined_state: str, extra_check_runs: list | None = None) -> dict:
     return {
         "/repos/o/r/pulls/7": {"state": "open", "user": {"login": RENOVATE_LOGIN}, "head": {"sha": sha}},
         "/repos/o/r/pulls/7/files": [{"filename": "infra/env.hcl"}],
+        f"/repos/o/r/commits/{sha}/pulls": [{"number": 7, "state": "open"}],
         f"/repos/o/r/commits/{sha}/check-runs": {
             "check_runs": [
-                {"name": "pre-commit", "status": "completed", "conclusion": "success", "details_url": "https://github.com/o/r/actions/runs/1/job/11"}
+                {"name": "pre-commit", "status": "completed", "conclusion": "success", "details_url": "https://github.com/o/r/actions/runs/1/job/11"},
+                *(extra_check_runs or []),
             ]
         },
         f"/repos/o/r/commits/{sha}/status": {"state": combined_state},
@@ -348,10 +438,18 @@ def stub_responses(sha: str, *, combined_state: str) -> dict:
     }
 
 
-def run_main_case(name: str, *, combined_state: str, expect_post: bool) -> int:
+def run_main_case(
+    name: str,
+    *,
+    event_name: str,
+    event: dict,
+    combined_state: str,
+    expect_post: bool,
+    extra_check_runs: list | None = None,
+) -> int:
     """Drive main() end to end over a stubbed transport, asserting what it posts."""
     sha = FIXTURE_SHA
-    responses = stub_responses(sha, combined_state=combined_state)
+    responses = stub_responses(sha, combined_state=combined_state, extra_check_runs=extra_check_runs)
     posts: list = []
 
     def stub(url: str, *, method: str = "GET", payload: dict | None = None) -> tuple[object, dict]:
@@ -363,20 +461,22 @@ def run_main_case(name: str, *, combined_state: str, expect_post: bool) -> int:
             raise AssertionError(f"unexpected GET {path}")
         return responses[path], {}
 
-    event = {
-        "action": "completed",
-        "workflow_run": {"name": "pre-commit", "head_sha": sha, "id": FIXTURE_RUN_ID, "pull_requests": [{"number": 7}]},
-    }
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
         json.dump(event, handle)
         event_path = handle.name
 
-    env_keys = ("GITHUB_EVENT_NAME", "GITHUB_EVENT_PATH", "GITHUB_REPOSITORY", "GITHUB_TOKEN")
+    env_keys = ("GITHUB_EVENT_NAME", "GITHUB_EVENT_PATH", "GITHUB_REPOSITORY", "GITHUB_TOKEN", "GITHUB_RUN_ID")
     original_env = {key: os.environ.get(key) for key in env_keys}
     original_request = globals()["request"]
     globals()["request"] = stub
     os.environ.update(
-        {"GITHUB_EVENT_NAME": "workflow_run", "GITHUB_EVENT_PATH": event_path, "GITHUB_REPOSITORY": "o/r", "GITHUB_TOKEN": "self-test"}
+        {
+            "GITHUB_EVENT_NAME": event_name,
+            "GITHUB_EVENT_PATH": event_path,
+            "GITHUB_REPOSITORY": "o/r",
+            "GITHUB_TOKEN": "self-test",
+            "GITHUB_RUN_ID": FIXTURE_RUN_ID,
+        }
     )
     try:
         return_code = main()
@@ -401,17 +501,19 @@ def self_test() -> int:
     assert build_headers(body=True)["Content-Type"] == "application/json", "JSON bodies must declare their content type"
     assert "Content-Type" not in build_headers(body=False), "bodyless requests must not claim a content type"
     failures = 0
+    for name, event_name, event, expect_sha in TRIGGER_SHA_CASES:
+        sha = trigger_sha(event, event_name)
+        ok = sha is expect_sha
+        print(f"{'PASS' if ok else 'FAIL'} {name}: sha={sha!r}")
+        failures += 0 if ok else 1
     for name, kwargs, expect_apply, expect_reason in SELF_TEST_CASES:
         should_apply, reason = evaluate(**kwargs)
         ok = should_apply is expect_apply and expect_reason in reason
         print(f"{'PASS' if ok else 'FAIL'} {name}: {reason}")
         failures += 0 if ok else 1
-    for name, kwargs in (
-        ("main: posts exactly one apply comment when green", {"combined_state": "success", "expect_post": True}),
-        ("main: posts nothing when a status is red", {"combined_state": "failure", "expect_post": False}),
-    ):
-        failures += run_main_case(name, **kwargs)
-    total = len(SELF_TEST_CASES) + 2
+    for case in MAIN_CASES:
+        failures += run_main_case(**case)
+    total = len(TRIGGER_SHA_CASES) + len(SELF_TEST_CASES) + len(MAIN_CASES)
     print(f"{total - failures}/{total} fixtures passed")
     return 1 if failures else 0
 

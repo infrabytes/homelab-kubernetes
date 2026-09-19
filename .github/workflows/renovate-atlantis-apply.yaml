@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: [pre-commit, renovate-gate]
     types: [completed]
+  status:
 
 permissions:
   contents: read
@@ -12,7 +13,7 @@ permissions:
   statuses: read
 
 concurrency:
-  group: renovate-atlantis-apply-${{ github.event.workflow_run.head_sha }}
+  group: renovate-atlantis-apply-${{ github.event.workflow_run.head_sha || github.event.sha }}
   cancel-in-progress: true
 
 jobs:
