@@ -163,7 +163,7 @@
     - drain | bool
     - not ansible_check_mode
 
-- name: Wait for all Longhorn volumes to be healthy again
+- name: Wait for all in-use Longhorn volumes to be healthy again
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     api_version: longhorn.io/v1beta2
@@ -173,10 +173,11 @@
   delegate_to: localhost
   retries: "{{ (longhorn_healthy_timeout // 15) | int }}"
   delay: 15
+  # Detached volumes report robustness "unknown" by design; only attached (or transitioning) volumes wait for replica rebuild.
   until: >-
     longhorn_after.resources | length > 0
-    and longhorn_after.resources
-      | selectattr('status.robustness', 'defined')
-      | selectattr('status.robustness', 'equalto', 'healthy') | list | length
-      == (longhorn_after.resources | length)
+    and (longhorn_after.resources
+         | rejectattr('status.state', 'equalto', 'detached')
+         | rejectattr('status.robustness', 'equalto', 'healthy')
+         | list | length) == 0
   when: not ansible_check_mode
