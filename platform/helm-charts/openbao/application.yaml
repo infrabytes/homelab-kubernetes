@@ -16,7 +16,7 @@ spec:
   source:
     repoURL: https://openbao.github.io/openbao-helm
     chart: openbao
-    targetRevision: 0.29.4
+    targetRevision: 0.29.5
     helm:
       releaseName: openbao
       values: |
