@@ -20,8 +20,9 @@ be retired separately.
    fire on failure/silence — a failed run lifts the silence immediately (see
    below). If the silence API is unreachable the run proceeds (fail-open).
 2. **Preflight** (once per host, before anything changes): secrets present in
-   the environment, PVE quorate, all four Talos nodes `Ready`, every Longhorn
-   volume healthy. Any failure aborts before the host is touched.
+   the environment, PVE quorate, all four Talos nodes `Ready`, every in-use
+   (non-detached) Longhorn volume healthy. Any failure aborts before the host
+   is touched.
 2. **Patch**: installs `update-notifier-common` + `needrestart` (first run
    only), `apt update` + `full-upgrade` + `autoremove --purge`, then verifies
    zero pending upgrades remain.
@@ -33,8 +34,8 @@ be retired separately.
    + drain their Talos node (PDBs respected, DaemonSets ignored), then the VM
    is stopped gracefully via the guest agent (`qm shutdown` semantics — never
    a hard stop), the host reboots, the VM starts, the node is waited to
-   `Ready`, uncordoned, and all Longhorn volumes must be healthy again before
-   the next host. `proxmox01` (single control plane `talos-cp-1`) is never
+   `Ready`, uncordoned, and all in-use Longhorn volumes must be healthy again
+   before the next host. `proxmox01` (single control plane `talos-cp-1`) is never
    cordoned or drained — graceful VM shutdown only. Expect ~2–5 min without
    the Kubernetes API during its reboot.
 6. **Report**: one k=v log line per host plus a run summary to Grafana Cloud
@@ -78,7 +79,7 @@ sops exec-env ../infra/secrets.sops.yaml \
     'ansible-playbook -i inventory.yml proxmox-node-updates.yml --limit proxmox02'
   ```
 
-  The preflight still gates on the whole cluster (all nodes Ready, all
+  The preflight still gates on the whole cluster (all nodes Ready, all in-use
   volumes healthy), so it aborts on an unhealthy night.
 - **Full run**: same without `--limit`. Normally driven by the windrunner
   timer, not by hand.

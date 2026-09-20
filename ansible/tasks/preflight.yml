@@ -127,14 +127,18 @@
   register: longhorn_volumes
   delegate_to: localhost
 
-- name: Abort unless every Longhorn volume is healthy
+- name: Abort unless every in-use Longhorn volume is healthy
+  vars:
+    # Detached volumes report robustness "unknown" by design; they gate nothing, so only attached (or transitioning) volumes count.
+    unhealthy_longhorn_volumes: >-
+      {{ longhorn_volumes.resources
+         | rejectattr('status.state', 'equalto', 'detached')
+         | rejectattr('status.robustness', 'equalto', 'healthy')
+         | map(attribute='metadata.name') | list }}
   ansible.builtin.assert:
     that:
       - longhorn_volumes.resources | length > 0
-      - longhorn_volumes.resources
-        | selectattr('status.robustness', 'defined')
-        | selectattr('status.robustness', 'equalto', 'healthy') | list | length
-        == (longhorn_volumes.resources | length)
+      - unhealthy_longhorn_volumes | length == 0
     fail_msg: >-
-      Not all Longhorn volumes are healthy — aborting before touching
-      {{ inventory_hostname }}.
+      Longhorn volume(s) not healthy: {{ unhealthy_longhorn_volumes | join(', ') }} —
+      aborting before touching {{ inventory_hostname }}.
