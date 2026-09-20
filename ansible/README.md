@@ -31,7 +31,9 @@ be retired separately.
    reboot-relevant package (`proxmox-kernel`, `pve-manager`, `qemu-server`,
    `zfsutils-linux`, `libc6`, `systemd`) changed. Otherwise the host stays up.
 4. **Maintenance window** (only on reboot): workers (`proxmox02`–`04`) cordon
-   + drain their Talos node (PDBs respected, DaemonSets ignored), then the VM
+   + drain their Talos node (PDBs respected — the drain waits for Longhorn's
+   CSI controller PDBs to allow a disruption and retries blocked evictions —
+   DaemonSets ignored), then the VM
    is stopped gracefully via the guest agent (`qm shutdown` semantics — never
    a hard stop), the host reboots, the VM starts, the node is waited to
    `Ready`, uncordoned, and all in-use Longhorn volumes must be healthy again
@@ -86,8 +88,8 @@ sops exec-env ../infra/secrets.sops.yaml \
 
 ## Recovery: a host fails to return
 
-If a worker's node stays `NotReady` or the Longhorn gate times out, the roll
-aborts and the node stays cordoned:
+An abort during the maintenance window — a blocked drain, a node that stays
+`NotReady`, a Longhorn gate timeout — leaves the node cordoned:
 
 1. Check the host over SSH (`ssh root@192.168.0.1X`) and the VM in the PVE
    UI; start the VM by hand if the playbook died between stop and start.
