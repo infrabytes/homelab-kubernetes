@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=oneshot
 User=deschain
 RuntimeDirectory=proxmox-node-updates
-ExecStartPre=/usr/bin/git -C %h/homelab/homelab-kubernetes pull --ff-only
-ExecStart=%h/homelab/homelab-kubernetes/ansible/run-maintenance.sh
+# Specifiers resolve against the system manager, so %h is /root here, not deschain's home.
+ExecStartPre=/usr/bin/git -C /home/deschain/homelab/homelab-kubernetes pull --ff-only
+ExecStart=/home/deschain/homelab/homelab-kubernetes/ansible/run-maintenance.sh
 TimeoutStartSec=4h
