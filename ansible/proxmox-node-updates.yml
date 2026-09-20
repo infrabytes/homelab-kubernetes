@@ -6,29 +6,38 @@
   order: inventory
   gather_facts: true
   tasks:
-    - name: Assert the Grafana stack credentials are available
+    - name: Assert the Grafana credentials are available
       vars:
         env_stack_url: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_url') }}"
         env_stack_token: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_sa_token') }}"
+        env_grafana_password: "{{ lookup('ansible.builtin.env', 'grafana_admin_password') }}"
       ansible.builtin.assert:
         that:
           - env_stack_url | length > 0
           - env_stack_token | length > 0
+          - env_grafana_password | length > 0
         fail_msg: >-
-          Missing grafana_cloud_stack_url / grafana_cloud_stack_sa_token —
-          wrap the run in `sops exec-env infra/secrets.sops.yaml`.
+          Missing grafana_cloud_stack_url / grafana_cloud_stack_sa_token /
+          grafana_admin_password — wrap the run in
+          `sops exec-env infra/secrets.sops.yaml`.
       when: inventory_hostname == (ansible_play_hosts_all | first)
 
-    - name: Silence the Talos folder alerts for the maintenance window
+    - name: Put the cluster alerts in downtime for the maintenance window
       vars:
-        stack_url: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_url') }}"
-        stack_token: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_sa_token') }}"
+        # Cluster alerts live in two Grafanas: the Cloud watchdog and the in-cluster instance that notifies Discord.
+        silence_targets:
+          - name: cloud
+            base: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_url') }}api/alertmanager/grafana/api/v2"
+            headers:
+              Authorization: "Bearer {{ lookup('ansible.builtin.env', 'grafana_cloud_stack_sa_token') }}"
+          - name: local
+            base: "{{ grafana_url }}/api/alertmanager/grafana/api/v2"
+            headers:
+              Authorization: "Basic {{ ('admin:' ~ lookup('ansible.builtin.env', 'grafana_admin_password')) | b64encode }}"
       ansible.builtin.uri:
-        url: "{{ stack_url }}api/alertmanager/grafana/api/v2/silences"
+        url: "{{ item.base }}/silences"
         method: POST
-        headers:
-          Authorization: "Bearer {{ stack_token }}"
-          Content-Type: application/json
+        headers: "{{ item.headers }}"
         body_format: json
         body:
           matchers:
@@ -41,6 +50,9 @@
           createdBy: proxmox-node-updates
           comment: Rolling PVE host maintenance
         status_code: [200, 202]
+      loop: "{{ silence_targets }}"
+      loop_control:
+        label: "{{ item.name }}"
       register: silence_result
       delegate_to: localhost
       when:
@@ -62,41 +74,45 @@
         - name: Report run summary to Loki
           ansible.builtin.include_tasks: tasks/report_summary.yml
           when: inventory_hostname == (ansible_play_hosts_all | last)
-        - name: Lift the maintenance silence
+        - name: Lift the maintenance silences
           vars:
-            stack_url: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_url') }}"
-            stack_token: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_sa_token') }}"
-            silence_id: "{{ hostvars[(ansible_play_hosts_all | first)].silence_result.json.silenceID | default('') }}"
+            silences: >-
+              {{ hostvars[(ansible_play_hosts_all | first)].silence_result.results
+                 | default([]) | selectattr('json', 'defined')
+                 | selectattr('json.silenceID', 'defined') | list }}
           ansible.builtin.uri:
-            url: "{{ stack_url }}api/alertmanager/grafana/api/v2/silence/{{ silence_id }}"
+            url: "{{ item.item.base }}/silence/{{ item.json.silenceID }}"
             method: DELETE
-            headers:
-              Authorization: "Bearer {{ stack_token }}"
+            headers: "{{ item.item.headers }}"
             status_code: [200, 404]
+          loop: "{{ silences }}"
+          loop_control:
+            label: "{{ item.item.name }}"
           delegate_to: localhost
           when:
             - inventory_hostname == (ansible_play_hosts_all | last)
             - not ansible_check_mode
-            - silence_id | length > 0
           failed_when: false
       rescue:
         - name: Report the failed host to Loki
           ansible.builtin.include_tasks: tasks/report_failure.yml
-        - name: Lift the maintenance silence so the failure alerts fire
+        - name: Lift the maintenance silences so the failure alerts fire
           vars:
-            stack_url: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_url') }}"
-            stack_token: "{{ lookup('ansible.builtin.env', 'grafana_cloud_stack_sa_token') }}"
-            silence_id: "{{ hostvars[(ansible_play_hosts_all | first)].silence_result.json.silenceID | default('') }}"
+            silences: >-
+              {{ hostvars[(ansible_play_hosts_all | first)].silence_result.results
+                 | default([]) | selectattr('json', 'defined')
+                 | selectattr('json.silenceID', 'defined') | list }}
           ansible.builtin.uri:
-            url: "{{ stack_url }}api/alertmanager/grafana/api/v2/silence/{{ silence_id }}"
+            url: "{{ item.item.base }}/silence/{{ item.json.silenceID }}"
             method: DELETE
-            headers:
-              Authorization: "Bearer {{ stack_token }}"
+            headers: "{{ item.item.headers }}"
             status_code: [200, 404]
+          loop: "{{ silences }}"
+          loop_control:
+            label: "{{ item.item.name }}"
           delegate_to: localhost
           when:
             - not ansible_check_mode
-            - silence_id | length > 0
           failed_when: false
         - name: Abort the roll
           ansible.builtin.fail:

@@ -1,6 +1,7 @@
 all:
   vars:
     silence_duration_seconds: 14400
+    grafana_url: https://grafana.icaninto.space
   children:
     pve:
       hosts:
