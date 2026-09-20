@@ -11,14 +11,16 @@ be retired separately.
 
 ## What a run does
 
-1. **Alert silence** (once per run, before the first host): creates a Grafana
-   Alertmanager silence matching `grafana_folder=Talos` for
-   `silence_duration_seconds` (default 4h, matching the systemd
-   `TimeoutStartSec`), so the cluster-health alerts (`Node is down`,
-   `Longhorn manager down`, ...) don't page while a host is deliberately
-   down. The maintenance job's own alerts are in the same folder but only
-   fire on failure/silence — a failed run lifts the silence immediately (see
-   below). If the silence API is unreachable the run proceeds (fail-open).
+1. **Alert silences** (once per run, before the first host): creates a
+   `grafana_folder=Talos` Alertmanager silence for `silence_duration_seconds`
+   (default 4h, matching the systemd `TimeoutStartSec`) on both Grafana
+   instances — Cloud (the watchdog rules) and the in-cluster Grafana
+   (`grafana_url`), where the cluster-health rules (`Node is down`,
+   `Longhorn manager down`, ...) notify Discord — so neither pages while a
+   host is deliberately down. The job's own failure/dead-man rules sit in the
+   Cloud folder and only fire on failure, so a failed run lifts both silences
+   immediately (see below). If a silence API is unreachable the run proceeds
+   (fail-open).
 2. **Preflight** (once per host, before anything changes): secrets present in
    the environment, PVE quorate, all four Talos nodes `Ready`, every in-use
    (non-detached) Longhorn volume healthy. Any failure aborts before the host
