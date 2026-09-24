@@ -142,6 +142,11 @@ variable "gateway_api_crds_version" {
 }
 
 variable "artifacts_dir" {
-  description = "Directory to write generated talosconfig/kubeconfig artifacts to. Overridden by Terragrunt to point at the REAL unit dir (Terragrunt runs from a .terragrunt-cache working dir by default)."
+  description = "Directory to write generated inline manifests to. Overridden by Terragrunt to point at the REAL unit dir (Terragrunt runs from a .terragrunt-cache working dir by default)."
+  type        = string
+}
+
+variable "credentials_dir" {
+  description = "Machine-invariant directory for kubeconfig/talosconfig (state stores this filename, so it must not depend on the checkout path)."
   type        = string
 }

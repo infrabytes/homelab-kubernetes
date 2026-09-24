@@ -1,11 +1,11 @@
 output "kubeconfig" {
   description = "Path to the generated kubeconfig file."
-  value       = "${var.artifacts_dir}/kubeconfig"
+  value       = "${var.credentials_dir}/kubeconfig"
 }
 
 output "talosconfig" {
   description = "Path to the generated talosctl config file."
-  value       = "${var.artifacts_dir}/talosconfig"
+  value       = "${var.credentials_dir}/talosconfig"
 }
 
 output "first_controlplane_ip" {

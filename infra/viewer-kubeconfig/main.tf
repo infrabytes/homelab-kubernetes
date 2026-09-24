@@ -47,6 +47,9 @@ resource "local_sensitive_file" "viewer_kubeconfig" {
   })
   filename = "${var.artifacts_dir}/viewer-kubeconfig"
 
+  directory_permission = "0777"
+  file_permission      = "0666"
+
   # A standalone `terragrunt apply` does NOT re-apply the cluster dependency
   # (it only reads its state), so if that state predates the new outputs the
   # try() fallback in terragrunt.hcl would silently supply empty values and a

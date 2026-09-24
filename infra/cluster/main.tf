@@ -21,7 +21,7 @@ module "talos_cluster" {
   talos_version      = var.talos_version
   kubernetes_version = var.kubernetes_version
   nodes              = local.talos_cluster_nodes
-  artifacts_dir      = var.artifacts_dir
+  credentials_dir    = var.credentials_dir
   talos_log_enabled  = var.talos_log_enabled
   talos_log_port     = var.talos_log_port
 
