@@ -14,7 +14,7 @@ terraform {
       # Kubernetes upgrades (the 0.11 apply-only flow never upgraded the OS).
       # Beta until 0.12.0 stable; pinned exactly, and Renovate bumps the pin
       # once a newer stable release exists (pre-releases are skipped).
-      version = "0.12.0-rc.0"
+      version = "0.12.0"
     }
     local = {
       source  = "hashicorp/local"
