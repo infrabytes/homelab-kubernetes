@@ -4,7 +4,7 @@ variable "kubeconfig_path" {
 }
 
 variable "artifacts_dir" {
-  description = "Directory to write the generated viewer kubeconfig to. Points at the cluster unit's artifacts dir (gitignored), next to the admin kubeconfig."
+  description = "Machine-invariant directory for the generated viewer kubeconfig (shared credential home, synced by scripts/sync-artifacts.sh)."
   type        = string
 }
 

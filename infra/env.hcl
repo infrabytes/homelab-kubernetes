@@ -10,12 +10,17 @@ locals {
 
   kubeconfig_path = abspath("${local.infra_dir}/cluster/artifacts/kubeconfig")
 
+  # State stores each local_sensitive_file filename, so it must be identical on every machine/Atlantis workspace — checkout paths are not.
+  credentials_dir = "/var/tmp/homelab-artifacts"
+
   secrets = yamldecode(sops_decrypt_file(abspath("${local.infra_dir}/secrets.sops.yaml")))
 
   cluster = {
-    # Write talosconfig/kubeconfig to the real unit dir (Terragrunt runs from
-    # .terragrunt-cache).
-    artifacts_dir = abspath("${local.infra_dir}/cluster/artifacts")
+    # Inline manifests stay in the checkout's artifacts/ (local-only, accepted
+    # plan noise); credential files live in the machine-invariant
+    # credentials_dir, symlinked back into artifacts/ by sync-artifacts.sh.
+    artifacts_dir   = abspath("${local.infra_dir}/cluster/artifacts")
+    credentials_dir = local.credentials_dir
 
     proxmox_endpoint  = "https://192.168.0.11:8006/"
     proxmox_api_token = local.secrets.proxmox_api_token
@@ -224,8 +229,8 @@ locals {
 
   viewer_kubeconfig = {
     kubeconfig_path = local.kubeconfig_path
-    # Write the viewer kubeconfig next to the admin kubeconfig (gitignored).
-    artifacts_dir = abspath("${local.infra_dir}/cluster/artifacts")
+    # Machine-invariant credential home (same value as the cluster unit's).
+    artifacts_dir = local.credentials_dir
     cluster_name  = "talos-cluster"
     user_name     = "viewer@talos-cluster"
   }

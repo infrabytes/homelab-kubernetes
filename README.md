@@ -48,8 +48,10 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 ```
 infra/              Terragrunt/OpenTofu units: cluster -> viewer-kubeconfig, addons -> argocd-config
   env.hcl           ALL unit inputs centralized (versions, nodes, secrets)
-  root.hcl          shared remote_state (S3 backend on SeaweedFS, pbkdf2-encrypted)
+  root.hcl          shared remote_state (S3 backend on SeaweedFS, pbkdf2-encrypted) +
+                    artifact-sync hooks (kubeconfig/talosconfig <-> bucket `artifacts/` prefix)
   secrets.sops.yaml single SOPS-encrypted secrets file (never plaintext)
+  scripts/          sync-artifacts.sh (Terragrunt hook script)
   cluster/          Talos cluster + Cilium; writes artifacts/kubeconfig + talosconfig,
                     and converges the rendered inline manifests on every apply
   viewer-kubeconfig/ Mints the view-only client cert + kubeconfig (CSR API, no CA key extraction)

@@ -36,9 +36,10 @@ the argocd provider before ArgoCD exists.
 
 ```
 infra/
-  root.hcl            # shared remote_state (S3 via SeaweedFS, pbkdf2-encrypted)
+  root.hcl            # shared remote_state (S3 via SeaweedFS, pbkdf2-encrypted) + artifact-sync hooks
   env.hcl             # ALL unit inputs + shared values (secrets decrypt, kubeconfig)
   secrets.sops.yaml   # single SOPS-encrypted secrets file (all units)
+  scripts/            # sync-artifacts.sh: bucket <-> /var/tmp/homelab-artifacts (symlinked from artifacts/)
   cluster/            # unit: cluster terraform root (main.tf, ... modules/)
     terragrunt.hcl    # logic only: inputs = local.env.locals.cluster
   viewer-kubeconfig/  # unit: viewer client cert + kubeconfig (CSR API)
@@ -68,6 +69,50 @@ sops --decrypt secrets.sops.yaml
 
 Terragrunt resolves all inputs (and decrypts secrets) via `infra/env.hcl`, which
 each unit's `terragrunt.hcl` reads with `read_terragrunt_config(...)`.
+
+## Artifact sync (bucket + machine-invariant credential home)
+
+Two things made the credential files noisy in plans: `artifacts/` is
+gitignored (fresh checkout has no files), and state stores each
+`local_sensitive_file`'s **absolute `filename`** — a checkout path differs per
+machine and per Atlantis workspace, so plans outside the last-applied
+workspace dropped the resource and re-planned it as a create. The fix has two
+parts, both inherited from `root.hcl` hooks running `scripts/sync-artifacts.sh`:
+
+- **Canonical home**: `kubeconfig`/`talosconfig`/`viewer-kubeconfig` live in
+  `credentials_dir` (`/var/tmp/homelab-artifacts`, defined once in `env.hcl`,
+  mirrored in the script — the test asserts they match). That path is
+  identical on every machine, so once state records it, every workspace plans
+  against the same filename. Files are `0666` in a `0777` dir so whichever
+  user (host user or `atlantis`) last wrote them stays replaceable by the
+  other. `artifacts/` holds symlinks the script manages, so
+  `kubectl`/`kubeconfig_path` paths are unchanged.
+- **Bucket sync**: `before_hook` (plan + apply) runs `download` — GETs the
+  three objects from the bucket's `artifacts/` prefix into the canonical home
+  and (re)creates the symlinks; `after_hook` (apply) runs `upload` — PUTs them
+  back after a successful apply. Legacy real files in `artifacts/` are adopted
+  into the canonical home on the next run.
+
+A missing bucket object is a cache miss, not an error: download exits 0, plan
+shows create, apply regenerates the file and the after_hook re-uploads it —
+self-healing with no manual bootstrap. Credentials come from
+`secrets.sops.yaml` via `sops` and reach `curl` through a stdin config (never
+argv); the script is silent on success so no file contents can surface in
+Atlantis output. Files sit plaintext in the bucket — same trust boundary as
+remote state, whose credentials are SOPS-protected. The cilium/gateway-api
+inline manifests are local-only and never synced (they keep planning as
+creates when absent on another machine — accepted noise). `artifacts/` stays
+gitignored; nothing here changes the no-committed-secrets guardrail.
+
+One-time transition: state written before the canonical home existed points
+at a workspace-specific path, so the first apply after this change re-creates
+the three files at `/var/tmp/homelab-artifacts/` (a create in that one plan).
+Every plan after that is workspace-independent.
+
+`.github/scripts/test-artifact-sync.sh` asserts the hook wiring, that the
+script's key set matches the `local_sensitive_file` filenames and its
+`CREDENTIALS_DIR` matches `env.hcl`, and does a live PUT/GET + adoption/
+symlink round-trip under a disposable test prefix (skips without the age key).
 
 ## Typical workflows
 

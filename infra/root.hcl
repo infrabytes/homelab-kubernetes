@@ -3,6 +3,19 @@ locals {
   secrets = local.env.locals.secrets
 }
 
+terraform {
+  # Sync gitignored credential artifacts with the bucket so fresh checkouts plan clean; a missing object is a cache miss (plan shows create, apply regenerates + re-uploads).
+  before_hook "sync_artifacts_download" {
+    commands = ["plan", "apply"]
+    execute  = ["${get_parent_terragrunt_dir()}/scripts/sync-artifacts.sh", "download"]
+  }
+
+  after_hook "sync_artifacts_upload" {
+    commands = ["apply"]
+    execute  = ["${get_parent_terragrunt_dir()}/scripts/sync-artifacts.sh", "upload"]
+  }
+}
+
 remote_state {
   backend = "s3"
 

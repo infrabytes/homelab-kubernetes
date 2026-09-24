@@ -41,8 +41,8 @@ variable "vm_ids" {
   type        = map(number)
 }
 
-variable "artifacts_dir" {
-  description = "Directory to write generated talosconfig/kubeconfig artifacts to."
+variable "credentials_dir" {
+  description = "Machine-invariant directory for kubeconfig/talosconfig (state stores this filename; a checkout path differs per machine/Atlantis workspace and plans creates everywhere else)."
   type        = string
   default     = "artifacts"
 }
