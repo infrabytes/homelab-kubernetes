@@ -20,14 +20,12 @@ spec:
           create: false
         controller:
           extensions: true
-        # Sizing baseline 2026-08-27..09-11 (Grafana Cloud, 15d): memory request = p95
-        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
         resources:
           requests:
             cpu: 10m
-            memory: 32Mi
-          limits:
             memory: 48Mi
+          limits:
+            memory: 64Mi
         metrics:
           serviceMonitor:
             enabled: true
