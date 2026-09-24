@@ -23,7 +23,7 @@ jobs:
           python-version: "3.14"
       - uses: gruntwork-io/terragrunt-action@8c1d96b76d445fd2e41475a3f0b63dcd1d9cc077 # v3.4.1
         with:
-          tg_version: 1.1.5
+          tg_version: 1.1.6
           tofu_version: 1.12.6
       - uses: terraform-linters/setup-tflint@1cf010d3c7aef302051ccdb68c14c5dc2efa34ef # v6.3.1
         with:
