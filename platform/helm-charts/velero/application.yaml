@@ -82,7 +82,8 @@ spec:
             autodetect: false
         schedules:
           daily-all:
-            schedule: "0 30 3 * * *"
+            # cron.ParseStandard (Velero 1.18) rejects the 6-field seconds form — 5 fields only.
+            schedule: "30 3 * * *"
             template:
               ttl: 336h
               includedNamespaces:
