@@ -1,0 +1,101 @@
+# Velero (kopia fs-backup of all namespaces + cluster resources to the dedicated SeaweedFS bucket).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: velero-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://vmware-tanzu.github.io/helm-charts
+    chart: velero
+    targetRevision: 12.2.0
+    helm:
+      releaseName: velero
+      values: |
+        credentials:
+          existingSecret: cloud-credentials
+        configuration:
+          backupStorageLocation:
+            - name: default
+              provider: aws
+              bucket: homelab-kubernetes-backups
+              default: true
+              credential:
+                name: cloud-credentials
+                key: cloud
+              config:
+                region: us-east-1
+                s3ForcePathStyle: "true"
+                s3Url: https://s3.icaninto.space
+          volumeSnapshotLocation: []
+          uploaderType: kopia
+          defaultVolumesToFsBackup: true
+          defaultBackupTTL: 336h
+        snapshotsEnabled: false
+        deployNodeAgent: true
+        initContainers:
+          # The aws plugin is not bundled; without it the server cannot talk to the S3 BSL.
+          - name: velero-plugin-for-aws
+            image: velero/velero-plugin-for-aws:v1.13.1
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+              - mountPath: /target
+                name: plugins
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 48Mi
+        # New component (2026-09-27): initial estimate; re-measure after two weeks; no CPU limits.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 256Mi
+          limits:
+            memory: 640Mi
+        nodeAgent:
+          # Back up pods scheduled on the tainted control-plane node too (node-exporter, alloy).
+          tolerations:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+              effect: NoSchedule
+          # kopia hashing/compression runs here during the backup window — hence the higher CPU request than the server.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+        # The hook job runs `velero install --crds-only`, but the coverage check rejects unsized containers.
+        upgradeJobResources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 48Mi
+        metrics:
+          serviceMonitor:
+            enabled: true
+            # autodetect off: capability probing silently drops the ServiceMonitor from plain helm renders.
+            autodetect: false
+        schedules:
+          daily-all:
+            schedule: "0 30 3 * * *"
+            template:
+              ttl: 336h
+              includedNamespaces:
+                - "*"
+              includeClusterResources: true
+              snapshotVolumes: false
+              defaultVolumesToFsBackup: true
+  destination:
+    namespace: velero
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
