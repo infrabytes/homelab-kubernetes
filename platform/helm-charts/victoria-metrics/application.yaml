@@ -29,6 +29,9 @@ spec:
               memory: 256Mi
             limits:
               memory: 1Gi
+          # NFS volume must stay out of Velero fs-backup; kopia would read it off the NAS.
+          podAnnotations:
+            backup.velero.io/backup-volumes-excludes: server-volume
   destination:
     namespace: observability
     server: https://kubernetes.default.svc
