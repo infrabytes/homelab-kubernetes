@@ -80,11 +80,33 @@ spec:
             enabled: true
             # autodetect off: capability probing silently drops the ServiceMonitor from plain helm renders.
             autodetect: false
+        # Velero rejects this ConfigMap unless it has exactly one data key.
+        configMaps:
+          resource-policies:
+            data:
+              resource-policies: |
+                version: v1
+                volumePolicies:
+                  # Static pods' memory tmpfs has no reachable kubelet pod dir (mirror-pod UID vs config-hash UID), so fs-backup of it always fails.
+                  - conditions:
+                      volumeTypes:
+                        - emptyDir
+                    action:
+                      type: skip
+                  # The nfs-nas convention enforced at the backup layer, annotation or not.
+                  - conditions:
+                      storageClass:
+                        - nfs-nas
+                    action:
+                      type: skip
         schedules:
           daily-all:
             # cron.ParseStandard (Velero 1.18) rejects the 6-field seconds form — 5 fields only.
             schedule: "30 3 * * *"
             template:
+              resourcePolicy:
+                kind: configmap
+                name: velero-resource-policies
               ttl: 336h
               includedNamespaces:
                 - "*"
