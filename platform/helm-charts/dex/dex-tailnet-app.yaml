@@ -16,8 +16,10 @@ spec:
         # fullnameOverride keeps the cluster-scoped RBAC (ClusterRole/dex-tailnet) distinct from the LAN release's ClusterRole/dex.
         fullnameOverride: dex-tailnet
         replicaCount: 1
+        # v2.45.1 names the image user (`dex`), so kubelet needs the numeric uid pinned to verify runAsNonRoot.
         podSecurityContext:
           runAsNonRoot: true
+          runAsUser: 1001
           seccompProfile:
             type: RuntimeDefault
         securityContext:
