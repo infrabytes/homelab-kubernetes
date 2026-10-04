@@ -14,9 +14,10 @@ spec:
       releaseName: dex
       values: |
         replicaCount: 1
-        # Image runs as uid 1001; satisfy restricted PodSecurity so rollouts don't warn.
+        # v2.45.1 names the image user (`dex`), so kubelet needs the numeric uid pinned to verify runAsNonRoot.
         podSecurityContext:
           runAsNonRoot: true
+          runAsUser: 1001
           seccompProfile:
             type: RuntimeDefault
         securityContext:
