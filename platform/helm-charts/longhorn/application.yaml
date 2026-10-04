@@ -47,6 +47,15 @@ spec:
               memory: 256Mi
             limits:
               memory: 384Mi
+        longhornGlobalManager:
+          # New component (2026-10-04): initial estimate; re-measure after two weeks.
+          # Memory follows the cluster-wide Pod informer cache, not the node count.
+          resources:
+            requests:
+              cpu: 10m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
         persistence:
           defaultClass: true
           defaultClassReplicaCount: 2
