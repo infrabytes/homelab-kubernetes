@@ -23,7 +23,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | External Secrets Operator   | Syncs Secrets from OpenBao through per-consumer namespaced stores (k8s auth, one read-only role scoped to a single secret path each); e.g. the ARC runner PAT (`arc-runner-auth`) |
 | Longhorn                     | Block storage on the worker nodes (dedicated disk labels); UI at longhorn.icaninto.space. Carries small state only (Grafana's Postgres cluster, ARC tool cache) — the observability TSDBs live on the NAS |
 | csi-driver-nfs + `nfs-nas`   | NFS CSI driver and the `nfs-nas` StorageClass (NAS 192.168.0.22:/nas, Retain): the storage home for the VictoriaMetrics and Loki PVCs |
-| Velero                       | Cluster backups: kopia fs-backup (no CSI snapshots) of k8s metadata + Longhorn PVC filesets to the SeaweedFS bucket `homelab-kubernetes-backups` (dedicated key via OpenBao/ESO); daily 03:30, 14d TTL; `nfs-nas` volumes excluded by pod annotations; ServiceMonitor + two Grafana alert rules in `infra-health` |
+| Velero                       | Cluster backups: kopia fs-backup (no CSI snapshots) of k8s metadata + Longhorn PVC filesets to the SeaweedFS bucket `homelab-kubernetes-backups` (dedicated key via OpenBao/ESO); daily 03:30, 14d TTL; `emptyDir` + `nfs-nas` volumes excluded by the Velero resource policy; ServiceMonitor + two Grafana alert rules in `infra-health` |
 | VictoriaMetrics + Loki       | Self-hosted observability stores in namespace `observability`: VictoriaMetrics single-node (metrics, 90-day retention) and Loki single binary (logs, filesystem TSDB v13, 2160h retention), both on `nfs-nas` PVCs |
 | Grafana (OSS, local)         | Single Grafana instance managed by grafana-operator (namespace `observability`): datasources, folders, alert rules, contact point and notification policy are `platform/observability/` CRs; LAN at grafana.icaninto.space (Dex/GitHub SSO) and on the tailnet (Tailscale identity headers), both the same instance |
 | Grafana Cloud (free tier)    | Out-of-cluster watchdog only: the two `proxmox-maintenance` rules plus the `cluster-heartbeat` dead-man rule, notified to Discord; no cluster metrics/logs remote-write |
@@ -356,10 +356,12 @@ copies are crash-consistent (no fsfreeze), and for Grafana's Postgres
 point-in-time-recovery authority — the Velero fileset is a second,
 coarser-grained DR copy.
 
-Standing convention: every new workload with an `nfs-nas` PVC must carry the
-pod annotation `backup.velero.io/backup-volumes-excludes: <volume-name>`, or
-kopia will read the TSDB off the NAS on every backup (vmsingle and Loki carry
-it in their chart values; see
+Standing convention: `nfs-nas` and `emptyDir` volumes stay out of the kopia
+filesets, enforced by the Velero resource policy the schedule template
+references — a new NAS-backed workload needs no per-pod annotation. Keep the
+pod annotation `backup.velero.io/backup-volumes-excludes: <volume-name>` for
+one-off exclusions the policy can't infer (vmsingle and Loki still carry it
+as belt & braces; see
 [`platform/helm-charts/velero/README.md`](platform/helm-charts/velero/README.md)).
 
 ### PVE host maintenance

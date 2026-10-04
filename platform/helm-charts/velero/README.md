@@ -37,10 +37,24 @@ p95 after two weeks of 03:30 runs.
   it: **barman stays the point-in-time-recovery authority**, the Velero
   fileset is a coarser whole-volume fallback. Revisit only if CNPG ships a
   Velero-aware plugin.
-- **nfs-nas excludes live in chart `podAnnotations`**, not a raw manifest:
-  the vmsingle/Loki pods belong to other ArgoCD Applications, so a patch
-  applied from `platform/velero/` would fight their `selfHeal`. Volume names
-  are `server-volume` (vmsingle) and `storage` (Loki).
+- **Volume skips are a Velero resource policy**, referenced from the
+  schedule template (`configMaps.resource-policies` ->
+  `spec.template.resourcePolicy`), so scheduled and `--from-schedule`
+  backups both inherit them:
+  - `emptyDir`: the control-plane static pods' memory-backed `tmp`/`run`
+    volumes have no reachable kubelet host path (the API mirror pod's UID
+    never matches kubelet's config-hash pod dir), so every attempt failed
+    the PVB exposer and left backups `PartiallyFailed` — and the stale-backup
+    alert keys on `Completed` only. It also silences the ~60/run
+    `Skip pod volume scratch` warnings from completed kopia maintenance-job
+    pods.
+  - `nfs-nas`: the documented NAS convention, enforced at the backup layer
+    regardless of pod annotations.
+- **nfs-nas excludes stay in chart `podAnnotations` too**, as belt & braces
+  and as the mechanism for one-off exclusions: the vmsingle/Loki pods belong
+  to other ArgoCD Applications, so a patch applied from `platform/velero/`
+  would fight their `selfHeal`. Volume names are `server-volume` (vmsingle)
+  and `storage` (Loki).
 - **Dedicated bucket-scoped key**, not the state-bucket admin pair: the
   SeaweedFS policy for `velero_access_key` only reaches
   `homelab-kubernetes-backups`.
