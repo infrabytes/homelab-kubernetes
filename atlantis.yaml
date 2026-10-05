@@ -23,7 +23,7 @@ projects:
     workflow: terragrunt
     apply_requirements: [mergeable]
     terraform_distribution: opentofu
-    terraform_version: 1.13.0
+    terraform_version: 1.13.1
     execution_order_group: 1
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl", "modules/**/*.tf"]
@@ -33,7 +33,7 @@ projects:
     workflow: terragrunt
     apply_requirements: [mergeable]
     terraform_distribution: opentofu
-    terraform_version: 1.13.0
+    terraform_version: 1.13.1
     execution_order_group: 2
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
@@ -43,7 +43,7 @@ projects:
     workflow: terragrunt
     apply_requirements: [mergeable]
     terraform_distribution: opentofu
-    terraform_version: 1.13.0
+    terraform_version: 1.13.1
     execution_order_group: 2
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
@@ -53,7 +53,7 @@ projects:
     workflow: terragrunt
     apply_requirements: [mergeable]
     terraform_distribution: opentofu
-    terraform_version: 1.13.0
+    terraform_version: 1.13.1
     execution_order_group: 3
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
@@ -65,7 +65,7 @@ projects:
     workflow: terragrunt
     apply_requirements: [mergeable]
     terraform_distribution: opentofu
-    terraform_version: 1.13.0
+    terraform_version: 1.13.1
     execution_order_group: 4
     autoplan:
       when_modified: ["../env.hcl", "*.tf", "*.hcl"]
