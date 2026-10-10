@@ -22,13 +22,12 @@ spec:
             storage.minFreeDiskSpaceBytes: 5GB
           serviceMonitor:
             enabled: true
-          # New component (2026-09-16): initial estimate; re-measure after two weeks.
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
-            limits:
               memory: 1Gi
+            limits:
+              memory: 1.5Gi
           # NFS volume must stay out of Velero fs-backup; kopia would read it off the NAS.
           podAnnotations:
             backup.velero.io/backup-volumes-excludes: server-volume
