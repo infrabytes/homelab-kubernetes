@@ -34,6 +34,8 @@ spec:
           nodeDrainPolicy: allow-if-replica-is-stopped
           createDefaultDiskLabeledNodes: true
           storageMinimalAvailablePercentage: "10"
+          # Replicas are only placed at creation/rebuild time; best-effort lets Longhorn correct the 2026-09-13 skew itself.
+          replicaAutoBalance: best-effort
           # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): the chart applies this to
           # the runtime-created csi-plugin DaemonSet containers (longhorn-csi-plugin,
           # node-driver-registrar, longhorn-liveness-probe).
