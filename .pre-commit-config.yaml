@@ -81,12 +81,12 @@ repos:
         entry: .github/scripts/check-tenants.py
         language: script
         pass_filenames: false
-        files: ^(argocd/appsets/tenants/|argocd/tenants/|charts/tenant-access/|platform/helm-charts/openbao/application\.yaml)
+        files: ^(argocd/appsets/tenants/|argocd/tenants/|charts/tenant-access/|platform/openbao/application\.ya?ml)
       - id: grafana-logql-check
         name: grafana dashboard LogQL executes against Loki
         entry: .github/scripts/check-grafana-logql.py
         language: script
-        files: ^platform/grafana-dashboards/.*\.ya?ml$
+        files: ^platform/observability/dashboards/.*\.ya?ml$
       - id: terragrunt-validate
         name: terragrunt validate
         entry: .github/scripts/terragrunt-validate.sh

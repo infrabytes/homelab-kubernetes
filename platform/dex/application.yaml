@@ -1,4 +1,4 @@
-# Standalone Dex OIDC provider (OpenBao SSO, LAN-only); config from the Terraform-created dex-config Secret, exposure via apps/dex.
+# Standalone Dex OIDC provider (OpenBao SSO, LAN-only); config from the Terraform-created dex-config Secret, exposure via route.yaml in this directory.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

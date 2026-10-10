@@ -124,10 +124,10 @@ terragrunt apply --all     # cluster -> viewer-kubeconfig, addons (this unit) ->
 Once ArgoCD is up, `cd ../argocd-config && terragrunt apply` (or `--all`)
 creates the ApplicationSets, and ArgoCD syncs:
 
-- `platform` ApplicationSet syncs each `platform/` subdir (network, issuer,
-  metrics-server, kubelet-serving-cert-approver) plus the single
-  `platform/helm-charts/` parent app, which applies the Helm chart
-  `Application`s (cert-manager, external-dns, spegel, longhorn).
+- `platform` ApplicationSet syncs each `platform/` subdir — one app per
+  component folder, each applying the folder's Helm chart `Application`
+  (cert-manager, external-dns, spegel, longhorn, ...) plus its companion
+  manifests.
 - `apps` ApplicationSet syncs `apps/` (ArgoCD's HTTPRoute →
   `argocd.icaninto.space`).
 - Cert-manager issues the cert (DNS-01, ~1 min); external-dns creates the
@@ -136,7 +136,7 @@ creates the ApplicationSets, and ArgoCD syncs:
 ## Add a new app
 
 1. Create `apps/<app>/` in the repo with your manifests (or an ArgoCD
-   `Application` that points at a Helm chart, like `platform/helm-charts/
+   `Application` that points at a Helm chart, like `platform/
    external-dns/application.yaml` does).
 2. Push. The `apps` ApplicationSet picks it up automatically.
 3. For a public hostname: add an `HTTPRoute` (external-dns creates the DNS

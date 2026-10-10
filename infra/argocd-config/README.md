@@ -25,11 +25,10 @@ ApplicationSet dirs may carry more than ApplicationSets: `argocd/appsets/pdeu/`
 they are plain objects applied in the same operation by the generated
 `appset-pdeu` Application.
 
-The `platform` ApplicationSet generates one app per `platform/*` folder. Helm
-chart `Application`s live under `platform/helm-charts/<chart>/`; because
-`platform/*` matches one level, ArgoCD generates a single parent app for
-`platform/helm-charts/` that applies all chart `Application`s (app-of-apps).
-This avoids one outer app per chart.
+The `platform` ApplicationSet generates one app per `platform/*` folder.
+Each component folder holds the Helm chart `Application` (app-of-apps: one
+outer folder app that applies the inner `<chart>-app`) next to its companion
+manifests (namespace, ESO resources, routes, network policies).
 
 The argocd provider connects to the in-cluster server (ClusterIP) via
 port-forwarding, deriving the cluster connection from the kubeconfig the

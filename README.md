@@ -13,7 +13,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | Kubernetes (1.37.0)          | Cluster on Proxmox VE (4 nodes), LAN 192.168.0.0/24                  |
 | Terragrunt + OpenTofu        | Infrastructure provisioning: `cluster -> addons -> argocd-config`    |
 | Cilium (1.20.1)              | CNI, kube-proxy-free, L2 LB (LB-IPAM 192.168.0.200-219), Gateway API (Gateway `homelab` at 192.168.0.200), WireGuard encryption, Hubble |
-| Network policies             | Phase-1 namespace isolation for the chart-value workloads: chart values + per-namespace ingress default-deny + egress derived from Hubble flow audits; posture, verified gotchas and the phase-2 backlog in `platform/networkpolicies/README.md` |
+| Network policies             | Phase-1 namespace isolation for the chart-value workloads: chart values + per-namespace ingress default-deny + egress derived from Hubble flow audits, all co-located with their component under `platform/<component>/`; posture, verified gotchas and the phase-2 backlog in `docs/network-policies.md` |
 | ArgoCD                       | GitOps delivery: `platform`/`apps`/`pdeu`/`tenants` ApplicationSets committed in `argocd/appsets/`, applied by a Terraform-managed bootstrap ApplicationSet; UI at argocd.icaninto.space |
 | cert-manager                 | TLS via Let's Encrypt DNS-01 (Cloudflare), ClusterIssuer `letsencrypt-dns01` |
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
@@ -27,7 +27,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | VictoriaMetrics + Loki       | Self-hosted observability stores in namespace `observability`: VictoriaMetrics single-node (metrics, 90-day retention) and Loki single binary (logs, filesystem TSDB v13, 2160h retention), both on `nfs-nas` PVCs |
 | Grafana (OSS, local)         | Single Grafana instance managed by grafana-operator (namespace `observability`): datasources, folders, alert rules, contact point and notification policy are `platform/observability/` CRs; LAN at grafana.icaninto.space (Dex/GitHub SSO) and on the tailnet (Tailscale identity headers), both the same instance |
 | Grafana Cloud (free tier)    | Out-of-cluster watchdog only: the two `proxmox-maintenance` rules plus the `cluster-heartbeat` dead-man rule, notified to Discord; no cluster metrics/logs remote-write |
-| grafana-operator             | Manages the local Grafana instance and delivers the chart-shipped dashboards from `platform/grafana-dashboards/` (Cilium ×7 incl. the restored DNS Overview, Hubble flows, External Secrets, OpenBao), imported from the chart ConfigMaps (or the chart's OCI artifact) |
+| grafana-operator             | Manages the local Grafana instance and delivers the chart-shipped dashboards from `platform/observability/dashboards/` (Cilium ×7 incl. the restored DNS Overview, Hubble flows, External Secrets, OpenBao), imported from the chart ConfigMaps (or the chart's OCI artifact) |
 | Hubble Observer + CF2CNP     | Streams Cilium Hubble flows (DROPPED verdicts) to Loki; Grafana dashboard "Cilium Flows - Hubble Observer" (grafana.com #23862) on the local instance; CF2CNP web UI generates CiliumNetworkPolicies from flows at cf2cnp.icaninto.space |
 | Hubble UI                    | Cilium's live service map (allowed vs dropped edges per namespace/workload), deployed standalone from the Cilium chart by ArgoCD in `kube-system`; exposed on the LAN at hubble.icaninto.space and on the tailnet as `hubble-ui`, both unauthenticated and neither public |
 | Network Policies dashboard   | Grafana dashboard "Network Policies" on the local instance: endpoint enforcement status (`cilium_policy_endpoint_enforcement_status` = wide-open endpoints), policies per namespace and namespaces without any policy (KSM `kube_networkpolicy_*`), allowed-vs-denied flows and drop reasons (Hubble metrics); scraped through the `cilium-agent` PodMonitor |
@@ -63,23 +63,16 @@ argocd/appsets/     committed ApplicationSets (platform, apps, pdeu, tenants), a
 argocd/tenants/     tenant list (source of truth for the tenants ApplicationSet + the
                     openbao postStart tenant config)
 charts/             in-repo Helm charts rendered by ApplicationSets (tenant-access)
-platform/           ArgoCD-managed cluster-level resources (network, issuer,
-                    metrics-server, kubelet-serving-cert-approver,
-                    homelab-runner + cluster-viewer RBAC)
-  helm-charts/      one parent ArgoCD app (app-of-apps) for the Helm chart
-                    Applications (cert-manager, cloudnative-pg, csi-driver-nfs,
-                    dex, external-dns, external-secrets, gha-runner-scale-set,
-                    gha-runner-scale-set-controller, grafana-cloud,
-                    hubble-observer, hubble-ui, loki, longhorn, openbao,
-                    prometheus-operator-crds, spegel, tailscale-operator,
-                    vcluster, victoria-metrics)
-  grafana-dashboards/  the GrafanaDashboard CRs grafana-operator syncs into
-                    the local Grafana instance
-  observability/    namespace, local Grafana CR + datasources, routing
-                    (LAN HTTPRoute + tailnet Ingress), alert rule groups,
-                    contact point/notification policy, heartbeat CronJob
-  networkpolicies/  per-namespace NetworkPolicies + the DNS-visibility CCNP
-apps/               ArgoCD-managed applications (one subdir per app)
+platform/           ArgoCD-managed cluster-level resources: one folder per
+                    component holding the Helm chart Application plus its
+                    companion manifests (namespace, ESO store/secret, routes,
+                    network policies); e.g. velero/, openbao/,
+                    tailscale-operator/, arc/, observability/ (which also
+                    carries the loki/victoria-metrics/grafana-operator chart
+                    Applications and the GrafanaDashboard CRs)
+apps/               ArgoCD-managed end-user applications (external-secrets-demo,
+                    the ArgoCD HTTPRoute)
+docs/               cross-cutting ops docs (network-policies.md)
 ansible/            rolling PVE host maintenance playbook (proxmox01-04) + windrunner
                     systemd units; see ansible/README.md
 .github/            CI workflows + scripts (pre-commit, PR preview diff)
@@ -130,7 +123,7 @@ The vCluster and its Argo CD stay installed for the next PR.
 
 Runner pods keep their caches pod-local and hydrate them from a shared
 Longhorn RWX seed volume (`gha-runner-tool-cache` PVC in `arc-runners`, from
-`platform/gha-runner-scale-set/`):
+`platform/arc/`):
 
 - `local/` (emptyDir, `sizeLimit: 10Gi` — a pod exceeding it is evicted
   instead of silently eating node disk) — the pod's own working cache:
@@ -182,7 +175,7 @@ binaries into the cache, so it stays uncached (~5 MB per run, same cost as
 before on `ubuntu-latest`).
 
 The seed volume uses a dedicated StorageClass (`longhorn-rwx-cache`, see
-`platform/gha-runner-scale-set/storage-class.yaml`) that tunes the NFS mount
+`platform/arc/storage-class.yaml`) that tunes the NFS mount
 options for cache-like data: `async` (writes acknowledged without waiting for
 the server commit — the cache is disposable, so the small crash-loss risk is
 acceptable), `noatime`, and 1 MiB `rsize`/`wsize`.
@@ -317,7 +310,7 @@ Atlantis user token, webhook secret and the SOPS age key live in its
 Secrets: edit `infra/secrets.sops.yaml` with `sops` (re-encrypts on save). The
 age key is not in the repo; all units decrypt via `env.hcl`. Runtime secrets
 for workloads are synced from OpenBao by External Secrets Operator (see
-[`platform/helm-charts/openbao/README.md`](platform/helm-charts/openbao/README.md)).
+[`platform/openbao/README.md`](platform/openbao/README.md)).
 
 Validation: `pre-commit run --all-files` (terragrunt fmt/validate/tflint,
 yamllint, kubeconform, argocd-apps-check, ansible-lint, ansible-inventory-check,
@@ -326,7 +319,7 @@ same on push/PR.
 
 ### Cluster backups (Velero)
 
-Velero (namespace `velero`, chart app in `platform/helm-charts/velero/`) keeps
+Velero (namespace `velero`, chart app in `platform/velero/`) keeps
 one combined copy of the cluster: all namespaced and cluster-scoped resources
 plus, via kopia filesystem backup, the Longhorn PVC filesets. The Schedule
 `velero-daily-all` (note the chart's release-name prefix) runs daily at 03:30
@@ -362,7 +355,7 @@ references — a new NAS-backed workload needs no per-pod annotation. Keep the
 pod annotation `backup.velero.io/backup-volumes-excludes: <volume-name>` for
 one-off exclusions the policy can't infer (vmsingle and Loki still carry it
 as belt & braces; see
-[`platform/helm-charts/velero/README.md`](platform/helm-charts/velero/README.md)).
+[`platform/velero/README.md`](platform/velero/README.md)).
 
 ### PVE host maintenance
 

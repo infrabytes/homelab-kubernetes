@@ -154,7 +154,7 @@ data "helm_template" "cilium" {
             sourceLabels: [__name__]
             regex: "${join("|", local.cilium_dashboard_families)}"
     # Six dashboard ConfigMaps (agent, operator, four Hubble) land in
-    # kube-system; platform/grafana-dashboards imports them into the stack.
+    # kube-system; platform/observability/dashboards imports them into the stack.
     dashboards:
       enabled: true
     hubble:
