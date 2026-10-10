@@ -14,8 +14,8 @@ Every covered namespace ends up with:
    since undeclared ports are otherwise reachable from any source;
 3. egress restricted per pod from observed flows: chart values where they exist,
    Cilium policies only for edges a plain NetworkPolicy cannot name;
-4. hand-written supplements in this directory, one policy per file, for
-   anything the chart's values cannot express.
+4. hand-written supplements next to their component (`platform/<component>/`),
+   one policy per file, for anything the chart's values cannot express.
 
 ## Verified rules
 
