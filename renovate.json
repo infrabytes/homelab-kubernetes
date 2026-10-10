@@ -245,7 +245,7 @@
       "customType": "regex",
       "description": "hubble-observer chart artifact pinned in the flows dashboard CR (docker datasource on the OCI chart; must match the chart Application's targetRevision)",
       "managerFilePatterns": [
-        "/^platform\\/grafana-dashboards\\/flows-dashboard\\.ya?ml$/"
+        "/^platform\\/observability\\/dashboards\\/flows-dashboard\\.ya?ml$/"
       ],
       "matchStrings": [
         "reference:\\s*ghcr\\.io/onzack/helm-charts/hubble-observer:(?<currentValue>[^\\s]+)"
@@ -257,7 +257,7 @@
       "customType": "regex",
       "description": "Agent Sandbox controller image tag in the chart Application values (docker datasource: only moves when the matching image is promoted)",
       "managerFilePatterns": [
-        "/^platform\\/helm-charts\\/agent-sandbox\\/application\\.ya?ml$/"
+        "/^platform\\/agent-sandbox\\/application\\.ya?ml$/"
       ],
       "matchStrings": [
         "image:\\s*\\n\\s*tag:\\s*(?<currentValue>v?[0-9.]+)"

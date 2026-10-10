@@ -90,4 +90,4 @@ instead of yielding 1, so the threshold never fires.
   (they need a cloud access-policy token and the `grafana.cloud` provider block).
 - The Cloud dashboards the chart-shipped dashboards used to be delivered into
   (Cilium/External Secrets/OpenBao) are gone; grafana-operator now renders them
-  into the local instance instead (`platform/grafana-dashboards/`).
+  into the local instance instead (`platform/observability/dashboards/`).

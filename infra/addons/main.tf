@@ -41,7 +41,7 @@ resource "helm_release" "argo_cd" {
         }
       }
       # Expose the /metrics endpoints as Services so the k8s-monitoring
-      # ServiceMonitors in platform/helm-charts/grafana-cloud can scrape them.
+      # ServiceMonitors in platform/grafana-cloud can scrape them.
       controller = {
         metrics = { enabled = true }
         # One-shot escalation: the retained series is censored by the old 912Mi limit
@@ -188,7 +188,7 @@ resource "kubernetes_namespace_v1" "openbao" {
 
 # Static seal key for the built-in auto-unseal (seal "static" stanza, read via
 # file:// from the pod). The value in the Secret is the raw 32-byte key; the
-# openbao chart (platform/helm-charts/openbao) mounts it at
+# openbao chart (platform/openbao) mounts it at
 # /openbao/seal/current.key read-only. Key rotation: write the new key as
 # current.key with a previous_key/previous_key_id stanza (see the app README).
 resource "kubernetes_secret_v1" "openbao_seal" {
@@ -213,7 +213,7 @@ resource "kubernetes_namespace_v1" "dex" {
 }
 
 # Standalone Dex config (config.yaml), rendered from SOPS vars and consumed by
-# the dex chart (platform/helm-charts/dex) via configSecret.name=dex-config.
+# the dex chart (platform/dex) via configSecret.name=dex-config.
 # GitHub connector restricted to github_oidc_org; OpenBao is the only static
 # client (redirect URIs cover the OpenBao UI callback and the CLI callback).
 resource "kubernetes_secret_v1" "dex_config" {
@@ -279,7 +279,7 @@ resource "kubernetes_namespace_v1" "dex_tailnet" {
 
 # Tailnet Dex config (config.yaml): second Dex instance with its own issuer
 # (https://dex.taile70903.ts.net) and GitHub OAuth app for remote OpenBao SSO.
-# Consumed by the dex chart (platform/helm-charts/dex/dex-tailnet-app.yaml) via
+# Consumed by the dex chart (platform/dex/dex-tailnet-app.yaml) via
 # configSecret.name=dex-tailnet-config. Serves https on 5554 with the
 # Terraform-generated cert so OpenBao's in-cluster discovery fetch (which
 # cannot reach the tailscale interface) gets a matching issuer over TLS.

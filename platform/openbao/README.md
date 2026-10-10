@@ -7,9 +7,9 @@ per worker — with Longhorn PVCs and the built-in static-key auto-unseal.
 - Namespace + seal-key Secret (`openbao-seal`): created by Terraform
   (`infra/addons/main.tf`) from `infra/secrets.sops.yaml` — keys never appear
   in manifests.
-- LAN-only access: `apps/openbao/route.yaml` (gateway `openbao-https` listener,
+- LAN-only access: `route.yaml` in this folder (gateway `openbao-https` listener,
   cert-manager DNS-01 cert like argocd); plaintext http redirects to https
-  (`apps/openbao/redirect.yaml`). Tailnet access via the operator-managed L7
+  (`redirect.yaml` in this folder). Tailnet access via the operator-managed L7
   Ingress (`openbao-tailnet-ingress.yaml` → `https://openbao.<tailnet>.ts.net`).
 - Metrics: chart ServiceMonitor scraped by the k8s-monitoring stack.
 
@@ -82,7 +82,7 @@ Notes:
 
 ## External Secrets Operator
 
-ESO (chart app `platform/helm-charts/external-secrets`) syncs Secrets from
+ESO (chart app `platform/external-secrets`) syncs Secrets from
 OpenBao through **namespaced** `SecretStore`s: each consumer namespace has its
 own store, ServiceAccount and OpenBao Kubernetes-auth role, read-scoped to a
 single secret path. There is no cluster-wide store, so no namespace can read
@@ -98,7 +98,7 @@ another namespace's secrets.
 The chart renders all its CRDs. The two store CRDs' schemas exceed the 256KB
 last-applied annotation limit, so the chart app injects a per-resource
 `argocd.argoproj.io/sync-options: Replace=true` annotation (`crds.annotations`
-in `platform/helm-charts/external-secrets/application.yaml`); ArgoCD then
+in `platform/external-secrets/application.yaml`); ArgoCD then
 creates them with `kubectl create` and updates them in place (PUT) — neither
 adds the annotation. (ServerSideApply does not help: ArgoCD falls back to
 client-side apply for CRDs.)
@@ -181,7 +181,7 @@ secret mount; there is no per-member separation.
   ServiceAccount `<tenant>-eso` and the namespaced store `openbao-<tenant>`.
   Both bindings list every member as a subject.
 - The `TENANTS="<tenant>:<namespace>[:<github-login>[|<login>]]"` marker in
-  `platform/helm-charts/openbao/application.yaml` makes postStart enable the
+  `platform/openbao/application.yaml` makes postStart enable the
   kv-v2 mount `<tenant>/` and write the `<tenant>-tenant` policy (full control
   of that mount), the `eso-<tenant>` policy (read `<tenant>/data/*`), the
   Kubernetes-auth role `eso-<tenant>` bound to `<tenant>-eso` in the tenant
@@ -258,7 +258,7 @@ kubectl exec -n openbao openbao-0 -- sh -c '
 ## GitHub SSO (Dex → OpenBao oidc auth)
 
 Logins via GitHub are served by standalone Dex instances
-([`platform/helm-charts/dex`](../dex/README.md)), restricted to the
+([`platform/dex`](../dex/README.md)), restricted to the
 `infrabytes` org. OpenBao has two OIDC auth mounts:
 
 - `auth/oidc` (LAN): discovery URL `https://dex.icaninto.space`, roles

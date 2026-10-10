@@ -17,9 +17,10 @@ https://dex.<tailnet>.ts.net with its own GitHub OAuth app.
   `openbao_oidc_client_secret` in `infra/secrets.sops.yaml`). Values are
   injected through the chart's `configSecret` (`create: false`,
   `name: dex-config`); the chart never renders its own config.
-- Exposure: Gateway route + http→https redirect under `apps/dex/`, TLS cert
+- Exposure: Gateway route + http→https redirect in this folder (`route.yaml`,
+  `redirect.yaml`), TLS cert
   via the gateway's cluster-issuer annotation (same pattern as
-  `apps/openbao/`). Cloudflare record via external-dns.
+  `platform/openbao/`). Cloudflare record via external-dns.
 - `serviceMonitor.enabled: true` — the k8s-monitoring stack scrapes it.
 
 ## Config layout (`dex-config` Secret → `config.yaml`)

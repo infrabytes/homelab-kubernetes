@@ -16,7 +16,7 @@ spec:
       values: |
         fullnameOverride: hubble-observer
 
-        # Chart CR disabled: it resolves ${datasource} to the internal alert-state Loki (platform/grafana-dashboards/flows-dashboard.yaml).
+        # Chart CR disabled: it resolves ${datasource} to the internal alert-state Loki (platform/observability/dashboards/flows-dashboard.yaml).
         grafanaDashboard:
           enabled: false
 

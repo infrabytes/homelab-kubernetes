@@ -185,7 +185,7 @@ locals {
     openbao_seal_key   = local.secrets.openbao_seal_key
     openbao_root_token = local.secrets.openbao_root_token
 
-    # Standalone Dex (OpenBao SSO, platform/helm-charts/dex): dedicated GitHub
+    # Standalone Dex (OpenBao SSO, platform/dex): dedicated GitHub
     # OAuth app ("Dex (homelab)") and the Dex static-client secret for the
     # OpenBao oidc auth method. Render the dex-config (config.yaml) and
     # openbao-oidc Secrets. The connector org restriction reuses

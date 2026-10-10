@@ -31,10 +31,10 @@ MagicDNS name + Let's Encrypt certificate declaratively — no Service
 annotations, no manual `tailscale serve`.
 
 - `openbao.<tailnet>.ts.net` — OpenBao UI/API
-  (`platform/helm-charts/openbao/openbao-tailnet-ingress.yaml` → `openbao-active:8200`,
+  (`platform/openbao/openbao-tailnet-ingress.yaml` → `openbao-active:8200`,
   plain HTTP backend; TLS terminates at the proxy).
 - `dex.<tailnet>.ts.net` — second Dex instance for remote SSO
-  (`platform/helm-charts/dex/dex-tailnet-ingress.yaml` → `dex-tailnet:5556`).
+  (`platform/dex/dex-tailnet-ingress.yaml` → `dex-tailnet:5556`).
 - `tailscale-operator.<tailnet>.ts.net` — API server proxy for kubectl.
 
 In-cluster consumers reach the tailnet Dex through its own HTTPS listener
@@ -48,7 +48,7 @@ kubectl get nodes
 ```
 
 The owner's Tailscale identity is bound to `cluster-admin` via the
-`ts-cluster-admin` ClusterRoleBinding in `platform/tailscale-rbac/`.
+`ts-cluster-admin` ClusterRoleBinding in `rbac.yaml` in this folder.
 
 ## Files
 

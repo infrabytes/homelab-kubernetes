@@ -159,8 +159,8 @@ manifest to the running cluster, which is what actually rolls the agent.
 > `prometheus.enabled` (agent metrics), `hubble.metrics.enabled` (families plus
 > their namespace context labels) and the `dashboards`/`operator.dashboards`
 > toggles feed both the custom Network Policies dashboard and the chart
-> dashboards in `platform/grafana-dashboards/`, scraped through the PodMonitors
-> in `platform/helm-charts/grafana-cloud/`.
+> dashboards in `platform/observability/dashboards/`, scraped through the PodMonitors
+> in `platform/grafana-cloud/`.
 
 ## Upgrades (Talos & Kubernetes)
 
@@ -283,7 +283,7 @@ registry pulls and speeding up image distribution:
   each node automatically (default `apply_mode = auto`); the provider retries
   while the node comes back.
 - **App deployment**: Spegel runs as a privileged DaemonSet, delivered by ArgoCD
-  from `platform/helm-charts/spegel/` (OCI chart `ghcr.io/spegel-org/helm-charts/spegel`).
+  from `platform/spegel/` (OCI chart `ghcr.io/spegel-org/helm-charts/spegel`).
   It is pointed at Talos's non-default containerd config path
   (`spegel.containerdRegistryConfigPath: /etc/cri/conf.d/hosts`) so it can
   write the mirror configuration that containerd reads.

@@ -23,7 +23,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[2]
 TENANTS_FILE = ROOT / "argocd" / "tenants" / "tenants.json"
-OPENBAO_APP = ROOT / "platform" / "helm-charts" / "openbao" / "application.yaml"
+OPENBAO_APP = ROOT / "platform" / "openbao" / "application.yaml"
 TENANT_CHART = ROOT / "charts" / "tenant-access"
 MARKER = re.compile(r'^[ \t]*TENANTS="([^"]*)"[ \t]*$', re.MULTILINE)
 DNS_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")

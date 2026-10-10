@@ -1,4 +1,4 @@
-# The list must stay in sync with the TENANTS marker in platform/helm-charts/openbao/application.yaml (tenant-config-check hook).
+# The list must stay in sync with the TENANTS marker in platform/openbao/application.yaml (tenant-config-check hook).
 # goTemplate keeps members a list (fasttemplate would stringify them as "[map[...]]").
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet

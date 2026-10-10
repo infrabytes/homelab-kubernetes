@@ -4,7 +4,7 @@
 # Terraform-created openbao-seal Secret from /openbao/seal/current.key). The
 # retry_join stanzas make followers join+unseal after the one-time init on
 # openbao-0; authDelegator is the chart's own binding to system:auth-delegator
-# (k8s auth TokenReview). LAN exposure via apps/openbao; tailnet via Tailscale operator proxy. Bootstrap:
+# (k8s auth TokenReview). LAN exposure via route.yaml; tailnet via Tailscale operator proxy. Bootstrap:
 # README.md in this directory.
 apiVersion: argoproj.io/v1alpha1
 kind: Application

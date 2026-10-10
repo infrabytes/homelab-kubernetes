@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """check-grafana-logql.py - execute every dashboard LogQL query against Loki.
 
-Reads the GrafanaDashboard ConfigMaps under platform/grafana-dashboards/,
+Reads the GrafanaDashboard ConfigMaps under platform/observability/dashboards/,
 extracts each Loki-backed panel target and template-variable query, substitutes
 Grafana's variables with match-everything stand-ins, and runs them against
 Loki (LOKI_URL if set, else the in-cluster service, else localhost:3100).
