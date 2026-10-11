@@ -35,3 +35,15 @@ spec:
       grafanaInstance: main
   title: Logs
   uid: logs
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: kubernetes
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  title: Kubernetes
+  uid: kubernetes
