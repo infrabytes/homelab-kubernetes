@@ -47,3 +47,15 @@ spec:
       grafanaInstance: main
   title: Kubernetes
   uid: kubernetes
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: github-actions
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  title: GitHub Actions
+  uid: github-actions

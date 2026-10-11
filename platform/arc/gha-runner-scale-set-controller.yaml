@@ -20,6 +20,11 @@ spec:
             memory: 64Mi
           limits:
             memory: 96Mi
+        # Empty metrics flags leave the endpoints off; platform/arc/podmonitors.yaml scrapes the ports this enables.
+        metrics:
+          controllerManagerAddr: ":8080"
+          listenerAddr: ":8080"
+          listenerEndpoint: "/metrics"
   destination:
     namespace: arc-systems
     server: https://kubernetes.default.svc

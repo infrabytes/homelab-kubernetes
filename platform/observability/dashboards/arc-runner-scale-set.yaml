@@ -1,0 +1,19 @@
+# ph0xy "GitHub Actions ARC - Runner Scale Set" (grafana.com 25015); `revision` omitted on purpose
+# (the operator re-resolves the newest revision), and platform/arc/podmonitors.yaml satisfies its job/label filters.
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: github-actions-arc-runner-scale-set
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  folderRef: github-actions
+  resyncPeriod: 1h
+  grafanaCom:
+    id: 25015
+  variables:
+    - name: datasource
+      value: victoriametrics
