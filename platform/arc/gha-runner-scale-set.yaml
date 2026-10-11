@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
-    targetRevision: 0.14.2
+    targetRevision: 0.15.0
     path: .
     helm:
       releaseName: gha-runner-scale-set
@@ -39,7 +39,7 @@ spec:
                   sizeLimit: 10Gi
             containers:
               - name: runner
-                image: ghcr.io/actions/actions-runner:2.337.0
+                image: ghcr.io/actions/actions-runner:2.338.0
                 # Best-effort hydration from the seed tarballs (UID derived at runtime: image content changes across versions).
                 command:
                   - /bin/sh
