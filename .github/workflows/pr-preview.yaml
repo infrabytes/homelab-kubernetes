@@ -24,7 +24,7 @@ jobs:
       pull-requests: write
     env:
       VCLUSTER_VERSION: v0.37.3
-      ARGOCD_DIFF_PREVIEW_VERSION: v0.2.15
+      ARGOCD_DIFF_PREVIEW_VERSION: v0.2.16
       GH_CLI_VERSION: v2.102.0
       KIND_VERSION: v0.33.0
     steps:
@@ -117,7 +117,7 @@ jobs:
           for attempt in 1 2 3; do
             if helm upgrade --install argocd-preview argo-cd \
                 --repo https://argoproj.github.io/argo-helm \
-                --version 10.9.6 \
+                --version 10.10.0 \
                 --namespace argocd-preview \
                 --create-namespace \
                 --values target-branch/.github/argocd-preview-values.yaml \
