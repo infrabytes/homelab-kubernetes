@@ -1,0 +1,70 @@
+# dotdc/grafana-dashboards-kubernetes Views suite (grafana.com 15757-15760).
+# `revision` omitted on purpose: the operator re-resolves the newest revision each reconcile.
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: kubernetes-views-global
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  folderRef: kubernetes
+  resyncPeriod: 1h
+  grafanaCom:
+    id: 15757
+  variables:
+    - name: datasource
+      value: victoriametrics
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: kubernetes-views-namespaces
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  folderRef: kubernetes
+  resyncPeriod: 1h
+  grafanaCom:
+    id: 15758
+  variables:
+    - name: datasource
+      value: victoriametrics
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: kubernetes-views-nodes
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  folderRef: kubernetes
+  resyncPeriod: 1h
+  grafanaCom:
+    id: 15759
+  variables:
+    - name: datasource
+      value: victoriametrics
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: kubernetes-views-pods
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  folderRef: kubernetes
+  resyncPeriod: 1h
+  grafanaCom:
+    id: 15760
+  variables:
+    - name: datasource
+      value: victoriametrics
