@@ -334,14 +334,15 @@
       "automerge": false
     },
     {
-      "description": "Automerge routine updates 3 days after release",
+      "description": "Automerge routine updates 3 days after release when the datasource reports a release timestamp: docker outside Docker Hub and git-tags carry none, and the default timestamp-required would hold every branch containing them pending forever.",
       "matchUpdateTypes": [
         "minor",
         "patch",
         "digest"
       ],
       "automerge": true,
-      "minimumReleaseAge": "3 days"
+      "minimumReleaseAge": "3 days",
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
     },
     {
       "description": "Atlantis is the sole merger for infra PRs (apply-before-merge)",
