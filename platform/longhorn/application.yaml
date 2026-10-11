@@ -25,6 +25,8 @@ spec:
           snapshotterReplicaCount: 2
         defaultSettings:
           defaultDataPath: /var/mnt/longhorn
+          # Only applies at disk creation; the three existing disks carry their own spec.disks[].storageReserved.
+          storageReservedPercentageForDefaultDisk: "10"
           # Nodes are rebooted, not removed, during upgrades: the default
           # block-if-contains-last-replica held an instance-manager PDB for 27
           # minutes after every volume had detached, which no 5-minute provider
