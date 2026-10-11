@@ -227,7 +227,8 @@ resource "kubernetes_secret_v1" "dex_config" {
       storage:
         type: memory
       web:
-        http: 5556
+        # Keep quoted: dex >=2.46 fails on unquoted YAML numbers at config load.
+        http: "5556"
       connectors:
         - type: github
           id: github
@@ -294,8 +295,9 @@ resource "kubernetes_secret_v1" "dex_tailnet_config" {
       storage:
         type: memory
       web:
-        http: 5556
-        https: 5554
+        # Keep quoted: dex >=2.46 fails on unquoted YAML numbers at config load.
+        http: "5556"
+        https: "5554"
         tlsCert: /etc/dex/tls/tls.crt
         tlsKey: /etc/dex/tls/tls.key
       connectors:
