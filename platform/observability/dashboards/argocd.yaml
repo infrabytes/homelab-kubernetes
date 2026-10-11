@@ -1,0 +1,18 @@
+# Official ArgoCD example dashboard (argoproj/argo-cd examples/dashboard.json), pinned to the deployed
+# ArgoCD version; the argocd-*-metrics job names its panels use are what the ServiceMonitors already produce.
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: argocd
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  folderRef: argocd
+  resyncPeriod: 1h
+  url: https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.4/examples/dashboard.json
+  variables:
+    - name: datasource
+      value: victoriametrics
