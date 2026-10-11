@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: https://dexidp.github.io/helm-charts
     chart: dex
-    targetRevision: 0.25.2
+    targetRevision: 0.26.0
     helm:
       releaseName: dex
       values: |
