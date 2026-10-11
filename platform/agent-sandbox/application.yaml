@@ -8,13 +8,13 @@ spec:
   project: default
   source:
     repoURL: https://github.com/kubernetes-sigs/agent-sandbox
-    targetRevision: v1.0.2
+    targetRevision: v1.0.6
     path: helm
     helm:
       releaseName: agent-sandbox
       values: |
         image:
-          tag: v1.0.2
+          tag: v1.0.6
         # namespace.yaml (parent app) owns the Namespace, so the chart must not render it.
         namespace:
           create: false
