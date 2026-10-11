@@ -1,0 +1,37 @@
+# ARC metrics endpoints, enabled by the controller chart's `metrics:` values; the
+# relabelings below map the scrape job and the listener's `name` label to what dashboard 25015 expects.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: arc-controller
+  namespace: arc-systems
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gha-rs-controller
+  podMetricsEndpoints:
+    - port: metrics
+      metricRelabelings:
+        - action: replace
+          targetLabel: job
+          replacement: arc-controller
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: arc-listeners
+  namespace: arc-systems
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: runner-scale-set-listener
+  podMetricsEndpoints:
+    - port: metrics
+      metricRelabelings:
+        - action: replace
+          targetLabel: job
+          replacement: arc-listeners
+        - action: replace
+          sourceLabels: [name]
+          targetLabel: runner_scale_set_name
