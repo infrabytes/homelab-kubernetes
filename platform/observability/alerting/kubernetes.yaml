@@ -1,0 +1,1350 @@
+# kubernetes-mixin alerts (as shipped by kube-prometheus-stack), adapted: job/metrics_path
+# matchers dropped, namespace_{cpu,memory} recording rules inlined, info severities mapped to
+# warning. Expressions only return firing series, so the threshold fires on any result.
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: kubernetes
+  namespace: observability
+spec:
+  name: kubernetes
+  folderUID: talos
+  interval: 60s
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  rules:
+    - uid: kube-pod-not-ready
+      title: Pod not ready
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Pod {{ $labels.namespace }}/{{ $labels.pod }} has not been ready
+          for 15m
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodnotready
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum by (namespace, pod, cluster) (max by (namespace, pod, cluster)
+              (kube_pod_status_phase{phase=~"Pending|Unknown"} or (kube_pod_status_phase{phase="Running"}
+              == 1 and on (namespace, pod, cluster) kube_pod_status_ready{condition="true"}
+              == 0)) * on (namespace, pod, cluster) group_left() topk by (namespace,
+              pod, cluster) (1, max by (namespace, pod, owner_kind, cluster) (kube_pod_owner{owner_kind!="Job"})))
+              > 0 unless on (namespace, pod, cluster) kube_pod_status_reason{reason="SchedulingGated"}
+              == 1
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-deployment-replicas-mismatch
+      title: Deployment replicas mismatch
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has not
+          matched its desired replicas for 15m
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedeploymentreplicasmismatch
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: (kube_deployment_spec_replicas > kube_deployment_status_replicas_available)
+              and (changes(kube_deployment_status_replicas_updated[10m]) == 0)
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-deployment-generation-mismatch
+      title: Deployment generation mismatch
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Deployment {{ $labels.namespace }}/{{ $labels.deployment }} observed
+          generation differs from its spec (rollback or stuck controller)
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedeploymentgenerationmismatch
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: kube_deployment_status_observed_generation != kube_deployment_metadata_generation
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-deployment-rollout-stuck
+      title: Deployment rollout stuck
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Deployment {{ $labels.namespace }}/{{ $labels.deployment }} rollout
+          is not progressing
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedeploymentrolloutstuck
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: kube_deployment_status_condition{condition="Progressing", status="false"}
+              != 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-statefulset-replicas-mismatch
+      title: StatefulSet replicas mismatch
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: StatefulSet {{ $labels.namespace }}/{{ $labels.statefulset }} has
+          not matched its desired replicas for 15m
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubestatefulsetreplicasmismatch
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: (kube_statefulset_status_replicas_ready != kube_statefulset_replicas)
+              and (changes(kube_statefulset_status_replicas_updated[10m]) == 0)
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-statefulset-generation-mismatch
+      title: StatefulSet generation mismatch
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: StatefulSet {{ $labels.namespace }}/{{ $labels.statefulset }} observed
+          generation differs from its spec
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubestatefulsetgenerationmismatch
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: kube_statefulset_status_observed_generation != kube_statefulset_metadata_generation
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-statefulset-not-rolled-out
+      title: StatefulSet not rolled out
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: StatefulSet {{ $labels.namespace }}/{{ $labels.statefulset }} update
+          has not been rolled out
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubestatefulsetupdatenotrolledout
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: (max by (namespace, statefulset, cluster) (kube_statefulset_status_current_revision
+              unless kube_statefulset_status_update_revision) * on (namespace, statefulset,
+              cluster) (kube_statefulset_replicas != kube_statefulset_status_replicas_updated))
+              and on (namespace, statefulset, cluster) (changes(kube_statefulset_status_replicas_updated[5m])
+              == 0)
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-daemonset-rollout-stuck
+      title: DaemonSet rollout stuck
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: DaemonSet {{ $labels.namespace }}/{{ $labels.daemonset }} rollout
+          is stuck
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedaemonsetrolloutstuck
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: ((kube_daemonset_status_current_number_scheduled != kube_daemonset_status_desired_number_scheduled)
+              or (kube_daemonset_status_number_misscheduled != 0) or (kube_daemonset_status_updated_number_scheduled
+              != kube_daemonset_status_desired_number_scheduled) or (kube_daemonset_status_number_available
+              != kube_daemonset_status_desired_number_scheduled)) and (changes(kube_daemonset_status_updated_number_scheduled[5m])
+              == 0)
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-daemonset-not-scheduled
+      title: DaemonSet pods not scheduled
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: '{{ $labels.namespace }}/{{ $labels.daemonset }} pods are not scheduled
+          (taints or resources)'
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedaemonsetnotscheduled
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: kube_daemonset_status_desired_number_scheduled - kube_daemonset_status_current_number_scheduled
+              > 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-job-not-completed
+      title: Job not completed
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Job {{ $labels.namespace }}/{{ $labels.job_name }} has been running
+          for over 12h
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubejobnotcompleted
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: time() - max by (namespace, job_name, cluster) (kube_job_status_start_time
+              and kube_job_status_active > 0) > 43200 unless on (namespace, job_name,
+              cluster) max by (namespace, job_name, cluster) (kube_job_labels{label_excluded_from_alerts="true"}
+              == 1)
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-job-failed
+      title: Job failed
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Job {{ $labels.namespace }}/{{ $labels.job_name }} failed
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubejobfailed
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: kube_job_failed > 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-pv-filling-up-critical
+      title: PersistentVolume almost full
+      condition: threshold
+      for: 1m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} has
+          less than 3% space left
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepersistentvolumefillingup
+      labels:
+        severity: critical
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes)
+              < 0.03 and kubelet_volume_stats_used_bytes > 0 unless on (cluster, namespace,
+              persistentvolumeclaim) kube_persistentvolumeclaim_access_mode{access_mode="ReadOnlyMany"}
+              == 1 unless on (cluster, namespace, persistentvolumeclaim) kube_persistentvolumeclaim_labels{label_excluded_from_alerts="true"}
+              == 1
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-pv-filling-up
+      title: PersistentVolume filling up
+      condition: threshold
+      for: 1h
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is
+          predicted to fill up within 4 days
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepersistentvolumefillingup
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes)
+              < 0.15 and kubelet_volume_stats_used_bytes > 0 and predict_linear(kubelet_volume_stats_available_bytes[6h],
+              4 * 24 * 3600) < 0 unless on (cluster, namespace, persistentvolumeclaim)
+              kube_persistentvolumeclaim_access_mode{access_mode="ReadOnlyMany"} ==
+              1 unless on (cluster, namespace, persistentvolumeclaim) kube_persistentvolumeclaim_labels{label_excluded_from_alerts="true"}
+              == 1
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-pv-inodes-critical
+      title: PersistentVolume inodes almost full
+      condition: threshold
+      for: 1m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} has
+          less than 3% inodes left
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepersistentvolumeinodesfillingup
+      labels:
+        severity: critical
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: (kubelet_volume_stats_inodes_free / kubelet_volume_stats_inodes)
+              < 0.03 and kubelet_volume_stats_inodes_used > 0 unless on (cluster,
+              namespace, persistentvolumeclaim) kube_persistentvolumeclaim_access_mode{access_mode="ReadOnlyMany"}
+              == 1 unless on (cluster, namespace, persistentvolumeclaim) kube_persistentvolumeclaim_labels{label_excluded_from_alerts="true"}
+              == 1
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-pv-inodes-filling-up
+      title: PersistentVolume inodes filling up
+      condition: threshold
+      for: 1h
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is
+          predicted to exhaust its inodes within 4 days
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepersistentvolumeinodesfillingup
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: (kubelet_volume_stats_inodes_free / kubelet_volume_stats_inodes)
+              < 0.15 and kubelet_volume_stats_inodes_used > 0 and predict_linear(kubelet_volume_stats_inodes_free[6h],
+              4 * 24 * 3600) < 0 unless on (cluster, namespace, persistentvolumeclaim)
+              kube_persistentvolumeclaim_access_mode{access_mode="ReadOnlyMany"} ==
+              1 unless on (cluster, namespace, persistentvolumeclaim) kube_persistentvolumeclaim_labels{label_excluded_from_alerts="true"}
+              == 1
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-pv-errors
+      title: PersistentVolume provisioning errors
+      condition: threshold
+      for: 5m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: PersistentVolume {{ $labels.persistentvolume }} is {{ $labels.phase
+          }}
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepersistentvolumeerrors
+      labels:
+        severity: critical
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: kube_persistentvolume_status_phase{phase=~"Failed|Pending"} > 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-node-not-ready
+      title: Node not ready
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Node {{ $labels.node }} is not ready
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubenodenotready
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: kube_node_status_condition{condition="Ready", status="true"} ==
+              0 and on (cluster, node) kube_node_spec_unschedulable == 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-node-pressure
+      title: Node pressure
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Node {{ $labels.node }} reports {{ $labels.condition }}
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubenodepressure
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: kube_node_status_condition{condition=~"(MemoryPressure|DiskPressure|PIDPressure)",
+              status="true"} == 1 and on (cluster, node) kube_node_spec_unschedulable
+              == 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-node-readiness-flapping
+      title: Node readiness flapping
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Node {{ $labels.node }} readiness status is flapping
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubenodereadinessflapping
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum(changes(kube_node_status_condition{status="true", condition="Ready"}[15m]))
+              by (cluster, node) > 2 and on (cluster, node) kube_node_spec_unschedulable
+              == 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: node-filesystem-space-critical
+      title: Filesystem almost out of space
+      condition: threshold
+      for: 30m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} has
+          less than 3% space left
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/node/nodefilesystemalmostoutofspace
+      labels:
+        severity: critical
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: (node_filesystem_avail_bytes{fstype!="", mountpoint!=""} / node_filesystem_size_bytes{fstype!="",
+              mountpoint!=""} * 100 < 3) and (node_filesystem_readonly{fstype!="",
+              mountpoint!=""} == 0)
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: node-filesystem-space-low
+      title: Filesystem low on space
+      condition: threshold
+      for: 30m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} has
+          less than 5% space left
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/node/nodefilesystemalmostoutofspace
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: (node_filesystem_avail_bytes{fstype!="", mountpoint!=""} / node_filesystem_size_bytes{fstype!="",
+              mountpoint!=""} * 100 < 5) and (node_filesystem_readonly{fstype!="",
+              mountpoint!=""} == 0)
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: node-cpu-high-usage
+      title: Node CPU usage high
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Node {{ $labels.instance }} CPU usage has been above 90% for 15m
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/node/nodecpuhighusage
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum without (mode) (avg without (cpu) (rate(node_cpu_seconds_total{mode!~"idle|iowait"}[2m])))
+              * 100 > 90
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: node-memory-high-utilization
+      title: Node memory utilization high
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Node {{ $labels.instance }} memory utilization has been above 90%
+          for 15m
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/node/nodememoryhighutilization
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: 100 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes
+              * 100) > 90
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: cpu-throttling-high
+      title: CPU throttling high
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Container {{ $labels.namespace }}/{{ $labels.pod }}/{{ $labels.container
+          }} is throttled in over 25% of its CFS periods
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/cputhrottlinghigh
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum without (id, metrics_path, name, image, endpoint, job, node)
+              (topk by (cluster, namespace, pod, container, instance) (1, increase(container_cpu_cfs_throttled_periods_total{container!=""}[5m])))
+              / on (cluster, namespace, pod, container, instance) group_left sum without
+              (id, metrics_path, name, image, endpoint, job, node) (topk by (cluster,
+              namespace, pod, container, instance) (1, increase(container_cpu_cfs_periods_total[5m])))
+              > (25 / 100)
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-cpu-overcommit
+      title: Cluster CPU overcommitted
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Cluster CPU requests exceed allocatable CPU
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubecpuovercommit
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: ((sum by (cluster) (kube_pod_container_resource_requests{resource="cpu"})
+              - sum by (cluster) (kube_node_status_allocatable{resource="cpu"}) >
+              0) and count by (cluster) (max by (cluster, node) (kube_node_role{role="control-plane"}))
+              < 3) or (sum by (cluster) (kube_pod_container_resource_requests{resource="cpu"})
+              - (sum by (cluster) (kube_node_status_allocatable{resource="cpu"}) -
+              max by (cluster) (kube_node_status_allocatable{resource="cpu"})) > 0)
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: kube-memory-overcommit
+      title: Cluster memory overcommitted
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: Cluster memory requests exceed allocatable memory
+        runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubememoryovercommit
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: ((sum by (cluster) (kube_pod_container_resource_requests{resource="memory"})
+              - sum by (cluster) (kube_node_status_allocatable{resource="memory"})
+              > 0) and count by (cluster) (max by (cluster, node) (kube_node_role{role="control-plane"}))
+              < 3) or (sum by (cluster) (kube_pod_container_resource_requests{resource="memory"})
+              - (sum by (cluster) (kube_node_status_allocatable{resource="memory"})
+              - max by (cluster) (kube_node_status_allocatable{resource="memory"}))
+              > 0)
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold

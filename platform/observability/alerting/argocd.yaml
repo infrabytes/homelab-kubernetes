@@ -1,0 +1,733 @@
+# adinhodovic/argo-cd-mixin alerts (monitoring.mixins.dev), job matchers dropped; the
+# notifications-controller rule is omitted (that endpoint is not scraped). Expressions only
+# return firing series, so the threshold fires on any result.
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: argocd
+  namespace: observability
+spec:
+  name: argocd
+  folderUID: talos
+  interval: 60s
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  rules:
+    - uid: argocd-app-sync-failed
+      title: ArgoCD application sync failed
+      condition: threshold
+      for: 1m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD application sync failed.
+        description: Application {{ $labels.dest_server }}/{{ $labels.project }}/{{
+          $labels.name }} had at least one sync attempt fail with phase {{ $labels.phase
+          }} in the last 10 minutes.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum(round(increase(argocd_app_sync_total{phase!="Succeeded"}[10m])))
+              by (cluster, dest_server, project, name, phase) > 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-app-unhealthy
+      title: ArgoCD application unhealthy
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD application is unhealthy.
+        description: Application {{ $labels.dest_server }}/{{ $labels.project }}/{{
+          $labels.name }} has reported health status {{ $labels.health_status }} for
+          15m.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum(argocd_app_info{health_status!~"Healthy|Progressing", name!~""})
+              by (cluster, dest_server, project, name, health_status) > 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-app-out-of-sync
+      title: ArgoCD application out of sync
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD application is out of sync.
+        description: Application {{ $labels.dest_server }}/{{ $labels.project }}/{{
+          $labels.name }} has reported sync status {{ $labels.sync_status }} for 15m.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum(argocd_app_info{sync_status!="Synced"}) by (cluster, dest_server,
+              project, name, sync_status) > 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-app-autosync-disabled
+      title: ArgoCD application auto-sync disabled
+      condition: threshold
+      for: 2h
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD application auto-sync is disabled.
+        description: Application {{ $labels.dest_server }}/{{ $labels.project }}/{{
+          $labels.name }} has had auto-sync disabled for at least 2h.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum(argocd_app_info{autosync_enabled!="true", name!~""}) by (cluster,
+              dest_server, project, name, autosync_enabled) > 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-rollout-progressing
+      title: ArgoCD rollout still progressing
+      condition: threshold
+      for: 1h
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD application rollout is still progressing.
+        description: Application {{ $labels.dest_server }}/{{ $labels.project }}/{{
+          $labels.name }} has remained in health status Progressing for more than
+          1h.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum(argocd_app_info{health_status="Progressing", name!~""}) by (cluster,
+              dest_server, project, name, health_status) > 0
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-reconciliation-slow
+      title: ArgoCD reconciliation slow
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD application reconciliation is slow.
+        description: The P0.95 application reconciliation duration in namespace {{
+          $labels.namespace }} has been at or above 16s for 10m.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: histogram_quantile(0.95, sum(rate(argocd_app_reconcile_bucket[2m]))
+              by (cluster, namespace, le)) >= 16
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-repo-server-pending-requests
+      title: ArgoCD repo server has pending requests
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD repo server has pending requests.
+        description: Repo server in namespace {{ $labels.namespace }} has had more
+          than 50 pending requests for 10m.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum(argocd_repo_pending_request_total) by (cluster, namespace) >
+              50
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-repo-server-slow-git
+      title: ArgoCD repo server Git requests slow
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD repo server Git requests are slow.
+        description: The P0.95 Git request duration in namespace {{ $labels.namespace
+          }} has been at or above 20s for 10m.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: histogram_quantile(0.95, sum(rate(argocd_git_request_duration_seconds_bucket[2m]))
+              by (cluster, namespace, le)) >= 20
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-cluster-connection-error
+      title: ArgoCD cannot connect to a cluster
+      condition: threshold
+      for: 5m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD cannot connect to a managed cluster.
+        description: ArgoCD in namespace {{ $labels.namespace }} has been unable to
+          connect to cluster {{ $labels.server }} for 5m.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: critical
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: argocd_cluster_connection_status < 1
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-kubectl-rate-limiter-high
+      title: ArgoCD kubectl throttling high
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD kubectl client-side throttling is high.
+        description: The P0.95 kubectl rate limiter wait time in namespace {{ $labels.namespace
+          }} has been above 1s for 10m.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: histogram_quantile(0.95, sum(rate(argocd_kubectl_rate_limiter_duration_seconds_bucket[2m]))
+              by (cluster, namespace, le)) > 1
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-kubectl-slow
+      title: ArgoCD kubectl requests slow
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD kubectl requests are slow.
+        description: The P0.95 kubectl request duration in namespace {{ $labels.namespace
+          }} has been above 5s for 10m.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: histogram_quantile(0.95, sum(rate(argocd_kubectl_request_duration_seconds_bucket[2m]))
+              by (cluster, namespace, le)) > 5
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-kubectl-retry-rate-high
+      title: ArgoCD kubectl retry rate high
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD kubectl request retry rate is high.
+        description: ArgoCD in namespace {{ $labels.namespace }} has had more than
+          50 kubectl request retries per minute for 10m.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum(increase(argocd_kubectl_request_retries_total[1m])) by (cluster,
+              namespace) > 50
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-grpc-error-rate-high
+      title: ArgoCD gRPC error rate high
+      condition: threshold
+      for: 10m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD gRPC error rate is high.
+        description: ArgoCD job {{ $labels.job }} in namespace {{ $labels.namespace
+          }} has had a gRPC error rate above 5% for 10m.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum(rate(grpc_server_handled_total{grpc_code!="OK"}[2m])) by (cluster,
+              namespace, job) / sum(rate(grpc_server_handled_total[2m])) by (cluster,
+              namespace, job) * 100 > 5
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: argocd-kubectl-pending-exec
+      title: ArgoCD pending kubectl executions high
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: ArgoCD has many pending kubectl executions.
+        description: ArgoCD in namespace {{ $labels.namespace }} has had more than
+          10 pending kubectl executions for 15m.
+        runbook_url: https://monitoring.mixins.dev/argo-cd-2
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: sum(argocd_kubectl_exec_pending) by (cluster, namespace) > 10
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params:
+                    - -1
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
