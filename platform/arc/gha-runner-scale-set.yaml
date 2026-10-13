@@ -22,6 +22,7 @@ spec:
         runnerGroup: homelab
         # One runner always alive keeps pod-local caches warm; jobs stay fully concurrent.
         minRunners: 1
+        maxRunners: 4
         template:
           spec:
             serviceAccountName: arc-runner
