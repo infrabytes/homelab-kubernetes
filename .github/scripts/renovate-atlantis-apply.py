@@ -43,7 +43,7 @@ def log(message: str) -> None:
 
 
 def parse_ts(value: str) -> datetime.datetime:
-    return datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return datetime.datetime.fromisoformat(value)
 
 
 def newest_status(statuses: list[dict], context: str) -> dict | None:
