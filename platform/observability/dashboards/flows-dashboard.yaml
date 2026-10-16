@@ -13,7 +13,7 @@ spec:
   folder: Cilium
   resyncPeriod: 1h
   oci:
-    reference: ghcr.io/onzack/helm-charts/hubble-observer:2.7.0
+    reference: ghcr.io/onzack/helm-charts/hubble-observer:2.7.1
     path: hubble-observer/dashboard/cilium-hubble-flows.json
   datasources:
     - inputName: DS_LOKI
