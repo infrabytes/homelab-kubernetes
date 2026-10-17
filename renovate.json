@@ -334,6 +334,16 @@
       "automerge": false
     },
     {
+      "description": "Hold the CI Python at 3.14: ansible-core (latest 2.21.5) supports up to 3.14, and the pre-commit ansible-lint hook crashes on 3.15. Lift the cap once ansible-core supports 3.15.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDepNames": [
+        "python"
+      ],
+      "allowedVersions": "<3.15"
+    },
+    {
       "description": "Automerge routine updates 3 days after release when the datasource reports a release timestamp: docker outside Docker Hub and git-tags carry none, and the default timestamp-required would hold every branch containing them pending forever.",
       "matchUpdateTypes": [
         "minor",
