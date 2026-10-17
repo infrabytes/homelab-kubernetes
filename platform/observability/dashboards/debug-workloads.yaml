@@ -1,15 +1,13 @@
-# Hand-authored triage dashboard: three instant-table panels with cell links as
-# fieldConfig data-link OVERRIDES on the pod/instance/namespace columns. On
-# Grafana 13.1.3 datasources correlations render in the Explore tooltip only
-# (never in dashboard tables), and table label columns carry no field labels,
-# so links interpolate ${__value.raw} from the clicked cell instead of
-# ${__field.labels.*}.
-# Bump the GrafanaDashboard CR's dashboard-revision annotation whenever this
-# ConfigMap's JSON changes: the operator's ConfigMap watch does not retrigger a
-# re-fetch on content change (resyncPeriod replays STALE content, same
-# watch-miss as the datasources CM) - only a CR generation change does.
-# Targets stay raw selectors so metric columns keep their names; counter
-# columns are cumulative-since-boot values, fine for a triage sheet.
+# Hand-authored triage dashboard: click cells for fieldConfig data links. The
+# Pod logs internal link needs internal.query (not panelsState.queries); without
+# it Grafana builds Explore URLs containing queries:[null]. It uses the row's
+# namespace and clicked pod value. ArgoCD apps are listed separately by their
+# destination namespace; pod and namespace names are not Application names.
+# To force the Grafana Operator to re-fetch the ConfigMap after edits, change
+# the GrafanaDashboard spec's resyncPeriod in tandem (alternate 1h / 59m).
+# Metadata annotations do not bump generation, and a periodic resync may replay
+# the last applied dashboard content. Targets remain raw selectors so metric
+# columns keep their names; counters are cumulative since boot.
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -30,7 +28,7 @@ data:
           "id": 1,
           "type": "table",
           "title": "Container restarts & phase (click a pod cell)",
-          "description": "Instant kube-state-metrics counters per container/pod. Click a pod cell for its Loki log view; click a namespace cell to filter ArgoCD to that namespace.",
+          "description": "Instant counters per container/pod. Click a pod value, then choose Pod logs to open the matching namespace and pod in Loki.",
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
@@ -58,46 +56,16 @@ data:
                         "title": "Pod logs",
                         "internal": {
                           "datasourceUid": "loki",
-                          "targetBlank": false,
-                          "panelsState": {
-                            "explore": {
-                              "queries": [
-                                {
-                                  "refId": "A",
-                                  "datasource": {
-                                    "type": "loki",
-                                    "uid": "loki"
-                                  },
-                                  "expr": "{namespace=~\".+\"} | pod=\"${__value.raw}\"",
-                                  "queryType": "range"
-                                }
-                              ]
+                          "query": {
+                            "expr": "{namespace=\"${__data.fields[\"namespace\"]}\"} | pod=\"${__value.raw}\"",
+                            "queryType": "range",
+                            "refId": "A",
+                            "datasource": {
+                              "type": "loki",
+                              "uid": "loki"
                             }
                           }
                         }
-                      },
-                      {
-                        "title": "Open in ArgoCD",
-                        "targetBlank": true,
-                        "url": "https://argocd.icaninto.space/applications?search=${__value.raw}"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "namespace"
-                },
-                "properties": [
-                  {
-                    "id": "links",
-                    "value": [
-                      {
-                        "title": "Open in ArgoCD",
-                        "targetBlank": true,
-                        "url": "https://argocd.icaninto.space/applications?search=${__value.raw}"
                       }
                     ]
                   }
@@ -200,7 +168,7 @@ data:
           "id": 2,
           "type": "table",
           "title": "Throttling & network drops (click a pod cell)",
-          "description": "Instant cAdvisor counters per container/pod. Click a pod cell for its Loki log view; click a namespace cell to filter ArgoCD to that namespace.",
+          "description": "Instant counters per container/pod. Click a pod value, then choose Pod logs to open the matching namespace and pod in Loki.",
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
@@ -228,46 +196,16 @@ data:
                         "title": "Pod logs",
                         "internal": {
                           "datasourceUid": "loki",
-                          "targetBlank": false,
-                          "panelsState": {
-                            "explore": {
-                              "queries": [
-                                {
-                                  "refId": "A",
-                                  "datasource": {
-                                    "type": "loki",
-                                    "uid": "loki"
-                                  },
-                                  "expr": "{namespace=~\".+\"} | pod=\"${__value.raw}\"",
-                                  "queryType": "range"
-                                }
-                              ]
+                          "query": {
+                            "expr": "{namespace=\"${__data.fields[\"namespace\"]}\"} | pod=\"${__value.raw}\"",
+                            "queryType": "range",
+                            "refId": "A",
+                            "datasource": {
+                              "type": "loki",
+                              "uid": "loki"
                             }
                           }
                         }
-                      },
-                      {
-                        "title": "Open in ArgoCD",
-                        "targetBlank": true,
-                        "url": "https://argocd.icaninto.space/applications?search=${__value.raw}"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "namespace"
-                },
-                "properties": [
-                  {
-                    "id": "links",
-                    "value": [
-                      {
-                        "title": "Open in ArgoCD",
-                        "targetBlank": true,
-                        "url": "https://argocd.icaninto.space/applications?search=${__value.raw}"
                       }
                     ]
                   }
@@ -357,7 +295,7 @@ data:
           "id": 3,
           "type": "table",
           "title": "Talos node signals (click a node cell)",
-          "description": "Instant host metrics per Talos node. Click the instance cell for that node's service logs in Loki.",
+          "description": "Instant host metrics per Talos node. Click an instance value, then choose Talos node service logs to open that node in Loki.",
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
@@ -385,20 +323,13 @@ data:
                         "title": "Talos node service logs",
                         "internal": {
                           "datasourceUid": "loki",
-                          "targetBlank": false,
-                          "panelsState": {
-                            "explore": {
-                              "queries": [
-                                {
-                                  "refId": "A",
-                                  "datasource": {
-                                    "type": "loki",
-                                    "uid": "loki"
-                                  },
-                                  "expr": "{node=\"${__value.raw}\"}",
-                                  "queryType": "range"
-                                }
-                              ]
+                          "query": {
+                            "expr": "{node=\"${__value.raw}\"}",
+                            "queryType": "range",
+                            "refId": "A",
+                            "datasource": {
+                              "type": "loki",
+                              "uid": "loki"
                             }
                           }
                         }
@@ -531,6 +462,103 @@ data:
             },
             "showHeader": true
           }
+        },
+        {
+          "id": 4,
+          "type": "table",
+          "title": "ArgoCD applications in selected namespace",
+          "description": "Lists ArgoCD applications by destination namespace. Click an application name to open ArgoCD search for that app; a pod or namespace name is not an ArgoCD application name.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 36
+          },
+          "pluginVersion": "11.6.1",
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "name"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open ArgoCD application",
+                        "targetBlank": true,
+                        "url": "https://argocd.icaninto.space/applications?search=${__value.raw}"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "victoriametrics"
+              },
+              "editorMode": "code",
+              "expr": "argocd_app_info{dest_namespace=~\"$namespace\"}",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "A"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "Value": true,
+                  "__name__": true,
+                  "cluster": true,
+                  "container": true,
+                  "endpoint": true,
+                  "exported_namespace": true,
+                  "instance": true,
+                  "job": true,
+                  "k8s_cluster_name": true,
+                  "namespace": true,
+                  "pod": true,
+                  "project": true,
+                  "repo": true,
+                  "service": true,
+                  "dest_server": true
+                },
+                "indexByName": {
+                  "dest_namespace": 0,
+                  "name": 1,
+                  "health_status": 2,
+                  "sync_status": 3
+                }
+              }
+            }
+          ],
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "show": false,
+              "reducer": [
+                "sum"
+              ],
+              "countRows": false
+            },
+            "showHeader": true
+          }
         }
       ],
       "refresh": "1m",
@@ -569,7 +597,7 @@ data:
       "timezone": "browser",
       "title": "Debug: workloads & nodes",
       "uid": "homelab-debug",
-      "version": 3,
+      "version": 4,
       "weekStart": ""
     }
 ---
@@ -579,14 +607,14 @@ metadata:
   name: debug-workloads
   namespace: kube-system
   annotations:
-    dashboard-revision: '2'
+    dashboard-revision: '3'
 spec:
   instanceSelector:
     matchLabels:
       grafanaInstance: main
   allowCrossNamespaceImport: true
   folder: kubernetes
-  resyncPeriod: 1h
+  resyncPeriod: 59m
   configMapRef:
     name: debug-workloads
     key: debug-workloads.json
