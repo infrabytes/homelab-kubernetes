@@ -20,11 +20,11 @@ data:
         isDefault: true
         jsonData:
           httpMethod: POST
-        # One correlation per metric: field must be the metric name; links render on that
-        # metric's value column in the Table section of a range query only (the Raw
-        # Prometheus view shows none). `pod` is Loki structured metadata, hence the post-
-        # selector filter. A missing description panics the provisioning parser, and $VAR
-        # is env-expanded - $$ escapes it, so queries keep the literal ${__field.labels.*}.
+        # One correlation per metric: field = the metric name (value-field name); links
+        # render in the Explore graph tooltip (pin on a point) and in dashboard table
+        # cells - Explore 13 has no Prometheus table section, its raw instant view shows
+        # none. `pod` is Loki structured metadata (post-selector filter). A missing
+        # description panics the parser; $$ escapes provisioning's $VAR expansion.
         correlations:
           - targetUID: loki
             label: Pod logs
