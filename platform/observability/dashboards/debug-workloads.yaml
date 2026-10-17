@@ -1,9 +1,9 @@
-# Hand-authored triage dashboard: three instant-table panels whose columns are
-# the metric names carrying correlations in grafana-datasources.yaml, so
-# 'Pod logs' / 'CNPG pod logs' / 'Talos node service logs' links render as
-# table cells (the one surface #380 verified alongside the Explore tooltip).
-# Targets stay raw selectors on purpose: aggregations rename the value field
-# and a renamed field no longer matches the correlation's `field`.
+# Hand-authored triage dashboard: three instant-table panels whose in-cell links
+# are fieldConfig data links, NOT datasources correlations - on Grafana
+# 13.1.3 correlations render in the Explore tooltip only, never in dashboard
+# table cells (probed 2026-10-17: the CNPG chart dashboard behaves the same, see
+# PR #384). Targets stay raw selectors so metric columns keep their names and
+# the ${__field.labels.*} interpolations run.
 # Raw counter columns are cumulative-since-boot values, fine for a triage sheet.
 ---
 apiVersion: v1
@@ -22,11 +22,42 @@ data:
         {
           "id": 1,
           "type": "table",
-          "title": "Container restarts & phase (correlation cells: Pod logs)",
-          "description": "Instant kube-state-metrics counters per container/pod. Hover a metric-value cell for the 'Pod logs' correlation into Loki (namespace + pod of that container).",
+          "title": "Container restarts & phase (cell links: Pod logs / ArgoCD)",
+          "description": "Instant kube-state-metrics counters per container/pod. Hover any cell for the 'Pod logs' data link into Loki (namespace + pod of that container) and 'Open in ArgoCD' filtered to the namespace.",
           "datasource": { "type": "prometheus", "uid": "victoriametrics" },
           "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
           "pluginVersion": "11.6.1",
+          "fieldConfig": {
+            "defaults": {
+              "links": [
+                {
+                  "title": "Pod logs",
+                  "internal": {
+                    "datasourceUid": "loki",
+                    "targetBlank": false,
+                    "panelsState": {
+                      "explore": {
+                        "queries": [
+                          {
+                            "refId": "A",
+                            "datasource": { "type": "loki", "uid": "loki" },
+                            "expr": "{namespace=\"${__field.labels.namespace}\"} | pod=\"${__field.labels.pod}\"",
+                            "queryType": "range"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "title": "Open in ArgoCD",
+                  "targetBlank": true,
+                  "url": "https://argocd.icaninto.space/applications?search=${__field.labels.namespace}"
+                }
+              ]
+            },
+            "overrides": []
+          },
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "victoriametrics" },
@@ -87,11 +118,42 @@ data:
         {
           "id": 2,
           "type": "table",
-          "title": "Throttling & network drops (correlation cells: Pod logs)",
-          "description": "Instant cAdvisor counters per container/pod. Hover a metric-value cell for 'Pod logs'; the namespace column also surfaces the 'Open in ArgoCD' pilot link.",
+          "title": "Throttling & network drops (cell links: Pod logs / ArgoCD)",
+          "description": "Instant cAdvisor counters per container/pod. Hover any cell for 'Pod logs' (Loki, namespace+pod) and 'Open in ArgoCD' (namespace search).",
           "datasource": { "type": "prometheus", "uid": "victoriametrics" },
           "gridPos": { "h": 12, "w": 24, "x": 0, "y": 12 },
           "pluginVersion": "11.6.1",
+          "fieldConfig": {
+            "defaults": {
+              "links": [
+                {
+                  "title": "Pod logs",
+                  "internal": {
+                    "datasourceUid": "loki",
+                    "targetBlank": false,
+                    "panelsState": {
+                      "explore": {
+                        "queries": [
+                          {
+                            "refId": "A",
+                            "datasource": { "type": "loki", "uid": "loki" },
+                            "expr": "{namespace=\"${__field.labels.namespace}\"} | pod=\"${__field.labels.pod}\"",
+                            "queryType": "range"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "title": "Open in ArgoCD",
+                  "targetBlank": true,
+                  "url": "https://argocd.icaninto.space/applications?search=${__field.labels.namespace}"
+                }
+              ]
+            },
+            "overrides": []
+          },
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "victoriametrics" },
@@ -142,11 +204,37 @@ data:
         {
           "id": 3,
           "type": "table",
-          "title": "Talos node signals (correlation cells: node service logs)",
-          "description": "Instant host metrics per Talos node. Hover a metric-value cell for 'Talos node service logs' in Loki, filtered by the node whose instance label equals the node name.",
+          "title": "Talos node signals (cell link: node service logs)",
+          "description": "Instant host metrics per Talos node. Hover any cell for 'Talos node service logs' in Loki, filtered by the node whose instance label equals the node name.",
           "datasource": { "type": "prometheus", "uid": "victoriametrics" },
           "gridPos": { "h": 12, "w": 24, "x": 0, "y": 24 },
           "pluginVersion": "11.6.1",
+          "fieldConfig": {
+            "defaults": {
+              "links": [
+                {
+                  "title": "Talos node service logs",
+                  "internal": {
+                    "datasourceUid": "loki",
+                    "targetBlank": false,
+                    "panelsState": {
+                      "explore": {
+                        "queries": [
+                          {
+                            "refId": "A",
+                            "datasource": { "type": "loki", "uid": "loki" },
+                            "expr": "{node=\"${__field.labels.instance}\"}",
+                            "queryType": "range"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "overrides": []
+          },
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "victoriametrics" },
@@ -252,7 +340,7 @@ data:
       "timezone": "browser",
       "title": "Debug: workloads & nodes",
       "uid": "homelab-debug",
-      "version": 1,
+      "version": 2,
       "weekStart": ""
     }
 ---
