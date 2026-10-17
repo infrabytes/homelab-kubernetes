@@ -1,7 +1,8 @@
 # Datasource provisioning file, mounted by the Grafana CR at /etc/grafana/provisioning/datasources
-# because the GrafanaDatasource CRD cannot express correlations. Provisioning runs on pod start;
-# the operator's deployment checksum covers this ConfigMap, so edits roll the pod. Keep
-# name/uid stable - provisioning upserts by name and dashboards reference the uids.
+# because the GrafanaDatasource CRD cannot express correlations. Provisioning runs on pod
+# start only, and the operator's ConfigMap watch does not retrigger the Grafana CR (v5.25):
+# bump grafana-datasources-revision in grafana.yaml after edits. Keep name/uid stable -
+# provisioning upserts by name and dashboards reference the uids.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -19,10 +20,11 @@ data:
         isDefault: true
         jsonData:
           httpMethod: POST
-        # One correlation per metric: field must be the metric name, the link shows on that
-        # metric's value column in Explore. `pod` is Loki structured metadata, hence the
-        # post-selector filter. A missing description panics the provisioning parser.
-        # Provisioning env-expands $VAR in file values; $$ escapes it so queries keep the literal ${__field.labels.*}.
+        # One correlation per metric: field must be the metric name; links render on that
+        # metric's value column in the Table section of a range query only (the Raw
+        # Prometheus view shows none). `pod` is Loki structured metadata, hence the post-
+        # selector filter. A missing description panics the provisioning parser, and $VAR
+        # is env-expanded - $$ escapes it, so queries keep the literal ${__field.labels.*}.
         correlations:
           - targetUID: loki
             label: Pod logs

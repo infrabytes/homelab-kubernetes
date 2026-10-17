@@ -44,6 +44,11 @@ spec:
   deployment:
     spec:
       template:
+        # Provisioning is read only at Grafana startup and the operator's ConfigMap watch does
+        # not retrigger the Grafana CR (v5.25): bump this after editing grafana-datasources.yaml.
+        metadata:
+          annotations:
+            grafana-datasources-revision: "2"
         spec:
           # Grafana resolves the Dex issuer server-side (OIDC discovery + token exchange); the LAN name is not in cluster DNS, so pin it.
           hostAliases:
