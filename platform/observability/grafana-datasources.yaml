@@ -107,6 +107,267 @@ data:
               target:
                 expr: '{namespace="$${__field.labels.namespace}", source="kubernetes-events"}'
                 queryType: range
+          # --- 2026-10 expansion, same `{namespace} | pod="..."` pattern as above. ---
+          # Tiers chosen against the dashboard-metric inventory (every field is queried
+          # by a deployed dashboard AND allowlisted in grafana-cloud includeMetrics).
+          # Pod-level k8s workloads: terminated/waiting complete the pod_status_phase
+          # coverage; cfs-throttled and network errors/drops are the cAdvisor allowlist
+          # metrics the Views dashboards read.
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: kube_pod_container_status_last_terminated_reason
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: kube_pod_container_status_terminated
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: kube_pod_container_status_waiting
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: container_cpu_cfs_throttled_seconds_total
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: container_network_receive_errors_total
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: container_network_transmit_errors_total
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: container_network_receive_packets_dropped_total
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: container_network_transmit_packets_dropped_total
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          # Talos node level: `{node=...}` matches the syslog stream label set by the
+          # k8s-monitoring chart's talos loki.process pipeline (platform/grafana-cloud).
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_load5
+              target:
+                expr: '{node="$${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_load15
+              target:
+                expr: '{node="$${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_softnet_dropped_total
+              target:
+                expr: '{node="$${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_network_receive_errs_total
+              target:
+                expr: '{node="$${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_network_transmit_errs_total
+              target:
+                expr: '{node="$${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_disk_io_time_seconds_total
+              target:
+                expr: '{node="$${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_vmstat_oom_kill
+              target:
+                expr: '{node="$${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_pressure_memory_stalled_seconds_total
+              target:
+                expr: '{node="$${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_cpu_core_throttles_total
+              target:
+                expr: '{node="$${__field.labels.instance}"}'
+                queryType: range
+          # Cilium agent pods: all cilium_* agent metrics carry k8s_app plus the
+          # reporting agent pod; the agent's logs live in kube-system.
+          - targetUID: loki
+            label: Cilium agent logs
+            description: Cilium agent logs for this reporting agent pod
+            type: query
+            config:
+              field: cilium_drop_count_total
+              target:
+                expr: '{namespace="kube-system"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Cilium agent logs
+            description: Cilium agent logs for this reporting agent pod
+            type: query
+            config:
+              field: cilium_policy_change_total
+              target:
+                expr: '{namespace="kube-system"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Cilium agent logs
+            description: Cilium agent logs for this reporting agent pod
+            type: query
+            config:
+              field: cilium_errors_warnings_total
+              target:
+                expr: '{namespace="kube-system"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Cilium agent logs
+            description: Cilium agent logs for this reporting agent pod
+            type: query
+            config:
+              field: cilium_bpf_map_pressure
+              target:
+                expr: '{namespace="kube-system"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Cilium agent logs
+            description: Cilium agent logs for this reporting agent pod
+            type: query
+            config:
+              field: cilium_endpoint_regenerations_total
+              target:
+                expr: '{namespace="kube-system"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          # CloudNativePG instance pods: namespace+pod are real matchers on the cnpg_
+          # exporter metrics.
+          - targetUID: loki
+            label: CNPG pod logs
+            description: Postgres instance pod logs
+            type: query
+            config:
+              field: cnpg_backends_waiting_total
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: CNPG pod logs
+            description: Postgres instance pod logs
+            type: query
+            config:
+              field: cnpg_pg_replication_lag
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: CNPG pod logs
+            description: Postgres instance pod logs
+            type: query
+            config:
+              field: cnpg_pg_stat_database_deadlocks
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: CNPG pod logs
+            description: Postgres instance pod logs
+            type: query
+            config:
+              field: cnpg_collector_last_collection_error
+              target:
+                expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
+                queryType: range
+          # External cross-tool pilot: links render on ANY victoriametrics result field
+          # named `namespace`, so it appears in the label `namespace` table columns of
+          # network-policies, CloudNativePG and external-secrets dashboards (their only
+          # table panels). The ArgoCD dashboard itself has no table panels, so the link
+          # cannot show there - it only surfaces on other dashboards' namespace columns.
+          # targetUID is provisioned but unused for external correlations (schema keeps
+          # it required); delete this block if the link misleads more than it helps.
+          - targetUID: loki
+            label: Open in ArgoCD
+            description: ArgoCD apps filtered to this namespace
+            type: external
+            config:
+              field: namespace
+              target:
+                url: https://argocd.icaninto.space/applications?search=$${__value.raw}
       - name: loki
         uid: loki
         type: loki
