@@ -48,7 +48,7 @@ spec:
         # not retrigger the Grafana CR (v5.25): bump this after editing grafana-datasources.yaml.
         metadata:
           annotations:
-            grafana-datasources-revision: "2"
+            grafana-datasources-revision: "3"
         spec:
           # Grafana resolves the Dex issuer server-side (OIDC discovery + token exchange); the LAN name is not in cluster DNS, so pin it.
           hostAliases:
