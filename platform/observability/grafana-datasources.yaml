@@ -21,10 +21,13 @@ data:
         jsonData:
           httpMethod: POST
         # One correlation per metric: field = the metric name (value-field name); links
-        # render in the Explore graph tooltip (pin on a point) and in dashboard table
-        # cells - Explore 13 has no Prometheus table section, its raw instant view shows
-        # none. `pod` is Loki structured metadata (post-selector filter). A missing
-        # description panics the parser; $$ escapes provisioning's $VAR expansion.
+        # render in the Explore graph tooltip (pin on a point) only - Explore 13 has no
+        # Prometheus table section, its raw instant view shows none, and dashboard
+        # panels do not render them either on 13.1.3 (probed 2026-10-17, including the
+        # CNPG chart dashboard). Dashboards that want log links in cells use fieldConfig
+        # data links instead: see dashboards/debug-workloads.yaml. `pod` is Loki
+        # structured metadata (post-selector filter). A missing description panics the
+        # parser; $$ escapes provisioning's $VAR expansion.
         correlations:
           - targetUID: loki
             label: Pod logs
