@@ -145,14 +145,25 @@ jobs:
           kubectl -n argocd-preview label secret pr-preview-repo \
             argocd.argoproj.io/secret-type=repository --overwrite
 
+      # Retry: the tool's stale-app GC races other preview runs and aborts on the NotFound delete.
       - name: Generate diff
         run: |
-          argocd-diff-preview \
-            --repo ${{ github.repository }} \
-            --base-branch main \
-            --target-branch refs/pull/${{ github.event.number }}/merge \
-            --argocd-namespace=argocd-preview \
-            --create-cluster=false
+          set -eu
+          attempt=0
+          until argocd-diff-preview \
+              --repo ${{ github.repository }} \
+              --base-branch main \
+              --target-branch refs/pull/${{ github.event.number }}/merge \
+              --argocd-namespace=argocd-preview \
+              --create-cluster=false; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge 3 ]; then
+              echo "argocd-diff-preview failed after 3 attempts"
+              exit 1
+            fi
+            echo "argocd-diff-preview attempt $attempt failed, retrying in 15s"
+            sleep 15
+          done
 
       - name: Comment diff
         if: always()
