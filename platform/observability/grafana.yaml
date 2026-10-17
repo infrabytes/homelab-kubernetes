@@ -50,6 +50,10 @@ spec:
             - ip: 192.168.0.200
               hostnames:
                 - dex.icaninto.space
+          volumes:
+            - name: grafana-datasources
+              configMap:
+                name: grafana-datasources
           containers:
             - name: grafana
               env:
@@ -77,3 +81,6 @@ spec:
                   memory: 256Mi
                 limits:
                   memory: 512Mi
+              volumeMounts:
+                - name: grafana-datasources
+                  mountPath: /etc/grafana/provisioning/datasources
