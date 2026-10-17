@@ -1,0 +1,273 @@
+# Hand-authored triage dashboard: three instant-table panels whose columns are
+# the metric names carrying correlations in grafana-datasources.yaml, so
+# 'Pod logs' / 'CNPG pod logs' / 'Talos node service logs' links render as
+# table cells (the one surface #380 verified alongside the Explore tooltip).
+# Targets stay raw selectors on purpose: aggregations rename the value field
+# and a renamed field no longer matches the correlation's `field`.
+# Raw counter columns are cumulative-since-boot values, fine for a triage sheet.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: debug-workloads
+  namespace: kube-system
+data:
+  debug-workloads.json: |-
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "graphTooltip": 1,
+      "links": [],
+      "panels": [
+        {
+          "id": 1,
+          "type": "table",
+          "title": "Container restarts & phase (correlation cells: Pod logs)",
+          "description": "Instant kube-state-metrics counters per container/pod. Hover a metric-value cell for the 'Pod logs' correlation into Loki (namespace + pod of that container).",
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
+          "pluginVersion": "11.6.1",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "kube_pod_container_status_restarts_total{namespace=~\"$namespace\"}",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "kube_pod_container_status_waiting{namespace=~\"$namespace\"}",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "B"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "kube_pod_container_status_terminated{namespace=~\"$namespace\"}",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "C"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "kube_pod_container_status_last_terminated_reason{namespace=~\"$namespace\"}",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "D"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": { "Time": true, "cluster": true, "job": true, "k8s_cluster_name": true, "instance": true, "source": true, "uid": true },
+                "indexByName": { "namespace": 0, "pod": 1, "container": 2, "kube_pod_container_status_restarts_total": 3, "kube_pod_container_status_waiting": 4, "kube_pod_container_status_terminated": 5, "kube_pod_container_status_last_terminated_reason": 6 }
+              }
+            }
+          ],
+          "options": {
+            "cellHeight": "sm",
+            "footer": { "show": false, "reducer": ["sum"], "countRows": false },
+            "showHeader": true
+          }
+        },
+        {
+          "id": 2,
+          "type": "table",
+          "title": "Throttling & network drops (correlation cells: Pod logs)",
+          "description": "Instant cAdvisor counters per container/pod. Hover a metric-value cell for 'Pod logs'; the namespace column also surfaces the 'Open in ArgoCD' pilot link.",
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 12 },
+          "pluginVersion": "11.6.1",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "container_cpu_cfs_throttled_seconds_total{namespace=~\"$namespace\"}",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "container_network_receive_packets_dropped_total{namespace=~\"$namespace\"}",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "B"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "container_network_transmit_packets_dropped_total{namespace=~\"$namespace\"}",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "C"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": { "Time": true, "cluster": true, "job": true, "k8s_cluster_name": true, "instance": true, "source": true, "uid": true, "image": true },
+                "indexByName": { "namespace": 0, "pod": 1, "container": 2, "container_cpu_cfs_throttled_seconds_total": 3, "container_network_receive_packets_dropped_total": 4, "container_network_transmit_packets_dropped_total": 5 }
+              }
+            }
+          ],
+          "options": {
+            "cellHeight": "sm",
+            "footer": { "show": false, "reducer": ["sum"], "countRows": false },
+            "showHeader": true
+          }
+        },
+        {
+          "id": 3,
+          "type": "table",
+          "title": "Talos node signals (correlation cells: node service logs)",
+          "description": "Instant host metrics per Talos node. Hover a metric-value cell for 'Talos node service logs' in Loki, filtered by the node whose instance label equals the node name.",
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 24 },
+          "pluginVersion": "11.6.1",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "node_load5",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "node_softnet_dropped_total",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "B"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "node_network_receive_errs_total",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "C"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "node_network_transmit_errs_total",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "D"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "node_pressure_memory_stalled_seconds_total",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "E"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+              "editorMode": "code",
+              "expr": "node_vmstat_oom_kill",
+              "instant": true,
+              "format": "table",
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "F"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": { "Time": true, "cluster": true, "job": true, "k8s_cluster_name": true, "source": true, "uid": true, "app": true, "component": true, "container": true, "namespace": true, "pod": true, "workload": true, "node": true },
+                "indexByName": { "instance": 0, "node_load5": 1, "node_softnet_dropped_total": 2, "node_network_receive_errs_total": 3, "node_network_transmit_errs_total": 4, "node_pressure_memory_stalled_seconds_total": 5, "node_vmstat_oom_kill": 6 }
+              }
+            }
+          ],
+          "options": {
+            "cellHeight": "sm",
+            "footer": { "show": false, "reducer": ["sum"], "countRows": false },
+            "showHeader": true
+          }
+        }
+      ],
+      "refresh": "1m",
+      "schemaVersion": 39,
+      "tags": ["homelab", "debug"],
+      "templating": {
+        "list": [
+          {
+            "current": {},
+            "includeAll": true,
+            "label": "Namespace",
+            "multi": true,
+            "name": "namespace",
+            "options": [],
+            "query": {
+              "query": "label_values(kube_pod_info, namespace)",
+              "refId": "std-namespace-variable"
+            },
+            "refresh": 1,
+            "regex": "",
+            "type": "query",
+            "datasource": { "type": "prometheus", "uid": "victoriametrics" }
+          }
+        ]
+      },
+      "time": { "from": "now-6h", "to": "now" },
+      "timezone": "browser",
+      "title": "Debug: workloads & nodes",
+      "uid": "homelab-debug",
+      "version": 1,
+      "weekStart": ""
+    }
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: debug-workloads
+  namespace: kube-system
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  allowCrossNamespaceImport: true
+  folder: kubernetes
+  resyncPeriod: 1h
+  configMapRef:
+    name: debug-workloads
+    key: debug-workloads.json
