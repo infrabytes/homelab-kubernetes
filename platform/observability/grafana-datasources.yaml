@@ -1,38 +1,111 @@
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDatasource
+# Datasource provisioning file, mounted by the Grafana CR at /etc/grafana/provisioning/datasources
+# because the GrafanaDatasource CRD cannot express correlations. Provisioning runs on pod start;
+# the operator's deployment checksum covers this ConfigMap, so edits roll the pod. Keep
+# name/uid stable - provisioning upserts by name and dashboards reference the uids.
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: victoriametrics
+  name: grafana-datasources
   namespace: observability
-spec:
-  # Non-matching on purpose: detaches the CR so its deletion finalizer becomes a no-op.
-  instanceSelector:
-    matchLabels:
-      grafanaInstance: retired
-  uid: victoriametrics
-  datasource:
-    name: victoriametrics
-    uid: victoriametrics
-    type: prometheus
-    access: proxy
-    url: http://vmsingle-victoria-metrics-single-server.observability.svc.cluster.local:8428
-    isDefault: true
-    jsonData:
-      httpMethod: POST
----
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDatasource
-metadata:
-  name: loki
-  namespace: observability
-spec:
-  # Non-matching on purpose: detaches the CR so its deletion finalizer becomes a no-op.
-  instanceSelector:
-    matchLabels:
-      grafanaInstance: retired
-  uid: loki
-  datasource:
-    name: loki
-    uid: loki
-    type: loki
-    access: proxy
-    url: http://loki.observability.svc.cluster.local:3100
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: victoriametrics
+        uid: victoriametrics
+        type: prometheus
+        access: proxy
+        url: http://vmsingle-victoria-metrics-single-server.observability.svc.cluster.local:8428
+        isDefault: true
+        jsonData:
+          httpMethod: POST
+        # One correlation per metric: field must be the metric name, the link shows on that
+        # metric's value column in Explore. `pod` is Loki structured metadata, hence the
+        # post-selector filter. A missing description panics the provisioning parser.
+        correlations:
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: kube_pod_status_phase
+              target:
+                expr: '{namespace="${__field.labels.namespace}"} | pod="${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: kube_pod_container_status_restarts_total
+              target:
+                expr: '{namespace="${__field.labels.namespace}"} | pod="${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: container_cpu_usage_seconds_total
+              target:
+                expr: '{namespace="${__field.labels.namespace}"} | pod="${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Pod logs
+            description: Loki logs for this pod
+            type: query
+            config:
+              field: container_memory_working_set_bytes
+              target:
+                expr: '{namespace="${__field.labels.namespace}"} | pod="${__field.labels.pod}"'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_cpu_seconds_total
+              target:
+                expr: '{node="${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_load1
+              target:
+                expr: '{node="${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_memory_MemAvailable_bytes
+              target:
+                expr: '{node="${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Talos node service logs
+            description: Node service logs for this Talos node
+            type: query
+            config:
+              field: node_filesystem_avail_bytes
+              target:
+                expr: '{node="${__field.labels.instance}"}'
+                queryType: range
+          - targetUID: loki
+            label: Namespace events
+            description: Kubernetes events for this PVC's namespace
+            type: query
+            config:
+              field: kubelet_volume_stats_available_bytes
+              target:
+                expr: '{namespace="${__field.labels.namespace}", source="kubernetes-events"}'
+                queryType: range
+      - name: loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki.observability.svc.cluster.local:3100
