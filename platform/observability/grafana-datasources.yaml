@@ -4,9 +4,10 @@ metadata:
   name: victoriametrics
   namespace: observability
 spec:
+  # Non-matching on purpose: detaches the CR so its deletion finalizer becomes a no-op.
   instanceSelector:
     matchLabels:
-      grafanaInstance: main
+      grafanaInstance: retired
   uid: victoriametrics
   datasource:
     name: victoriametrics
@@ -24,9 +25,10 @@ metadata:
   name: loki
   namespace: observability
 spec:
+  # Non-matching on purpose: detaches the CR so its deletion finalizer becomes a no-op.
   instanceSelector:
     matchLabels:
-      grafanaInstance: main
+      grafanaInstance: retired
   uid: loki
   datasource:
     name: loki
