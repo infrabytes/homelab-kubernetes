@@ -1,0 +1,13 @@
+# Advertises the LAN to the tailnet so remote devices reach the Dex issuer for
+# OIDC logins; the route needs a one-time console approval (README.md).
+apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: lan-subnet-router
+spec:
+  hostname: homelab-subnet-router
+  tags:
+    - tag:k8s
+  subnetRouter:
+    advertiseRoutes:
+      - 192.168.0.0/24

@@ -36,9 +36,33 @@ annotations, no manual `tailscale serve`.
 - `dex.<tailnet>.ts.net` — second Dex instance for remote SSO
   (`platform/dex/dex-tailnet-ingress.yaml` → `dex-tailnet:5556`).
 - `tailscale-operator.<tailnet>.ts.net` — API server proxy for kubectl.
+- `headlamp.<tailnet>.ts.net` — Headlamp dashboard
+  (`platform/headlamp/tailnet-ingress.yaml` → `headlamp:80`).
 
 In-cluster consumers reach the tailnet Dex through its own HTTPS listener
 (the Terraform-generated cert in `dex-tailnet-tls`); see the openbao README.
+
+## LAN reachability (subnet router)
+
+`connector.yaml` declares a `Connector` (`lan-subnet-router`, hostname
+`homelab-subnet-router`, tag `tag:k8s`) advertising `192.168.0.0/24` to the
+tailnet: remote browsers can then reach the LAN Dex — Headlamp's OIDC login
+needs it, the issuer is LAN-only — and other LAN-only services. The operator
+reconciles a proxy StatefulSet (`ts-lan-subnet-router-*`).
+
+One-time steps in the Tailscale admin console:
+
+1. Approve the advertised route (Machines → `homelab-subnet-router` → route
+   settings), or add an `autoApprovers.routes` entry for `tag:k8s`.
+2. Keep the ACL `grants` deliberate: the advertised route widens what every
+   tailnet device can reach, and the ACL is the only control point.
+
+Verify from a tailnet device:
+
+```sh
+ping 192.168.0.200                 # the gateway L2 IP
+curl -sI https://dex.icaninto.space
+```
 
 ## kubectl from the tailnet
 
@@ -57,3 +81,4 @@ The owner's Tailscale identity is bound to `cluster-admin` via the
 - `external-secret.yaml` — ESO ExternalSecret (`operator-oauth` from OpenBao).
 - `namespace.yaml` — `tailscale` namespace with `pod-security.kubernetes.io/enforce: privileged`
   (proxy pods run privileged; Talos's default baseline PSA rejects them otherwise).
+- `connector.yaml` — subnet-router `Connector` advertising `192.168.0.0/24`.

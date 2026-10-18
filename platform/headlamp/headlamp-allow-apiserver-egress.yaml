@@ -1,0 +1,21 @@
+---
+# Plain NetworkPolicy cannot name the API-server entity the in-cluster request forwarding needs.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: headlamp-allow-apiserver-egress
+  namespace: headlamp
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: headlamp
+      app.kubernetes.io/instance: headlamp
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP

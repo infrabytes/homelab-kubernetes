@@ -1,0 +1,26 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: headlamp
+  namespace: headlamp
+spec:
+  parentRefs:
+    # LAN only: keep the Cloudflare A record DNS-only (RFC1918 gateway IP).
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab
+      namespace: gateway
+      sectionName: headlamp-https
+  hostnames:
+    - headlamp.icaninto.space
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: headlamp
+          port: 80
+          weight: 1

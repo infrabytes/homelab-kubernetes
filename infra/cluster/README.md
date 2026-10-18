@@ -205,7 +205,9 @@ exceed the API server's minor.
 > **Config patch format:** Talos 1.14 moved install, network, kubelet, CNI and
 > kube-proxy settings into separate config documents; the module's per-node
 > patches target those documents (legacy v1alpha1 fields for the same settings
-> conflict with the generated documents and are rejected).
+> conflict with the generated documents and are rejected). Cluster-wide API
+> server authentication is configured the same way, through a
+> `KubeAuthenticationConfig` document (see below).
 
 > **Why this exists:** the previous flow only patched `machine.install.image`
 > into the applied configs (`talos_machine_configuration_apply`), which
@@ -269,6 +271,35 @@ boots with (no separate ingress/load-balancer components):
 > See [`../addons/README.md`](../addons/README.md) (installs ArgoCD) and
 > [`../argocd-config/README.md`](../argocd-config/README.md) (ApplicationSets for
 > `platform/` + `apps/`).
+
+## OIDC logins trust Dex (`KubeAuthenticationConfig`)
+
+Logins to [Headlamp](../../platform/headlamp/README.md) carry the user's own
+identity because the API server accepts Dex ID tokens: the controlplane patch
+list in `modules/talos-cluster/main.tf` adds a `KubeAuthenticationConfig`
+document with a JWT authenticator for issuer `https://dex.icaninto.space`
+(audience `headlamp`, username claim `preferred_username` prefixed `oidc:`).
+
+- **Why not the `--oidc-*` flags?** Talos 1.14 rejects them on the
+  kube-apiserver ("use KubeAuthenticationConfig"); the generated config already
+  carries the document, and the patch merges into it.
+- **Merge gotcha:** Talos replaces the document's whole `configuration` blob,
+  so the patch restates the generated `anonymous` health-endpoint allowlist —
+  leaving it out would change which paths answer unauthenticated.
+- **Dex down ≠ cluster down.** The API server fetches the issuer's discovery
+  document asynchronously and keeps retrying in the background; while Dex is
+  down only new Headlamp logins fail (kubectl, ArgoCD and running workloads are
+  unaffected).
+- **Validate before applying** (no cluster needed): build the patch from the
+  module's `yamlencode({...})` document and run
+
+  ```sh
+  talosctl gen config schema-check https://192.168.0.67:6443 --output /tmp/tg --force
+  talosctl machineconfig patch /tmp/tg/controlplane.yaml --patch @oidc.yaml -o /tmp/cp.yaml
+  talosctl validate --config /tmp/cp.yaml --mode metal
+  ```
+
+  `terragrunt validate --all` covers the HCL shape.
 
 # Spegel (P2P image mirroring)
 

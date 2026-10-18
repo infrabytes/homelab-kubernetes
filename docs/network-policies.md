@@ -71,6 +71,7 @@ gateway traffic working; see the cert-manager and external-secrets policies.
 | `cert-manager` | controller, webhook and cainjector `networkPolicy` | `cert-manager-default-deny-ingress.yaml` |
 | `external-secrets` | controller, webhook and cert-controller `networkPolicy`: DNS, OpenBao 8200 | `external-secrets-allow-apiserver-egress.yaml`, `external-secrets-default-deny-ingress.yaml` |
 | `openbao` | `server.networkPolicy`: DNS, raft 8201, both Dex backends | `openbao-allow-apiserver-egress.yaml`, `openbao-allow-gateway-ingress.yaml`, `openbao-default-deny-ingress.yaml` |
+| `headlamp` | — (the chart has no `networkPolicy` values) | `headlamp-default-deny-ingress.yaml`, `headlamp-allow-gateway-ingress.yaml`, `headlamp-allow-tailnet-ingress.yaml`, `headlamp-allow-egress.yaml` (DNS + the dex backend), `headlamp-allow-apiserver-egress.yaml` |
 | `hubble-observer` | `ciliumNetworkPolicy`: relay egress, cf2cnp ingress with the `ingress` entity | `hubble-observer-allow-relay-egress.yaml`, `hubble-observer-allow-dns-egress.yaml`, `hubble-observer-default-deny-ingress.yaml` |
 | `vcluster` | `policies.networkPolicy`: chart defaults plus the metrics-server control-plane egress on 443/10250 | `vcluster-allow-host-dns-egress.yaml`, `vcluster-default-deny-ingress.yaml` |
 | `longhorn-system` | longhorn's internal policies (`restrictInternalTraffic`) | `longhorn-manager-allow-metrics.yaml` |

@@ -1,0 +1,34 @@
+# DNS + the Dex backend: Headlamp's OIDC discovery and token exchange run against the dex pod and port, never the gateway VIP.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: headlamp-allow-egress
+  namespace: headlamp
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: headlamp
+      app.kubernetes.io/instance: headlamp
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dex
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: dex
+              app.kubernetes.io/instance: dex
+      ports:
+        - port: 5556
+          protocol: TCP
+  policyTypes:
+    - Egress
