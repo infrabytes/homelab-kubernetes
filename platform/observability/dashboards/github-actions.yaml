@@ -2582,10 +2582,10 @@ data:
             "type": "loki",
             "uid": "loki"
           },
-          "description": "Job start and completion lines from the runner pods. The duplicated terminal echo is filtered out.",
+          "description": "Job start and completion lines from the runner pods, failures included (\"completed with result: Failed\"). The duplicated terminal echo is filtered out; a pod click on the metrics row above opens that pod's full log.",
           "gridPos": {
             "h": 9,
-            "w": 12,
+            "w": 24,
             "x": 0,
             "y": 78
           },
@@ -2615,47 +2615,6 @@ data:
             }
           ],
           "title": "Runner job lifecycle",
-          "type": "logs"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "description": "Every failed job completion in the last 7 days, regardless of the dashboard time range.",
-          "gridPos": {
-            "h": 9,
-            "w": 12,
-            "x": 12,
-            "y": 78
-          },
-          "id": 31,
-          "options": {
-            "dedupStrategy": "none",
-            "detailsFormat": "inline-short",
-            "enableLogDetails": true,
-            "fontSize": "small",
-            "prettifyLogMessage": false,
-            "showCommonLabels": false,
-            "showLabels": false,
-            "showTime": true,
-            "sortOrder": "Descending",
-            "wrapLogMessage": true
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "editorMode": "code",
-              "expr": "{namespace=\"arc-runners\"} |= \"completed with result: Failed\" != \"WRITE LINE\"",
-              "queryType": "range",
-              "refId": "A"
-            }
-          ],
-          "timeFrom": "7d",
-          "title": "Failed job completions",
           "type": "logs"
         },
         {
