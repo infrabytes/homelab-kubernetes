@@ -103,6 +103,30 @@ An abort during the maintenance window — a blocked drain, a node that stays
 If `proxmox01` fails to return, the whole cluster is down until it does:
 console into the VM from the PVE UI, then continue as above.
 
+## node_exporter on the PVE hosts
+
+`proxmox-node-exporter.yml` installs the Debian `prometheus-node-exporter`
+package (upgrades then ride the Sunday `full-upgrade` rolls) plus a systemd
+drop-in, `systemd/prometheus-node-exporter-override.conf`. The drop-in runs
+the service as root because the RAPL energy counters
+(`/sys/class/powercap/*/energy_uj`) are 0400 root-only — with the packaged
+`User=prometheus` the rapl collector exports nothing — and adds
+`--collector.rapl.enable-zone-label`, so power comes out as
+`node_rapl_joules_total` with a `rapl_zone` label (package/core/uncore/dram).
+Hosts that carry the earlier standalone binary install are migrated
+idempotently (unit stopped and removed, binary deleted).
+
+The Talos nodes are QEMU guests — `/sys/class/hwmon` and
+`/sys/class/powercap` are empty inside the guests — so the Node Exporter Full
+dashboard's hardware row can only fill from the hypervisors. The
+k8s-monitoring Alloy scrapes the hosts as job `pve-node`
+(`collectors.alloy-metrics.extraConfig` in
+`platform/grafana-cloud/application.yaml`), with `instance` set to the
+hostname.
+
+Run it with `ansible-playbook proxmox-node-exporter.yml` (no secrets needed);
+re-runs are no-ops.
+
 ## windrunner setup
 
 `windrunner-setup.sh` (run as the `deschain` user; the final

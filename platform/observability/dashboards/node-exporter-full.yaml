@@ -8131,6 +8131,105 @@ data:
               ],
               "title": "Hardware Fan Speed",
               "type": "timeseries"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "description": "CPU package and DRAM power drawn, derived from RAPL energy counters. Covers CPU and DRAM only; PSU losses, disks and fans are not included.",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 20,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "never",
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "links": [],
+                  "mappings": [],
+                  "min": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "unit": "watt"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 10,
+                "w": 24,
+                "x": 0,
+                "y": 757
+              },
+              "id": 342,
+              "options": {
+                "legend": {
+                  "calcs": [
+                    "min",
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              },
+              "pluginVersion": "11.6.1",
+              "targets": [
+                {
+                  "editorMode": "code",
+                  "expr": "rate(node_rapl_joules_total{instance=\"$node\",job=\"$job\",rapl_zone=~\"package|dram\"}[$__rate_interval])",
+                  "format": "time_series",
+                  "interval": "",
+                  "legendFormat": "{{ rapl_zone }}",
+                  "range": true,
+                  "refId": "A",
+                  "step": 240
+                }
+              ],
+              "title": "Hardware Power (RAPL)",
+              "type": "timeseries"
             }
           ],
           "title": "Hardware Misc",

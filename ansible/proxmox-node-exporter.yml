@@ -1,0 +1,60 @@
+- name: Install node_exporter on the PVE hosts
+  hosts: pve
+  max_fail_percentage: 0
+  gather_facts: false
+  tasks:
+    - name: Check for the superseded standalone install
+      ansible.builtin.stat:
+        path: /etc/systemd/system/node-exporter.service
+        get_checksum: false
+        get_mime: false
+      register: standalone_unit
+
+    - name: Stop and disable the superseded standalone node-exporter
+      ansible.builtin.systemd:
+        name: node-exporter
+        state: stopped
+        enabled: false
+      when: standalone_unit.stat.exists
+
+    - name: Remove the superseded standalone unit and binary
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/node-exporter.service
+        - /usr/local/bin/node_exporter
+      when: standalone_unit.stat.exists
+
+    - name: Create the systemd unit drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/prometheus-node-exporter.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Install the systemd unit drop-in
+      ansible.builtin.copy:
+        src: systemd/prometheus-node-exporter-override.conf
+        dest: /etc/systemd/system/prometheus-node-exporter.service.d/override.conf
+        mode: "0644"
+      notify: Restart prometheus-node-exporter
+
+    - name: Install prometheus-node-exporter
+      ansible.builtin.apt:
+        name: prometheus-node-exporter
+        state: present
+        update_cache: false
+
+    - name: Enable and start prometheus-node-exporter
+      ansible.builtin.systemd:
+        name: prometheus-node-exporter
+        enabled: true
+        state: started
+        daemon_reload: true
+
+  handlers:
+    - name: Restart prometheus-node-exporter
+      ansible.builtin.systemd:
+        name: prometheus-node-exporter
+        state: restarted
+        daemon_reload: true
