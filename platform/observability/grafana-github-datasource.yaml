@@ -1,0 +1,31 @@
+# Run ids/html_url only exist in the GitHub API; ARC's listener reports job names alone.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: github
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  uid: github
+  plugins:
+    - name: grafana-github-datasource
+      version: 2.9.3
+  datasource:
+    name: GitHub
+    type: grafana-github-datasource
+    access: proxy
+    isDefault: false
+    editable: false
+    jsonData:
+      selectedAuthType: personal-access-token
+    secureJsonData:
+      # valuesFrom substitutes into this placeholder; the operator never creates the field.
+      accessToken: "$token"
+  valuesFrom:
+    - targetPath: secureJsonData.accessToken
+      valueFrom:
+        secretKeyRef:
+          name: grafana-github-token
+          key: token

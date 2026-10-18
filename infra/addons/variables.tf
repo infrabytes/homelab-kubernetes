@@ -177,6 +177,13 @@ variable "grafana_mcp_server_token" {
   sensitive   = true
 }
 
+variable "github_grafana_token" {
+  description = "Read-only fine-grained GitHub PAT (Actions: read) for Grafana's github data source. Written into the grafana-github-token Secret as key token."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "seaweedfs_access_key" {
   description = "SeaweedFS S3 access key for the Grafana Postgres cluster's backup object store."
   type        = string

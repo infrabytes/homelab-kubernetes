@@ -216,6 +216,10 @@ locals {
     # its LAN route.
     grafana_mcp_service_account_token = local.secrets.grafana_mcp_service_account_token
     grafana_mcp_server_token          = local.secrets.grafana_mcp_server_token
+
+    # Grafana GitHub data source (platform/observability/grafana-github-datasource.yaml):
+    # a read-only PAT so the dashboard can link individual workflow runs.
+    github_grafana_token = local.secrets.github_grafana_token
   }
 
   # Grafana Cloud watchdog: stack API access for the grafana/grafana provider.
