@@ -25,21 +25,11 @@ data:
       "links": [],
       "panels": [
         {
-          "id": 1,
-          "type": "table",
-          "title": "Container restarts & phase (click a pod cell)",
-          "description": "Instant counters per container/pod. Click a pod value, then choose Pod logs to open the matching namespace and pod in Loki.",
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "gridPos": {
-            "h": 12,
-            "w": 24,
-            "x": 0,
-            "y": 0
-          },
-          "pluginVersion": "11.6.1",
+          "description": "Instant counters per container/pod. Click a pod value, then choose Pod logs to open the matching namespace and pod in Loki.",
           "fieldConfig": {
             "defaults": {},
             "overrides": [
@@ -53,19 +43,19 @@ data:
                     "id": "links",
                     "value": [
                       {
-                        "title": "Pod logs",
                         "internal": {
                           "datasourceUid": "loki",
                           "query": {
-                            "expr": "{namespace=\"${__data.fields[\"namespace\"]}\"} | pod=\"${__value.raw}\"",
-                            "queryType": "range",
-                            "refId": "A",
                             "datasource": {
                               "type": "loki",
                               "uid": "loki"
-                            }
+                            },
+                            "expr": "{namespace=\"${__data.fields[\"namespace\"]}\"} | pod=\"${__value.raw}\"",
+                            "queryType": "range",
+                            "refId": "A"
                           }
-                        }
+                        },
+                        "title": "Pod logs"
                       }
                     ]
                   }
@@ -73,6 +63,25 @@ data:
               }
             ]
           },
+          "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "11.6.1",
           "targets": [
             {
               "datasource": {
@@ -81,8 +90,8 @@ data:
               },
               "editorMode": "code",
               "expr": "kube_pod_container_status_restarts_total{namespace=~\"$namespace\"}",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "A"
@@ -94,8 +103,8 @@ data:
               },
               "editorMode": "code",
               "expr": "kube_pod_container_status_waiting{namespace=~\"$namespace\"}",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "B"
@@ -107,8 +116,8 @@ data:
               },
               "editorMode": "code",
               "expr": "kube_pod_container_status_terminated{namespace=~\"$namespace\"}",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "C"
@@ -120,13 +129,14 @@ data:
               },
               "editorMode": "code",
               "expr": "kube_pod_container_status_last_terminated_reason{namespace=~\"$namespace\"}",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "D"
             }
           ],
+          "title": "Container restarts & phase (click a pod cell)",
           "transformations": [
             {
               "id": "organize",
@@ -134,52 +144,32 @@ data:
                 "excludeByName": {
                   "Time": true,
                   "cluster": true,
+                  "instance": true,
                   "job": true,
                   "k8s_cluster_name": true,
-                  "instance": true,
                   "source": true,
                   "uid": true
                 },
                 "indexByName": {
-                  "namespace": 0,
-                  "pod": 1,
                   "container": 2,
+                  "kube_pod_container_status_last_terminated_reason": 6,
                   "kube_pod_container_status_restarts_total": 3,
-                  "kube_pod_container_status_waiting": 4,
                   "kube_pod_container_status_terminated": 5,
-                  "kube_pod_container_status_last_terminated_reason": 6
+                  "kube_pod_container_status_waiting": 4,
+                  "namespace": 0,
+                  "pod": 1
                 }
               }
             }
           ],
-          "options": {
-            "cellHeight": "sm",
-            "footer": {
-              "show": false,
-              "reducer": [
-                "sum"
-              ],
-              "countRows": false
-            },
-            "showHeader": true
-          }
+          "type": "table"
         },
         {
-          "id": 2,
-          "type": "table",
-          "title": "Throttling & network drops (click a pod cell)",
-          "description": "Instant counters per container/pod. Click a pod value, then choose Pod logs to open the matching namespace and pod in Loki.",
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "gridPos": {
-            "h": 12,
-            "w": 24,
-            "x": 0,
-            "y": 12
-          },
-          "pluginVersion": "11.6.1",
+          "description": "Instant counters per container/pod. Click a pod value, then choose Pod logs to open the matching namespace and pod in Loki.",
           "fieldConfig": {
             "defaults": {},
             "overrides": [
@@ -193,19 +183,19 @@ data:
                     "id": "links",
                     "value": [
                       {
-                        "title": "Pod logs",
                         "internal": {
                           "datasourceUid": "loki",
                           "query": {
-                            "expr": "{namespace=\"${__data.fields[\"namespace\"]}\"} | pod=\"${__value.raw}\"",
-                            "queryType": "range",
-                            "refId": "A",
                             "datasource": {
                               "type": "loki",
                               "uid": "loki"
-                            }
+                            },
+                            "expr": "{namespace=\"${__data.fields[\"namespace\"]}\"} | pod=\"${__value.raw}\"",
+                            "queryType": "range",
+                            "refId": "A"
                           }
-                        }
+                        },
+                        "title": "Pod logs"
                       }
                     ]
                   }
@@ -213,6 +203,25 @@ data:
               }
             ]
           },
+          "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 12
+          },
+          "id": 2,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "11.6.1",
           "targets": [
             {
               "datasource": {
@@ -221,8 +230,8 @@ data:
               },
               "editorMode": "code",
               "expr": "container_cpu_cfs_throttled_seconds_total{namespace=~\"$namespace\"}",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "A"
@@ -234,8 +243,8 @@ data:
               },
               "editorMode": "code",
               "expr": "container_network_receive_packets_dropped_total{namespace=~\"$namespace\"}",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "B"
@@ -247,13 +256,14 @@ data:
               },
               "editorMode": "code",
               "expr": "container_network_transmit_packets_dropped_total{namespace=~\"$namespace\"}",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "C"
             }
           ],
+          "title": "Throttling & network drops (click a pod cell)",
           "transformations": [
             {
               "id": "organize",
@@ -261,52 +271,32 @@ data:
                 "excludeByName": {
                   "Time": true,
                   "cluster": true,
+                  "image": true,
+                  "instance": true,
                   "job": true,
                   "k8s_cluster_name": true,
-                  "instance": true,
                   "source": true,
-                  "uid": true,
-                  "image": true
+                  "uid": true
                 },
                 "indexByName": {
-                  "namespace": 0,
-                  "pod": 1,
                   "container": 2,
                   "container_cpu_cfs_throttled_seconds_total": 3,
                   "container_network_receive_packets_dropped_total": 4,
-                  "container_network_transmit_packets_dropped_total": 5
+                  "container_network_transmit_packets_dropped_total": 5,
+                  "namespace": 0,
+                  "pod": 1
                 }
               }
             }
           ],
-          "options": {
-            "cellHeight": "sm",
-            "footer": {
-              "show": false,
-              "reducer": [
-                "sum"
-              ],
-              "countRows": false
-            },
-            "showHeader": true
-          }
+          "type": "table"
         },
         {
-          "id": 3,
-          "type": "table",
-          "title": "Talos node signals (click a node cell)",
-          "description": "Instant host metrics per Talos node. Click an instance value, then choose Talos node service logs to open that node in Loki.",
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "gridPos": {
-            "h": 12,
-            "w": 24,
-            "x": 0,
-            "y": 24
-          },
-          "pluginVersion": "11.6.1",
+          "description": "Instant host metrics per Talos node. Click an instance value, then choose Talos node service logs to open that node in Loki.",
           "fieldConfig": {
             "defaults": {},
             "overrides": [
@@ -320,19 +310,19 @@ data:
                     "id": "links",
                     "value": [
                       {
-                        "title": "Talos node service logs",
                         "internal": {
                           "datasourceUid": "loki",
                           "query": {
-                            "expr": "{node=\"${__value.raw}\"}",
-                            "queryType": "range",
-                            "refId": "A",
                             "datasource": {
                               "type": "loki",
                               "uid": "loki"
-                            }
+                            },
+                            "expr": "{node=\"${__value.raw}\"}",
+                            "queryType": "range",
+                            "refId": "A"
                           }
-                        }
+                        },
+                        "title": "Talos node service logs"
                       }
                     ]
                   }
@@ -340,6 +330,25 @@ data:
               }
             ]
           },
+          "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 24
+          },
+          "id": 3,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "11.6.1",
           "targets": [
             {
               "datasource": {
@@ -348,8 +357,8 @@ data:
               },
               "editorMode": "code",
               "expr": "node_load5",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "A"
@@ -361,8 +370,8 @@ data:
               },
               "editorMode": "code",
               "expr": "node_softnet_dropped_total",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "B"
@@ -374,8 +383,8 @@ data:
               },
               "editorMode": "code",
               "expr": "node_network_receive_errs_total",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "C"
@@ -387,8 +396,8 @@ data:
               },
               "editorMode": "code",
               "expr": "node_network_transmit_errs_total",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "D"
@@ -400,8 +409,8 @@ data:
               },
               "editorMode": "code",
               "expr": "node_pressure_memory_stalled_seconds_total",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "E"
@@ -413,72 +422,53 @@ data:
               },
               "editorMode": "code",
               "expr": "node_vmstat_oom_kill",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "F"
             }
           ],
+          "title": "Talos node signals (click a node cell)",
           "transformations": [
             {
               "id": "organize",
               "options": {
                 "excludeByName": {
                   "Time": true,
-                  "cluster": true,
-                  "job": true,
-                  "k8s_cluster_name": true,
-                  "source": true,
-                  "uid": true,
                   "app": true,
+                  "cluster": true,
                   "component": true,
                   "container": true,
+                  "job": true,
+                  "k8s_cluster_name": true,
                   "namespace": true,
+                  "node": true,
                   "pod": true,
-                  "workload": true,
-                  "node": true
+                  "source": true,
+                  "uid": true,
+                  "workload": true
                 },
                 "indexByName": {
                   "instance": 0,
                   "node_load5": 1,
-                  "node_softnet_dropped_total": 2,
                   "node_network_receive_errs_total": 3,
                   "node_network_transmit_errs_total": 4,
                   "node_pressure_memory_stalled_seconds_total": 5,
+                  "node_softnet_dropped_total": 2,
                   "node_vmstat_oom_kill": 6
                 }
               }
             }
           ],
-          "options": {
-            "cellHeight": "sm",
-            "footer": {
-              "show": false,
-              "reducer": [
-                "sum"
-              ],
-              "countRows": false
-            },
-            "showHeader": true
-          }
+          "type": "table"
         },
         {
-          "id": 4,
-          "type": "table",
-          "title": "ArgoCD applications in selected namespace",
-          "description": "Lists ArgoCD applications by destination namespace. Click an application name to open ArgoCD search for that app; a pod or namespace name is not an ArgoCD application name.",
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "gridPos": {
-            "h": 10,
-            "w": 24,
-            "x": 0,
-            "y": 36
-          },
-          "pluginVersion": "11.6.1",
+          "description": "Lists ArgoCD applications by destination namespace. Click an application name to open ArgoCD search for that app; a pod or namespace name is not an ArgoCD application name.",
           "fieldConfig": {
             "defaults": {},
             "overrides": [
@@ -492,8 +482,8 @@ data:
                     "id": "links",
                     "value": [
                       {
-                        "title": "Open ArgoCD application",
                         "targetBlank": true,
+                        "title": "Open ArgoCD application",
                         "url": "https://argocd.icaninto.space/applications?search=${__value.raw}"
                       }
                     ]
@@ -502,6 +492,25 @@ data:
               }
             ]
           },
+          "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 36
+          },
+          "id": 4,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "11.6.1",
           "targets": [
             {
               "datasource": {
@@ -510,13 +519,14 @@ data:
               },
               "editorMode": "code",
               "expr": "argocd_app_info{dest_namespace=~\"$namespace\"}",
-              "instant": true,
               "format": "table",
+              "instant": true,
               "legendFormat": "__auto",
               "range": false,
               "refId": "A"
             }
           ],
+          "title": "ArgoCD applications in selected namespace",
           "transformations": [
             {
               "id": "organize",
@@ -527,6 +537,7 @@ data:
                   "__name__": true,
                   "cluster": true,
                   "container": true,
+                  "dest_server": true,
                   "endpoint": true,
                   "exported_namespace": true,
                   "instance": true,
@@ -536,29 +547,57 @@ data:
                   "pod": true,
                   "project": true,
                   "repo": true,
-                  "service": true,
-                  "dest_server": true
+                  "service": true
                 },
                 "indexByName": {
                   "dest_namespace": 0,
-                  "name": 1,
                   "health_status": 2,
+                  "name": 1,
                   "sync_status": 3
                 }
               }
             }
           ],
-          "options": {
-            "cellHeight": "sm",
-            "footer": {
-              "show": false,
-              "reducer": [
-                "sum"
-              ],
-              "countRows": false
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "description": "One row per container without a CPU request or memory limit in the selected namespace(s); empty means every container is sized.",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto"
+              }
             },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 46
+          },
+          "id": 5,
+          "options": {
             "showHeader": true
-          }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "victoriametrics"
+              },
+              "expr": "label_replace(count by (namespace, pod, container) (kube_pod_container_info{namespace=~\"$namespace\"}) unless on (namespace, pod, container) count by (namespace, pod, container) (kube_pod_container_resource_requests{resource=\"cpu\", namespace=~\"$namespace\"}), \"missing\", \"cpu request\", \"\", \"\") or label_replace(count by (namespace, pod, container) (kube_pod_container_info{namespace=~\"$namespace\"}) unless on (namespace, pod, container) count by (namespace, pod, container) (kube_pod_container_resource_limits{resource=\"memory\", namespace=~\"$namespace\"}), \"missing\", \"memory limit\", \"\", \"\")",
+              "format": "table",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Containers missing CPU requests or memory limits",
+          "type": "table"
         }
       ],
       "refresh": "1m",
@@ -571,6 +610,10 @@ data:
         "list": [
           {
             "current": {},
+            "datasource": {
+              "type": "prometheus",
+              "uid": "victoriametrics"
+            },
             "includeAll": true,
             "label": "Namespace",
             "multi": true,
@@ -582,11 +625,7 @@ data:
             },
             "refresh": 1,
             "regex": "",
-            "type": "query",
-            "datasource": {
-              "type": "prometheus",
-              "uid": "victoriametrics"
-            }
+            "type": "query"
           }
         ]
       },
@@ -597,7 +636,7 @@ data:
       "timezone": "browser",
       "title": "Debug: workloads & nodes",
       "uid": "homelab-debug",
-      "version": 4,
+      "version": 2,
       "weekStart": ""
     }
 ---
@@ -614,7 +653,7 @@ spec:
       grafanaInstance: main
   allowCrossNamespaceImport: true
   folder: kubernetes
-  resyncPeriod: 59m
+  resyncPeriod: 1h
   configMapRef:
     name: debug-workloads
     key: debug-workloads.json
