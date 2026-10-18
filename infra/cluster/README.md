@@ -160,7 +160,7 @@ manifest to the running cluster, which is what actually rolls the agent.
 > their namespace context labels) and the `dashboards`/`operator.dashboards`
 > toggles feed both the custom Network Policies dashboard and the chart
 > dashboards in `platform/observability/dashboards/`, scraped through the PodMonitors
-> in `platform/grafana-cloud/`.
+> in `platform/k8s-monitoring/`.
 
 ## Upgrades (Talos & Kubernetes)
 

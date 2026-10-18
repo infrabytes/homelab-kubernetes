@@ -112,7 +112,7 @@ data:
                 queryType: range
           # --- 2026-10 expansion, same `{namespace} | pod="..."` pattern as above. ---
           # Tiers chosen against the dashboard-metric inventory (every field is queried
-          # by a deployed dashboard AND allowlisted in grafana-cloud includeMetrics).
+          # by a deployed dashboard AND allowlisted in k8s-monitoring includeMetrics).
           # Pod-level k8s workloads: terminated/waiting complete the pod_status_phase
           # coverage; cfs-throttled and network errors/drops are the cAdvisor allowlist
           # metrics the Views dashboards read.
@@ -189,7 +189,7 @@ data:
                 expr: '{namespace="$${__field.labels.namespace}"} | pod="$${__field.labels.pod}"'
                 queryType: range
           # Talos node level: `{node=...}` matches the syslog stream label set by the
-          # k8s-monitoring chart's talos loki.process pipeline (platform/grafana-cloud).
+          # k8s-monitoring chart's talos loki.process pipeline (platform/k8s-monitoring).
           - targetUID: loki
             label: Talos node service logs
             description: Node service logs for this Talos node

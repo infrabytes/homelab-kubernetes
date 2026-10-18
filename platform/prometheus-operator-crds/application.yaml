@@ -1,7 +1,7 @@
 # monitoring.coreos.com CRDs installed via the prometheus-operator-crds Helm
 # chart (Renovate-tracked via targetRevision). Required by the
 # k8s-monitoring chart's prometheusOperatorObjects feature in
-# platform/grafana-cloud.
+# platform/k8s-monitoring.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

@@ -121,7 +121,7 @@ The Talos nodes are QEMU guests — `/sys/class/hwmon` and
 dashboard's hardware row can only fill from the hypervisors. The
 k8s-monitoring Alloy scrapes the hosts as job `pve-node`
 (`collectors.alloy-metrics.extraConfig` in
-`platform/grafana-cloud/application.yaml`), with `instance` set to the
+`platform/k8s-monitoring/application.yaml`), with `instance` set to the
 hostname.
 
 Run it with `ansible-playbook proxmox-node-exporter.yml` (no secrets needed);

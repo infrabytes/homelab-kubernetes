@@ -41,7 +41,7 @@ resource "helm_release" "argo_cd" {
         }
       }
       # Expose the /metrics endpoints as Services so the k8s-monitoring
-      # ServiceMonitors in platform/grafana-cloud can scrape them.
+      # ServiceMonitors in platform/k8s-monitoring can scrape them.
       controller = {
         metrics = { enabled = true }
         # One-shot escalation: the retained series is censored by the old 912Mi limit
@@ -386,9 +386,9 @@ resource "kubernetes_secret_v1" "openbao_oidc_tailnet_ca" {
   }
 }
 
-resource "kubernetes_namespace_v1" "grafana_cloud" {
+resource "kubernetes_namespace_v1" "k8s_monitoring" {
   metadata {
-    name = "grafana-cloud"
+    name = "k8s-monitoring"
     labels = {
       "pod-security.kubernetes.io/enforce" = "privileged"
     }
@@ -400,7 +400,7 @@ resource "kubernetes_namespace_v1" "grafana_cloud" {
 resource "kubernetes_secret_v1" "grafana_cloud_credentials" {
   metadata {
     name      = "alloy-secrets"
-    namespace = kubernetes_namespace_v1.grafana_cloud.metadata[0].name
+    namespace = kubernetes_namespace_v1.k8s_monitoring.metadata[0].name
   }
   data = {
     "loki-username" = var.grafana_cloud_loki_username

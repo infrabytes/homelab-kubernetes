@@ -175,7 +175,7 @@ locals {
 
     # Grafana Cloud Loki credentials, kept for the cluster-heartbeat CronJob
     # (platform/observability/heartbeat-cronjob.yaml) — the only consumer left in
-    # the grafana-cloud namespace. The prometheus-* keys were dropped with the
+    # the k8s-monitoring namespace. The prometheus-* keys were dropped with the
     # Alloy repoint; the SOPS values stay for a full revert of the cutover.
     grafana_cloud_loki_username = local.secrets.grafana_cloud_loki_username
     grafana_cloud_loki_token    = local.secrets.grafana_cloud_loki_token
