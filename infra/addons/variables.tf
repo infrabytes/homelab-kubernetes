@@ -122,6 +122,13 @@ variable "openbao_oidc_client_secret" {
   sensitive   = true
 }
 
+variable "headlamp_oidc_client_secret" {
+  description = "Dex static-client secret for Headlamp's native OIDC login (client id \"headlamp\"), written into dex-config (staticClients.headlamp.secret) and the headlamp-oidc Secret the chart reads via envFrom."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "dex_tailnet_github_client_id" {
   description = "GitHub OAuth app (\"Dex (homelab tailnet)\") Client ID for the tailnet Dex GitHub connector. Public by design, not a secret."
   type        = string

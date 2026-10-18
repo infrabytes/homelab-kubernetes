@@ -214,8 +214,8 @@ resource "kubernetes_namespace_v1" "dex" {
 
 # Standalone Dex config (config.yaml), rendered from SOPS vars and consumed by
 # the dex chart (platform/dex) via configSecret.name=dex-config.
-# GitHub connector restricted to github_oidc_org; OpenBao is the only static
-# client (redirect URIs cover the OpenBao UI callback and the CLI callback).
+# GitHub connector restricted to github_oidc_org; static clients: OpenBao (UI +
+# CLI callback), Grafana and Headlamp (LAN + tailnet hostnames).
 resource "kubernetes_secret_v1" "dex_config" {
   metadata {
     name      = "dex-config"
@@ -253,6 +253,14 @@ resource "kubernetes_secret_v1" "dex_config" {
           secret: ${var.grafana_oauth_client_secret}
           redirectURIs:
             - https://grafana.icaninto.space/login/generic_oauth
+        - id: headlamp
+          name: Headlamp
+          secret: ${var.headlamp_oidc_client_secret}
+          redirectURIs:
+            # Headlamp derives the callback from the request host, so both
+            # public hostnames must be registered.
+            - https://headlamp.icaninto.space/oidc-callback
+            - https://headlamp.taile70903.ts.net/oidc-callback
       oauth2:
         skipApprovalScreen: true
       enablePasswordDB: false
@@ -271,6 +279,25 @@ resource "kubernetes_secret_v1" "openbao_oidc" {
   data = {
     "client-id"     = "openbao"
     "client-secret" = var.openbao_oidc_client_secret
+  }
+}
+
+resource "kubernetes_namespace_v1" "headlamp" {
+  metadata { name = "headlamp" }
+}
+
+# Headlamp's envFrom source (wired via config.oidc.externalSecret in
+# platform/headlamp/application.yaml): the keys become the -oidc-* args.
+resource "kubernetes_secret_v1" "headlamp_oidc" {
+  metadata {
+    name      = "headlamp-oidc"
+    namespace = kubernetes_namespace_v1.headlamp.metadata[0].name
+  }
+  data = {
+    OIDC_CLIENT_ID     = "headlamp"
+    OIDC_CLIENT_SECRET = var.headlamp_oidc_client_secret
+    OIDC_ISSUER_URL    = "https://dex.icaninto.space"
+    OIDC_SCOPES        = "openid,profile,email"
   }
 }
 
