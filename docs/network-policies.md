@@ -100,7 +100,9 @@ bootstraps fresh, after which the control plane runs until its next restart.
 ## Phase 2 backlog
 
 - Rung 2, chart-value workloads: `external-dns`, the k8s-monitoring stack
-  (`alloy-metrics`, `alloy-logs`, `kube-state-metrics`, `node-exporter`),
+  (`alloy-metrics` — including its static scrape of the PVE hosts'
+  node_exporter on 192.168.0.11-14:9100 — `alloy-logs`,
+  `kube-state-metrics`, `node-exporter`),
   `spegel`, both ARC charts, longhorn's manager and CSI metrics edges.
 - Rung 3, raw manifests: `metrics-server`, `kubelet-serving-cert-approver`, and
   `kube-system` (cilium, coredns, hubble-relay, hubble-ui, the Gateway's envoy).

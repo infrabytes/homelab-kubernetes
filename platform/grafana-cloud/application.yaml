@@ -192,6 +192,20 @@ spec:
                   memory: 32Mi
                 limits:
                   memory: 48Mi
+            # Hardware sensors exist only on the PVE physical hosts (Talos nodes
+            # are QEMU guests); their node_exporter is managed by
+            # ansible/proxmox-node-exporter.yml, outside host-metrics discovery.
+            extraConfig: |
+              prometheus.scrape "pve_hosts" {
+                targets = [
+                  {"__address__" = "192.168.0.11:9100", "instance" = "proxmox01"},
+                  {"__address__" = "192.168.0.12:9100", "instance" = "proxmox02"},
+                  {"__address__" = "192.168.0.13:9100", "instance" = "proxmox03"},
+                  {"__address__" = "192.168.0.14:9100", "instance" = "proxmox04"},
+                ]
+                job_name = "pve-node"
+                forward_to = [prometheus.remote_write.prometheus.receiver]
+              }
           alloy-logs:
             presets: [daemonset, filesystem-log-reader]
             # Talos logs arrive on the node IP, so the listener needs `controller.hostNetwork` (ignored under `alloy`).
