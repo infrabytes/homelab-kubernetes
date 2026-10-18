@@ -1,5 +1,5 @@
-# Advertises the LAN to the tailnet so remote devices reach the Dex issuer for
-# OIDC logins; the route needs a one-time console approval (README.md).
+# Advertises only the gateway VIP (where dex.icaninto.space resolves) so remote
+# browsers complete OIDC logins; the LAN subnet is not advertised (README.md).
 apiVersion: tailscale.com/v1alpha1
 kind: Connector
 metadata:
@@ -10,4 +10,4 @@ spec:
     - tag:k8s
   subnetRouter:
     advertiseRoutes:
-      - 192.168.0.0/24
+      - 192.168.0.200/32

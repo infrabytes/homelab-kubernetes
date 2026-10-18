@@ -42,20 +42,24 @@ annotations, no manual `tailscale serve`.
 In-cluster consumers reach the tailnet Dex through its own HTTPS listener
 (the Terraform-generated cert in `dex-tailnet-tls`); see the openbao README.
 
-## LAN reachability (subnet router)
+## Gateway reachability (subnet router)
 
 `connector.yaml` declares a `Connector` (`lan-subnet-router`, hostname
-`homelab-subnet-router`, tag `tag:k8s`) advertising `192.168.0.0/24` to the
-tailnet: remote browsers can then reach the LAN Dex — Headlamp's OIDC login
-needs it, the issuer is LAN-only — and other LAN-only services. The operator
-reconciles a proxy StatefulSet (`ts-lan-subnet-router-*`).
+`homelab-subnet-router`, tag `tag:k8s`) advertising **only the Cilium gateway
+VIP `192.168.0.200/32`** — never the LAN subnet. Remote browsers reach the Dex
+issuer there (`dex.icaninto.space` is a public DNS-only record pointing at that
+IP), which Headlamp's OIDC login needs. Everything else on the LAN stays
+unreachable; the gateway's own HTTPS vhosts are, gated by the ACL grants below.
+The operator reconciles a proxy StatefulSet (`ts-lan-subnet-router-*`).
 
 One-time steps in the Tailscale admin console:
 
-1. Approve the advertised route (Machines → `homelab-subnet-router` → route
-   settings), or add an `autoApprovers.routes` entry for `tag:k8s`.
-2. Keep the ACL `grants` deliberate: the advertised route widens what every
-   tailnet device can reach, and the ACL is the only control point.
+1. Approve the advertised `192.168.0.200/32` route (Machines →
+   `homelab-subnet-router` → route settings), or add an
+   `autoApprovers.routes` entry.
+2. Keep the ACL `grants` deliberate: `tcp:443` to `tag:k8s-operator`/`tag:k8s`
+   decides which identities get that path, and it is the only control point
+   (routes are IP prefixes — the ACL cannot filter by hostname).
 
 Verify from a tailnet device:
 
@@ -81,4 +85,4 @@ The owner's Tailscale identity is bound to `cluster-admin` via the
 - `external-secret.yaml` — ESO ExternalSecret (`operator-oauth` from OpenBao).
 - `namespace.yaml` — `tailscale` namespace with `pod-security.kubernetes.io/enforce: privileged`
   (proxy pods run privileged; Talos's default baseline PSA rejects them otherwise).
-- `connector.yaml` — subnet-router `Connector` advertising `192.168.0.0/24`.
+- `connector.yaml` — subnet-router `Connector` advertising only the gateway VIP `192.168.0.200/32`.
