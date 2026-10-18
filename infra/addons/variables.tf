@@ -163,6 +163,20 @@ variable "grafana_discord_webhook_url" {
   sensitive   = true
 }
 
+variable "grafana_mcp_service_account_token" {
+  description = "Token of the Grafana service account (\"grafana-mcp\", Viewer role) that the MCP server uses to reach Grafana. Written into the grafana-mcp-credentials Secret as key grafana-token."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "grafana_mcp_server_token" {
+  description = "Bearer token callers must present to the MCP server (mcp-grafana --server-auth-token, MCP_GRAFANA_SERVER_TOKEN env fallback). Written into the grafana-mcp-credentials Secret as key server-token."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "seaweedfs_access_key" {
   description = "SeaweedFS S3 access key for the Grafana Postgres cluster's backup object store."
   type        = string

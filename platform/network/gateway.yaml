@@ -122,3 +122,16 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: grafana-mcp-https
+      hostname: grafana-mcp.icaninto.space
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: grafana-mcp-tls
+            group: ""
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All

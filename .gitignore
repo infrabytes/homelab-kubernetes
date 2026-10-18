@@ -20,6 +20,7 @@ __pycache__/
 # Locally generated artifacts
 artifacts/
 .worktrees/
+hack/grafana-dev/generated/
 goals/
 plans/
 .pi/

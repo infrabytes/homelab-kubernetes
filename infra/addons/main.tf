@@ -523,3 +523,18 @@ resource "kubernetes_secret_v1" "grafana_notification_secrets" {
     discord_webhook_url = var.grafana_discord_webhook_url
   }
 }
+
+# Read-only Grafana MCP server (platform/grafana-mcp): the Viewer
+# service-account token it uses for Grafana, plus the caller bearer token that
+# guards its LAN route. Terraform-owned (not ESO) so the Secret exists before
+# the ArgoCD-managed app first syncs.
+resource "kubernetes_secret_v1" "grafana_mcp_credentials" {
+  metadata {
+    name      = "grafana-mcp-credentials"
+    namespace = kubernetes_namespace_v1.observability.metadata[0].name
+  }
+  data = {
+    "grafana-token" = var.grafana_mcp_service_account_token
+    "server-token"  = var.grafana_mcp_server_token
+  }
+}

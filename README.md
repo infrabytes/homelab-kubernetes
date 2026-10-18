@@ -27,6 +27,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | Velero                       | Cluster backups: kopia fs-backup (no CSI snapshots) of k8s metadata + Longhorn PVC filesets to the SeaweedFS bucket `homelab-kubernetes-backups` (dedicated key via OpenBao/ESO); daily 03:30, 14d TTL; `emptyDir` + `nfs-nas` volumes excluded by the Velero resource policy; ServiceMonitor + two Grafana alert rules in `infra-health` |
 | VictoriaMetrics + Loki       | Self-hosted observability stores in namespace `observability`: VictoriaMetrics single-node (metrics, 90-day retention) and Loki single binary (logs, filesystem TSDB v13, 2160h retention), both on `nfs-nas` PVCs |
 | Grafana (OSS, local)         | Single Grafana instance managed by grafana-operator (namespace `observability`): datasources, folders, alert rules, contact point and notification policy are `platform/observability/` CRs; LAN at grafana.icaninto.space (Dex/GitHub SSO) and on the tailnet (Tailscale identity headers), both the same instance |
+| Grafana MCP server           | Read-only mcp-grafana chart app (`platform/grafana-mcp/`, namespace `observability`) for MCP clients: Viewer-role service account, `--disable-write --disable-api`, caller bearer token on every route; LAN at grafana-mcp.icaninto.space — Pi reads dashboards, metrics, logs and alert rules through it |
 | Grafana Cloud (free tier)    | Out-of-cluster watchdog only: the two `proxmox-maintenance` rules plus the `cluster-heartbeat` dead-man rule, notified to Discord; no cluster metrics/logs remote-write |
 | grafana-operator             | Manages the local Grafana instance and delivers the chart-shipped dashboards from `platform/observability/dashboards/` (Cilium ×7 incl. the restored DNS Overview, Hubble flows, External Secrets, OpenBao), imported from the chart ConfigMaps (or the chart's OCI artifact) |
 | Hubble Observer + CF2CNP     | Streams Cilium Hubble flows (DROPPED verdicts) to Loki; Grafana dashboard "Cilium Flows - Hubble Observer" (grafana.com #23862) on the local instance; CF2CNP web UI generates CiliumNetworkPolicies from flows at cf2cnp.icaninto.space |
@@ -78,6 +79,8 @@ platform/           ArgoCD-managed cluster-level resources: one folder per
 apps/               ArgoCD-managed end-user applications (external-secrets-demo,
                     the ArgoCD HTTPRoute)
 docs/               cross-cutting ops docs (network-policies.md)
+hack/               laptop-side dev tooling; grafana-dev/ runs a disposable local Grafana
+                    and exports authored dashboards into the ConfigMap-backed CRs
 ansible/            rolling PVE host maintenance playbook (proxmox01-04) + windrunner
                     systemd units; see ansible/README.md
 .github/            CI workflows + scripts (pre-commit, PR preview diff)
@@ -321,6 +324,23 @@ Validation: `pre-commit run --all-files` (terragrunt fmt/validate/tflint,
 yamllint, kubeconform, argocd-apps-check, ansible-lint, ansible-inventory-check,
 detect-secrets, sops-encrypted, ruff, renovate-config-validator). CI runs the
 same on push/PR.
+
+### Dashboard authoring (grafana-dev sandbox)
+
+Dashboards are authored against real data before they land in the repo.
+`hack/grafana-dev/run.sh` starts a disposable Grafana on
+`http://127.0.0.1:33000` with the production image (resolved from the live
+Deployment), the production datasource names/UIDs pointed at port-forwarded
+VictoriaMetrics and Loki, and every ConfigMap-backed dashboard preloaded.
+After editing in the UI (Pi can drive it with the headless browser),
+`./export-dashboard.py <uid> <dashboards-file.yaml>` writes the sandbox version
+back into its ConfigMap and flips the `resyncPeriod` so grafana-operator
+re-reads it; `./stop.sh` removes only what the sandbox started. See
+[`hack/grafana-dev/README.md`](hack/grafana-dev/README.md).
+
+Pi can also query the production stack directly through the read-only MCP
+server at `https://grafana-mcp.icaninto.space/mcp` (caller bearer token; see
+[`platform/grafana-mcp/README.md`](platform/grafana-mcp/README.md)).
 
 ### Cluster backups (Velero)
 
