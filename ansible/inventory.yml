@@ -40,6 +40,7 @@ all:
       vars:
         pve_api_host: 192.168.0.11:8006
         pve_validate_certs: false
+        pve_api_timeout: 60
         kubeconfig_path_env: KUBECONFIG_PATH
         loki_url: https://logs-prod-012.grafana.net/loki/api/v1/push
         longhorn_namespace: longhorn-system
