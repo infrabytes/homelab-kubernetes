@@ -210,6 +210,12 @@ locals {
     grafana_admin_password      = local.secrets.grafana_admin_password
     grafana_oauth_client_secret = local.secrets.grafana_oauth_client_secret
     grafana_discord_webhook_url = try(local.secrets.grafana_discord_webhook_url, "")
+
+    # Grafana MCP server (platform/grafana-mcp): the Viewer service-account
+    # token it uses to reach Grafana, and the caller bearer token that guards
+    # its LAN route.
+    grafana_mcp_service_account_token = local.secrets.grafana_mcp_service_account_token
+    grafana_mcp_server_token          = local.secrets.grafana_mcp_server_token
   }
 
   # Grafana Cloud watchdog: stack API access for the grafana/grafana provider.

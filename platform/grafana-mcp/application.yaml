@@ -1,0 +1,75 @@
+# Chart source: grafana/grafana-mcp is deprecated and pins mcp-grafana 0.8.2 (no
+# --server-auth-token/--disable-api); grafana-community is its maintained continuation.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana-mcp-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana-community.github.io/helm-charts
+    chart: grafana-mcp
+    targetRevision: 0.27.2
+    helm:
+      releaseName: grafana-mcp
+      values: |
+        grafana:
+          url: http://grafana-service.observability.svc.cluster.local:3000
+          apiKeySecret:
+            name: grafana-mcp-credentials
+            key: grafana-token
+
+        # Without Bearer <server-token> every route (incl. /healthz) returns 401.
+        envValueFrom:
+          MCP_GRAFANA_SERVER_TOKEN:
+            secretKeyRef:
+              name: grafana-mcp-credentials
+              key: server-token
+
+        disableWrite: true
+        # Tool groups whose plugins/renderer are absent from this Grafana.
+        disabledCategories:
+          - oncall
+          - incident
+          - snapshot
+          - asserts
+          - rendering
+
+        extraArgs:
+          - -t
+          - streamable-http
+          - --address
+          - 0.0.0.0:8000
+          # Host validation defaults to loopback; the gateway forwards the public host.
+          - --allowed-hosts
+          - grafana-mcp.icaninto.space
+          - --disable-api
+          - --usage-stats=disabled
+
+        # HTTP probes would 403 under Host validation (kubelet sends the pod IP).
+        readinessProbe:
+          tcpSocket:
+            port: 8000
+        livenessProbe:
+          tcpSocket:
+            port: 8000
+
+        # New component (2026-10-18): initial estimate; re-measure after two weeks.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+
+        automountServiceAccountToken: false
+        serviceAccount:
+          automountServiceAccountToken: false
+  destination:
+    namespace: observability
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
