@@ -109,3 +109,16 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: headlamp-https
+      hostname: headlamp.icaninto.space
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: headlamp-tls
+            group: ""
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All
