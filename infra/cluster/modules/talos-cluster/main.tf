@@ -172,6 +172,37 @@ locals {
             }
           }
         }),
+        # Talos replaces this document's whole `configuration` blob when
+        # merging the patch (verified), so the generated anonymous
+        # health-endpoint allowlist must be restated here.
+        yamlencode({
+          apiVersion = "v1alpha1"
+          kind       = "KubeAuthenticationConfig"
+          configuration = {
+            anonymous = {
+              conditions = [
+                { path = "/livez" },
+                { path = "/readyz" },
+                { path = "/healthz" },
+              ]
+              enabled = true
+            }
+            jwt = [
+              {
+                issuer = {
+                  url       = "https://dex.icaninto.space"
+                  audiences = ["headlamp"]
+                }
+                claimMappings = {
+                  username = {
+                    claim  = "preferred_username"
+                    prefix = "oidc:"
+                  }
+                }
+              },
+            ]
+          }
+        }),
         yamlencode({
           apiVersion = "v1alpha1"
           kind       = "KubeInlineManifestConfig"
