@@ -39,6 +39,7 @@
     api_user: "{{ pve_token_user }}"
     api_token_id: "{{ pve_token_id }}"
     api_token_secret: "{{ pve_token_secret }}"
+    api_timeout: "{{ pve_api_timeout }}"
     validate_certs: "{{ pve_validate_certs | bool }}"
   register: pve_cluster
   delegate_to: localhost
@@ -77,9 +78,14 @@
     node: "{{ pve_node }}"
     vmid: "{{ pve_vmid }}"
     type: qemu
+    api_timeout: "{{ pve_api_timeout }}"
     validate_certs: "{{ pve_validate_certs | bool }}"
   register: talos_vm
   delegate_to: localhost
+  # Proxied call that once stalled past the module's 5s default; preflight is read-only, so retry.
+  retries: 5
+  delay: 10
+  until: talos_vm is not failed
 
 - name: Abort unless the Talos VM is present and running
   vars:

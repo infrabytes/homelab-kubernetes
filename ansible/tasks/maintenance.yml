@@ -137,6 +137,7 @@
     node: "{{ pve_node }}"
     vmid: "{{ pve_vmid }}"
     type: qemu
+    api_timeout: "{{ pve_api_timeout }}"
     validate_certs: "{{ pve_validate_certs | bool }}"
   register: vm_autostart
   delegate_to: localhost
