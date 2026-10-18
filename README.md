@@ -19,7 +19,8 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
 | OpenBao                      | Cluster secrets manager (Vault fork): HA raft (3 replicas, Longhorn), static-key auto-unseal, KV v2 + Kubernetes auth; UI at bao.icaninto.space (LAN only) |
 | Dex (standalone)             | OIDC provider for OpenBao GitHub SSO (`sso-admin`/`sso-user` roles, org-restricted GitHub connector); LAN only at dex.icaninto.space |
-| Tailscale Operator            | Exposes cluster services on the tailnet (OpenBao UI, second Dex for remote SSO, Hubble UI) and provides in-process API server proxy for kubectl from tailnet devices |
+| Headlamp                     | Kubernetes SIGs dashboard in its own `headlamp` namespace with **native OIDC login** against Dex: the API server trusts that issuer (Talos `KubeAuthenticationConfig`), so every request carries the user's own `oidc:<github-login>` identity and the per-user bindings in `platform/headlamp/rbac.yaml` decide access; the pod's ServiceAccount is read-only `cluster-viewer` instead of the chart's cluster-admin. LAN at headlamp.icaninto.space, tailnet via `headlamp.<tailnet>.ts.net` |
+| Tailscale Operator            | Exposes cluster services on the tailnet (OpenBao UI, second Dex for remote SSO, Hubble UI, Headlamp) and provides in-process API server proxy for kubectl from tailnet devices; the `lan-subnet-router` Connector advertises `192.168.0.0/24` so tailnet devices also reach the LAN Dex — needed for Headlamp's OIDC login — and other LAN-only services |
 | External Secrets Operator   | Syncs Secrets from OpenBao through per-consumer namespaced stores (k8s auth, one read-only role scoped to a single secret path each); e.g. the ARC runner PAT (`arc-runner-auth`) |
 | Longhorn                     | Block storage on the worker nodes (dedicated disk labels); UI at longhorn.icaninto.space. Carries small state only (Grafana's Postgres cluster, ARC tool cache) — the observability TSDBs live on the NAS |
 | csi-driver-nfs + `nfs-nas`   | NFS CSI driver and the `nfs-nas` StorageClass (NAS 192.168.0.22:/nas, Retain): the storage home for the VictoriaMetrics and Loki PVCs |
@@ -60,7 +61,7 @@ infra/              Terragrunt/OpenTofu units: cluster -> viewer-kubeconfig, add
   cluster/          Talos cluster + Cilium; writes artifacts/kubeconfig + talosconfig,
                     and converges the rendered inline manifests on every apply
   viewer-kubeconfig/ Mints the view-only client cert + kubeconfig (CSR API, no CA key extraction)
-  addons/           Installs ArgoCD, cert-manager, external-dns, OpenBao namespace + seal Secret, dex + dex-tailnet namespaces + config Secrets, ARC namespaces (runner PAT now synced by ESO from OpenBao)
+  addons/           Installs ArgoCD, cert-manager, external-dns, OpenBao namespace + seal Secret, dex + dex-tailnet namespaces + config Secrets, headlamp namespace + OIDC Secret, ARC namespaces (runner PAT now synced by ESO from OpenBao)
   argocd-config/    ArgoCD bootstrap ApplicationSet (app-of-appsets)
 argocd/appsets/     committed ApplicationSets (platform, apps, pdeu, tenants), applied via the
                     Terraform bootstrap ApplicationSet
