@@ -61,9 +61,9 @@ teams). Push the change — ArgoCD applies it; no login is needed to verify with
 
 `tailnet-ingress.yaml` serves the same pod at
 `https://headlamp.<tailnet>.ts.net`. The login needs the LAN Dex too, so the
-[subnet-router Connector](../tailscale-operator/connector.yaml) advertises
-`192.168.0.0/24`; approve the advertised route in the Tailscale admin console
-(and grant the tag ACL) once — see the
+[subnet-router Connector](../tailscale-operator/connector.yaml) advertises only
+the gateway VIP (`192.168.0.200/32`); approve that route in the Tailscale admin
+console (and grant the tag ACL) once — see the
 [tailscale-operator README](../tailscale-operator/README.md).
 
 ## Operations
