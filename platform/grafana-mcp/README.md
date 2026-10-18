@@ -15,9 +15,11 @@ server version moves with the chart `targetRevision` under Renovate.
 
 LAN-only HTTPRoute at `grafana-mcp.icaninto.space` through the
 `grafana-mcp-https` gateway listener (RFC1918 gateway IP — the Cloudflare record
-must stay DNS-only). Everything, including `/healthz`, requires
-`Authorization: Bearer <caller token>` and returns 401 without it; the header is
-stripped before any Grafana request.
+must stay DNS-only). `/mcp` requires `Authorization: Bearer <caller token>` and
+returns 401 without it; the header is stripped before any Grafana request. The
+`/healthz` (and `/metrics`) ops endpoints stay unauthenticated at the server
+root by upstream design — kubelet probes use `tcpSocket`, so nothing but the
+MCP path needs the token anyway.
 
 Read-only in depth: `disableWrite` (`--disable-write`) plus `--disable-api` keep
 the mutating and raw-API tool groups out of the tool list, and the server's

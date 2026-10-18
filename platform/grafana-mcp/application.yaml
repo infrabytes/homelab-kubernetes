@@ -20,7 +20,7 @@ spec:
             name: grafana-mcp-credentials
             key: grafana-token
 
-        # Without Bearer <server-token> every route (incl. /healthz) returns 401.
+        # Caller auth on /mcp (401 without Bearer <server-token>); /healthz stays open.
         envValueFrom:
           MCP_GRAFANA_SERVER_TOKEN:
             secretKeyRef:
