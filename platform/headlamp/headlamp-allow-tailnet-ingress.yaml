@@ -1,0 +1,21 @@
+# The Tailscale operator's L7 proxy pods (tailscale namespace) reach the backend over plain HTTP.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: headlamp-allow-tailnet-ingress
+  namespace: headlamp
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: headlamp
+      app.kubernetes.io/instance: headlamp
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tailscale
+      ports:
+        - port: 4466
+          protocol: TCP
+  policyTypes:
+    - Ingress

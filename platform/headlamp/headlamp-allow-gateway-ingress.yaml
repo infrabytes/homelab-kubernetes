@@ -1,0 +1,19 @@
+---
+# The Cilium Gateway's envoy is host-network and carries the reserved `ingress` identity, which namespace/pod selectors cannot match; without this, Gateway -> 4466 (headlamp.icaninto.space) is dropped.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: headlamp-allow-gateway-ingress
+  namespace: headlamp
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: headlamp
+      app.kubernetes.io/instance: headlamp
+  ingress:
+    - fromEntities:
+        - ingress
+      toPorts:
+        - ports:
+            - port: "4466"
+              protocol: TCP
