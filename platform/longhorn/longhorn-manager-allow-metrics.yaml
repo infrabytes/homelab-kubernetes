@@ -5,7 +5,7 @@
 # (`networkPolicies.restrictInternalTraffic`, default true) that only allow
 # same-namespace traffic to longhorn-manager. The chart hardcodes that ingress
 # allow-list with no value to extend it, and this cluster's monitoring scrapes
-# from the grafana-cloud namespace (longhorn's ServiceMonitor targets the
+# from the k8s-monitoring namespace (longhorn's ServiceMonitor targets the
 # manager port, 9500). k8s NetworkPolicies union, so this narrow allow
 # supplements the chart's policies instead of replacing them. If you'd rather
 # not hold this here, the chart-side alternative is
@@ -25,7 +25,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: grafana-cloud
+              kubernetes.io/metadata.name: k8s-monitoring
           podSelector:
             matchLabels:
               app.kubernetes.io/name: alloy-metrics

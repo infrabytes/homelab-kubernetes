@@ -3,7 +3,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: cluster-heartbeat
-  namespace: grafana-cloud
+  namespace: k8s-monitoring
 spec:
   schedule: "*/5 * * * *"
   concurrencyPolicy: Forbid

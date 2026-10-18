@@ -1,15 +1,15 @@
 # Exemptions for the resource-coverage check in check-argocd-apps.py: chart
 # versions with no values key for that container. Key = namespace + workload + container.
 allow:
-  - namespace: grafana-cloud
+  - namespace: k8s-monitoring
     workload: k8s-monitoring-alloy-operator
     container: alloy-operator
     reason: "k8s-monitoring 4.5.1 sets the Alloy operator's resources in code; no values key"
-  - namespace: grafana-cloud
+  - namespace: k8s-monitoring
     workload: k8s-monitoring-add-finalizer
     container: add-finalizers
     reason: "k8s-monitoring 4.5.1 hook Job; no resources value"
-  - namespace: grafana-cloud
+  - namespace: k8s-monitoring
     workload: k8s-monitoring-remove-alloy-and-finalizer
     container: remove-finalizers
     reason: "k8s-monitoring 4.5.1 hook Job; no resources value"
