@@ -277,6 +277,19 @@
       ],
       "depNameTemplate": "getsops/sops",
       "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "description": "grafana-github-datasource plugin version required by the GrafanaDatasource CR (plugin releases match the grafana/github-datasource tags)",
+      "managerFilePatterns": [
+        "/^platform\\/observability\\/grafana-github-datasource\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "name:\\s*grafana-github-datasource\\s*\\n\\s*version:\\s*\"?(?<currentValue>\\d+\\.\\d+\\.\\d+)\"?"
+      ],
+      "depNameTemplate": "grafana/github-datasource",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
     }
   ],
   "packageRules": [

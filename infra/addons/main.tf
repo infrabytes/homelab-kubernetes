@@ -538,3 +538,15 @@ resource "kubernetes_secret_v1" "grafana_mcp_credentials" {
     "server-token"  = var.grafana_mcp_server_token
   }
 }
+
+# Read-only GitHub PAT for the Grafana GitHub data source that the runner
+# dashboard links runs through (platform/observability/grafana-github-datasource.yaml).
+resource "kubernetes_secret_v1" "grafana_github_token" {
+  metadata {
+    name      = "grafana-github-token"
+    namespace = kubernetes_namespace_v1.observability.metadata[0].name
+  }
+  data = {
+    token = var.github_grafana_token
+  }
+}
