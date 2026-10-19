@@ -10,9 +10,10 @@ in the shared SOPS-encrypted `../secrets.sops.yaml`.
 
 ## Overview
 
-- **Proxmox side** (`bpg/proxmox`): downloads each node's Talos ISO straight onto
-  the target node's datastore via the PVE *download-url* API, then creates UEFI
-  (`ovmf`/q35) VMs booting from that ISO.
+- **Proxmox side** (`bpg/proxmox`): downloads each node's Talos ISO on the
+  Terraform runner and uploads it to the target node's datastore with
+  `proxmox_virtual_environment_file`, then creates UEFI (`ovmf`/q35) VMs
+  booting from that ISO.
 - **Image Factory** (`talos_image_factory_schematic`): one content-addressed
   schematic per node, baking in the system extensions and a static `ip=`
   kernel argument. The node's maintenance mode thus comes up directly at its
@@ -41,7 +42,7 @@ automatically during bootstrap.
 | `schematics.tf`          | Per-node Image Factory schematics (extensions + ip=)          |
 | `main.tf`                | Composes the two modules                                      |
 | `locals.tf`              | Derived ISO URLs + per-module node field subsets              |
-| `modules/proxmox-node/`  | Reusable module: per-node ISO download + VM resources         |
+| `modules/proxmox-node/`  | Reusable module: per-node ISO fetch/upload + VM resources     |
 | `modules/talos-cluster/` | Reusable module: secrets, per-node configs, `talos_machine` (apply + OS upgrade), `talos_cluster` (bootstrap + k8s upgrade) |
 | `terragrunt.hcl`         | Inputs (cluster/node/version settings; points at SOPS secret) |
 
@@ -51,13 +52,14 @@ automatically during bootstrap.
    is only needed for debugging/manual node operations; upgrades and config
    changes are provider-driven.
 2. A Proxmox API token. bpg provider needs (at least) `Datastore.AllocateTemplate`
-   plus `Sys.Audit`/`Sys.Modify` for the ISO download, and VM permissions
+   plus `Sys.Audit`/`Sys.Modify` for the ISO upload, and VM permissions
    (`VM.Allocate`, `VM.Config.*`, `VM.PowerMgmt`, ...). See the provider's
    ["API Token Authentication" docs](https://bpg.sh/docs/#api-token-authentication).
    Simpler for a homelab: use `root@pam` username/password.
 3. **Internet access to Image Factory** (`factory.talos.dev`) from the machine
    running Terraform (per-node schematics + ISO downloads). Only extensions and
-   kernel arguments are sent to the factory, cluster secrets stay local.
+   kernel arguments are sent to the factory, cluster secrets stay local. The
+   Proxmox nodes themselves never contact the factory.
 4. Use the **standard** (non-secureboot) Talos ISO for Proxmox. Talos Secure
    Boot requires Sidero-signed OVMF firmware; the plain Proxmox OVMF can't boot
    the `metal-amd64-secureboot.iso`. Keep `secure_boot = false` unless you've
@@ -78,14 +80,25 @@ terragrunt apply
 ### ISO lifecycle
 
 ISOs are content-addressed (`talos-<hostname>-<schematic-id-prefix>-<version>.iso`)
-and managed by `proxmox_download_file` with `overwrite = true`. Normal
-`terragrunt apply` runs never re-download an unchanged ISO. The download
-resource is only replaced when its URL (i.e. the schematic/config) changes.
+and `proxmox_virtual_environment_file` downloads each one on the Terraform
+runner before uploading it to the node's datastore (`overwrite = true`).
+Normal `terragrunt apply` runs never re-download an unchanged ISO: the
+resource is only replaced when its URL (i.e. the schematic or Talos version)
+changes.
+
+The download happens on the runner rather than on PVE because PVE's
+`download-url` first queries `query-url-metadata`, whose HEAD uses LWP's 180s
+default timeout. Image Factory builds artifacts on demand (~40-60s each), so
+concurrent cold downloads exceeded that and failed with `HTTP 596 Connection
+timed out` (the old `proxmox_download_file` failure). The flip side: a plan
+refreshes each ISO by HEADing its factory URL, so Image Factory must be
+reachable for `terragrunt plan` too.
 
 A full `terragrunt destroy` *does* delete the ISOs (they're managed
-resources), so the next apply re-downloads them. To rebuild the nodes without
-touching the ISOs (or the cluster identity), replace just the VMs and the apply
-resources instead:
+resources), so the next apply re-downloads them.
+
+To rebuild the nodes without touching the ISOs (or the cluster identity),
+replace just the VMs and the apply resources instead:
 
 ```sh
 terragrunt apply \
@@ -104,7 +117,7 @@ kubectl get nodes
 
 The apply flow: machine secrets + machine configs are generated; per-node
 schematics bake system extensions and a static `ip=` kernel argument into each
-node's ISO (`schematics.tf`). Proxmox downloads the ISOs and creates the VMs.
+node's ISO (`schematics.tf`). The ISOs are uploaded and the VMs created.
 Each VM boots into maintenance mode **at its static IP** (kernel arg), the
 `talos_machine` resource installs Talos to disk, and the
 node reboots into the cluster config. `talos_cluster` then bootstraps etcd
@@ -168,8 +181,8 @@ Both upgrades are driven by the Terraform code: bump `talos_version` /
 `kubernetes_version` in `env.hcl` (Renovate does this) and the next
 `terragrunt apply` performs them. There is no manual `talosctl upgrade` /
 `upgrade-k8s` step, and upgrades need no new ISOs: they are in-place, and
-per-node ISOs are only for fresh installs (they re-download automatically on
-version bumps).
+per-node ISOs are only for fresh installs (they are fetched and uploaded
+automatically on version bumps).
 
 - **Talos OS** — `talos_machine` (one per node) keeps the running version in
   sync with the installer image: `image` = the node's

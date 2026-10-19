@@ -1,11 +1,17 @@
-resource "proxmox_download_file" "node_iso" {
-  for_each     = var.nodes
+# The provider downloads the URL itself: PVE's download-url first does a
+# metadata HEAD that dies at LWP's 180s timeout on cold Image Factory builds.
+resource "proxmox_virtual_environment_file" "node_iso" {
+  for_each = var.nodes
+
   content_type = "iso"
   datastore_id = var.iso_datastore
   node_name    = each.value.proxmox_node
-  file_name    = each.value.iso_filename
-  url          = each.value.iso_url
   overwrite    = true
+
+  source_file {
+    path      = each.value.iso_url
+    file_name = each.value.iso_filename
+  }
 }
 
 resource "proxmox_virtual_environment_vm" "node" {
@@ -84,7 +90,7 @@ resource "proxmox_virtual_environment_vm" "node" {
 
   cdrom {
     interface = "ide2"
-    file_id   = "${var.iso_datastore}:iso/${each.value.iso_filename}"
+    file_id   = proxmox_virtual_environment_file.node_iso[each.key].id
   }
 
   boot_order = ["scsi0", "ide2"]
@@ -112,6 +118,4 @@ resource "proxmox_virtual_environment_vm" "node" {
     }
   }
   stop_on_destroy = true
-
-  depends_on = [proxmox_download_file.node_iso]
 }
