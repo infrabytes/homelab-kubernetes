@@ -26,6 +26,15 @@ spec:
         webhook:
           enabled: false
 
+        # The chart's stream defaults to 3 replicas, which a single-replica
+        # (non-clustered) JetStream refuses to create ("replicas > 1 not supported
+        # in non-clustered mode") -- every EventSource/Sensor then crash-loops.
+        # Keep this equal to the EventBus spec.replicas.
+        configs:
+          jetstream:
+            streamConfig:
+              replicas: 1
+
         # Events controller only; the eventsource/sensor pods are created per CR.
         # New component (2026-10-18): initial estimate, re-measure after two weeks.
         controller:
