@@ -353,6 +353,19 @@ spec:
                 bound_service_account_namespaces=velero \
                 policies=eso-velero \
                 ttl=1h
+              bao policy write eso-alert-triage - <<'EOF'
+              path "secret/data/alert-triage" {
+                capabilities = ["read"]
+              }
+              path "sys/mounts/secret" {
+                capabilities = ["read"]
+              }
+              EOF
+              bao write auth/kubernetes/role/eso-alert-triage \
+                bound_service_account_names=alert-triage-eso \
+                bound_service_account_namespaces=alert-triage \
+                policies=eso-alert-triage \
+                ttl=1h
           # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
           resources:
             requests:

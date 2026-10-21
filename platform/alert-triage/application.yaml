@@ -1,0 +1,46 @@
+# Argo Events: the alert intake. Namespaced install — the controller reconciles only
+# alert-triage, so the Sensor creates its SandboxClaim in this namespace.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-events-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-events
+    targetRevision: 2.4.27
+    helm:
+      releaseName: argo-events
+      values: |
+        # CRDs ship with the chart; keep them if the app is ever removed (in-flight
+        # EventBus/EventSource/Sensor objects must not lose their API).
+        crds:
+          install: true
+          keep: true
+
+        # No admission webhook: nothing validates our manifests dynamically.
+        webhook:
+          enabled: false
+
+        # Events controller only; the eventsource/sensor pods are created per CR.
+        # New component (2026-10-18): initial estimate, re-measure after two weeks.
+        controller:
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+  destination:
+    namespace: alert-triage
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

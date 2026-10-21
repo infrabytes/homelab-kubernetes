@@ -290,6 +290,29 @@
       "depNameTemplate": "grafana/github-datasource",
       "datasourceTemplate": "github-releases",
       "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "pi release installed into the alert-triage sandbox; the triage model list and flags follow it",
+      "managerFilePatterns": [
+        "/^platform\\/alert-triage\\/sandbox-template\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "(?<depName>@earendil-works/pi-coding-agent)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "kubectl downloaded into the alert-triage sandbox; must match kubernetes_version in infra/env.hcl",
+      "managerFilePatterns": [
+        "/^platform\\/alert-triage\\/sandbox-template\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "name:\\s*KUBECTL_VERSION\\s*\\n\\s*value:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "kubernetes/kubernetes",
+      "datasourceTemplate": "github-tags"
     }
   ],
   "packageRules": [

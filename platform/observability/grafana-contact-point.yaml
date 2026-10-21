@@ -18,3 +18,30 @@ spec:
             secretKeyRef:
               name: grafana-notification-secrets
               key: discord_webhook_url
+---
+# Alert-triage intake (platform/alert-triage): the Argo Events webhook EventSource.
+# In-cluster Service only, so no gateway/listener is involved. maxAlerts keeps one
+# notification's payload small enough to pass through the claim env.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaContactPoint
+metadata:
+  name: alert-triage
+  namespace: observability
+spec:
+  name: Triage
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  receivers:
+    - type: webhook
+      settings:
+        url: http://grafana-alerts-eventsource-svc.alert-triage.svc.cluster.local:12000/grafana
+        httpMethod: POST
+        maxAlerts: "10"
+        authorization_scheme: Bearer
+      valuesFrom:
+        - targetPath: authorization_credentials
+          valueFrom:
+            secretKeyRef:
+              name: grafana-notification-secrets
+              key: alert_triage_token

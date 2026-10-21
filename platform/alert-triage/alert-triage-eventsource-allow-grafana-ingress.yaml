@@ -1,0 +1,26 @@
+---
+# The Grafana alertmanager is the only real client: it posts notifications to the
+# webhook EventSource. Nothing else in the cluster needs this port.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alert-triage-eventsource-allow-grafana-ingress
+  namespace: alert-triage
+spec:
+  podSelector:
+    matchLabels:
+      controller: eventsource-controller
+      eventsource-name: grafana-alerts
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app: grafana
+      ports:
+        - port: 12000
+          protocol: TCP

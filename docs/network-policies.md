@@ -75,11 +75,15 @@ gateway traffic working; see the cert-manager and external-secrets policies.
 | `hubble-observer` | `ciliumNetworkPolicy`: relay egress, cf2cnp ingress with the `ingress` entity | `hubble-observer-allow-relay-egress.yaml`, `hubble-observer-allow-dns-egress.yaml`, `hubble-observer-default-deny-ingress.yaml` |
 | `vcluster` | `policies.networkPolicy`: chart defaults plus the metrics-server control-plane egress on 443/10250 | `vcluster-allow-host-dns-egress.yaml`, `vcluster-default-deny-ingress.yaml` |
 | `longhorn-system` | longhorn's internal policies (`restrictInternalTraffic`) | `longhorn-manager-allow-metrics.yaml` |
+| `alert-triage` | — (Argo Events renders no policies; the triage sandbox pods get a controller-managed policy from `SandboxTemplate.spec.networkPolicy`) | `alert-triage-default-deny-ingress.yaml`, `alert-triage-eventsource-allow-grafana-ingress.yaml`, `alert-triage-eventbus-allow-clients-ingress.yaml`, `alert-triage-eventsource-allow-egress.yaml`, `alert-triage-sensor-allow-egress.yaml`, `alert-triage-sensor-allow-apiserver-egress.yaml` (Cilium, API-server entity), `alert-triage-allow-monitoring-ingress.yaml` |
 
 Known gaps inside covered namespaces:
 
 - cert-manager's one-shot `startupapicheck` hook Job has no network-policy
   values and is not selected by the chart's podSelectors.
+- `alert-triage`'s EventBus has no egress policy (NATS needs none) and the
+  controller pod has no egress restriction yet; only the EventSource and Sensor
+  are locked down, because their edges were known up front rather than audited.
 - The dex chart hardcodes its ingress port list, so its ingress cannot be
   source-restricted through values.
 - Ingress stays source-unrestricted on declared ports by design; tightening

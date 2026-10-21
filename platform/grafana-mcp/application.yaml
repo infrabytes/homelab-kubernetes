@@ -42,8 +42,10 @@ spec:
           - --address
           - 0.0.0.0:8000
           # Host validation defaults to loopback; the gateway forwards the public host.
+          # The alert-triage sandbox calls the Service directly, so its exact Host is
+          # allowlisted too (the middleware compares the header literally).
           - --allowed-hosts
-          - grafana-mcp.icaninto.space
+          - grafana-mcp.icaninto.space,grafana-mcp.observability.svc.cluster.local:8000
           - --disable-api
           - --usage-stats=disabled
 

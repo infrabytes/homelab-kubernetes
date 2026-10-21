@@ -31,8 +31,11 @@ snapshot, asserts) and image renderer do not exist on this Grafana.
 `--usage-stats=disabled` suppresses the upstream telemetry report.
 
 Probes are `tcpSocket` because HTTP probes fail Host validation (kubelet sends
-the pod IP as Host); `--allowed-hosts grafana-mcp.icaninto.space` replaces the
-loopback-only default that `--address 0.0.0.0:8000` would otherwise imply.
+the pod IP as Host); `--allowed-hosts` replaces the loopback-only default that
+`--address 0.0.0.0:8000` would otherwise imply. It lists both the LAN host and
+`grafana-mcp.observability.svc.cluster.local:8000`, because the middleware
+compares the `Host` header literally and the alert-triage sandbox
+(`platform/alert-triage`) calls the Service directly from inside the cluster.
 
 ## Credentials
 

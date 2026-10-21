@@ -1,0 +1,12 @@
+---
+# Binds the port-scoped allows in this directory: every undeclared ingress port closes.
+# Kubelet probes stay allowed (Cilium reserves host ingress).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: alert-triage
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress

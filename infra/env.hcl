@@ -220,6 +220,11 @@ locals {
     # Grafana GitHub data source (platform/observability/grafana-github-datasource.yaml):
     # a read-only PAT so the dashboard can link individual workflow runs.
     github_grafana_token = local.secrets.github_grafana_token
+
+    # Alert-triage webhook (platform/alert-triage): bearer token the Grafana
+    # contact point sends to the Argo Events EventSource. try() keeps the units
+    # valid until the value lands in SOPS.
+    alert_triage_webhook_token = try(local.secrets.alert_triage_webhook_token, "")
   }
 
   # Grafana Cloud watchdog: stack API access for the grafana/grafana provider.
