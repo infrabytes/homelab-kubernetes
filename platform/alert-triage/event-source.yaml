@@ -8,6 +8,9 @@ metadata:
   name: grafana-alerts
   namespace: alert-triage
 spec:
+  # Both the EventSource and the Sensor default to an EventBus named "default"; ours is
+  # named explicitly (see event-bus.yaml).
+  eventBusName: alert-triage-bus
   # Required for <name>-eventsource-svc to be created at all.
   service:
     ports:
