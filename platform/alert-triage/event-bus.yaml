@@ -10,6 +10,18 @@ spec:
     # Resolves to the chart's pinned nats release (configs.jetstream.versions).
     version: latest
     replicas: 1
+    # Pinned here as well: the chart default (configs.jetstream.streamConfig) is merged
+    # in by the controller when the EventBus is first reconciled, so a later chart change
+    # does not reach an existing bus. Streams must have one replica on a single NATS node
+    # ("nats: replicas > 1 not supported in non-clustered mode").
+    streamConfig: |
+      maxMsgs: 1000000
+      maxAge: 72h
+      maxBytes: 1GB
+      replicas: 1
+      duplicates: 300s
+      retention: 0
+      discard: 0
     containerTemplate:
       # New component (2026-10-18): initial estimate, re-measure after two weeks.
       resources:
