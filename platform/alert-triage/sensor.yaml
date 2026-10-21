@@ -7,6 +7,8 @@ metadata:
   name: alert-triage
   namespace: alert-triage
 spec:
+  # The Sensor looks for an EventBus named "default" unless told otherwise.
+  eventBusName: alert-triage-bus
   template:
     serviceAccountName: alert-triage-sensor
     # New component (2026-10-18): initial estimate, re-measure after two weeks.
