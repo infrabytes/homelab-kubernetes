@@ -1,5 +1,7 @@
-# Argo Events: the alert intake. Namespaced install — the controller reconciles only
-# alert-triage, so the Sensor creates its SandboxClaim in this namespace.
+# Argo Events: the alert intake (used by platform/alert-triage). Its own platform folder
+# because the CRDs it installs have to exist before those manifests can be validated by
+# ArgoCD. Namespaced install — the controller reconciles only alert-triage, so the Sensor
+# creates its SandboxClaim in that namespace.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

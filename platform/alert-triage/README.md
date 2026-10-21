@@ -29,13 +29,17 @@ Grafana alertmanager ──webhook POST /grafana (Bearer)──► EventSource g
 
 | File | Role |
 | --- | --- |
-| `application.yaml` | Argo Events chart (controller + CRDs), namespaced |
 | `event-bus.yaml` | NATS JetStream bus carrying webhook events to the sensor |
 | `event-source.yaml` | webhook intake on port 12000, `/grafana`, bearer-token guarded |
 | `sensor.yaml` | turns a firing notification into one `SandboxClaim` |
 | `resource-quota.yaml` | at most 2 claims (sandboxes) at a time |
 | `sandbox-template.yaml` | the sandbox: pi + kubectl, read-only SA, managed egress policy |
 | `warm-pool.yaml` | zero-replica pool that supplies the template reference |
+
+The Argo Events controller and its CRDs live in their own folder,
+[`platform/argo-events/`](../argo-events/application.yaml): ArgoCD validates a whole
+directory before applying it, so the chart Application cannot share a folder with the
+`EventBus`/`EventSource`/`Sensor` objects whose CRDs it installs.
 | `agent-config.yaml` | ConfigMap: `mcp.json`, triage contract (`APPEND_SYSTEM.md`), `entrypoint.sh`, `post.mjs` |
 | `service-account.yaml`, `rbac.yaml` | sensor write scope (claims) and agent read scope (`cluster-viewer`) |
 | `secret-store.yaml`, `external-secret.yaml` | agent credentials from OpenBao |
