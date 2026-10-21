@@ -100,6 +100,10 @@ spec:
               mountPath: /opt/pi
           securityContext:
             allowPrivilegeEscalation: false
+            # curlimages/curl runs as uid 100, which cannot write into the root-owned
+            # shared volume; this container only downloads one pinned binary.
+            runAsUser: 0
+            runAsGroup: 0
           # New workload (2026-10-18): initial estimate; re-measure two weeks after cutover.
           resources:
             requests:
