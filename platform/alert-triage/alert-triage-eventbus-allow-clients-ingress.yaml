@@ -1,0 +1,26 @@
+---
+# NATS clients: this namespace's EventSource and Sensor pods only (policies match the
+# destination pod and its container port, so this is 4222 and not the Service's 4222/443).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alert-triage-eventbus-allow-clients-ingress
+  namespace: alert-triage
+spec:
+  podSelector:
+    matchLabels:
+      controller: eventbus-controller
+      eventbus-name: alert-triage-bus
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              controller: eventsource-controller
+        - podSelector:
+            matchLabels:
+              controller: sensor-controller
+      ports:
+        - port: 4222
+          protocol: TCP

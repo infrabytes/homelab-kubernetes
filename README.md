@@ -41,6 +41,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | ArgoCD dashboard            | Official ArgoCD example dashboard (`examples/dashboard.json`, pinned to the deployed ArgoCD version) on the local instance (ArgoCD folder): application health/sync overview, sync failures, reconciliation and kubectl performance, repo-server Git activity and component resources; imported from the argoproj repo URL, with the `datasource` variable pointed at VictoriaMetrics |
 | spegel                       | Peer-to-peer container image distribution between nodes              |
 | Agent Sandbox                | Sandboxed agent workloads (`agents.x-k8s.io` CRDs + controller, extensions enabled) from the upstream git-pinned Helm chart `v1.0.2`; ArgoCD-managed, metrics scraped into VictoriaMetrics |
+| Alert triage                 | Every Grafana alert also starts a sandboxed pi agent (`platform/alert-triage/`, namespace `alert-triage`): Argo Events webhook intake → `SandboxClaim` → pi with the read-only Grafana MCP server and read-only `kubectl`, posting a verdict (actionable? root cause, suggested fix) to Discord; fingerprint dedupe, 2-claim quota, 20-min deadline |
 | vCluster                     | Virtual Kubernetes cluster in namespace `vcluster`; hosts the PR-preview Argo CD used for diff rendering; access via `vcluster connect` |
 | prometheus-operator-crds     | CRDs for the monitoring stack                                        |
 | Actions Runner Controller    | Self-hosted GitHub Actions runners in-cluster (ARC), scale set `homelab-runner` |
@@ -341,6 +342,27 @@ re-reads it; `./stop.sh` removes only what the sandbox started. See
 Pi can also query the production stack directly through the read-only MCP
 server at `https://grafana-mcp.icaninto.space/mcp` (caller bearer token; see
 [`platform/grafana-mcp/README.md`](platform/grafana-mcp/README.md)).
+
+### Alert triage
+
+Alerts are not just announced: every notification also starts a triage sandbox
+(`platform/alert-triage/`, namespace `alert-triage`). Grafana's alertmanager
+posts the webhook to an Argo Events `EventSource`; the `Sensor` turns the
+fingerprint into one `SandboxClaim`, which cold-starts a pi agent from
+`SandboxTemplate/alert-triage`. The agent investigates with the read-only Grafana
+MCP tools (metrics, Loki, alert rules, dashboards) and read-only `kubectl`
+(`cluster-viewer`), then posts a verdict to Discord: `ACTIONABLE`/`NOISE`/
+`NO_ACTION`, the evidence, the most likely root cause and a concrete fix. The
+full report stays in the pod log (`{namespace="alert-triage"}` in Loki); a
+`triage-failed:` line triggers its own Grafana rule.
+
+Guardrails: claim names derive from the alert fingerprint (a re-fire while the
+triage exists is skipped), a `ResourceQuota` holds at most two claims, pods die
+at 20 minutes, and the claim (with its Sandbox) is collected five minutes after
+the run finishes. Credentials live in OpenBao (`secret/alert-triage`) and reach
+the pod through ESO; the webhook bearer token is Terraform-owned from SOPS.
+See [`platform/alert-triage/README.md`](platform/alert-triage/README.md) for the
+manifests, the secret layout and how to run a triage by hand.
 
 ### Cluster backups (Velero)
 

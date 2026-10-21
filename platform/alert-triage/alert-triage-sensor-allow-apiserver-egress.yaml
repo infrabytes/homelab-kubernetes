@@ -1,0 +1,22 @@
+---
+# Plain NetworkPolicy cannot name the API-server entity, so the Sensor's claim-creation
+# edge is a Cilium policy (same shape as external-secrets-allow-apiserver-egress).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: alert-triage-sensor-allow-apiserver-egress
+  namespace: alert-triage
+spec:
+  endpointSelector:
+    matchLabels:
+      controller: sensor-controller
+      sensor-name: alert-triage
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP

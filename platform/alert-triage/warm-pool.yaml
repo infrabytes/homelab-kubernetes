@@ -1,0 +1,11 @@
+# Supplies the template reference SandboxClaim requires (warmPoolRef is mandatory) while
+# holding no idle pods: every claim cold-starts from SandboxTemplate/alert-triage.
+apiVersion: extensions.agents.x-k8s.io/v1beta1
+kind: SandboxWarmPool
+metadata:
+  name: alert-triage
+  namespace: alert-triage
+spec:
+  replicas: 0
+  sandboxTemplateRef:
+    name: alert-triage

@@ -1,0 +1,24 @@
+# Carries webhook events from the EventSource pod to the Sensor pod. One replica: the
+# stream is a hand-off buffer, not durable state worth losing a node over.
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: alert-triage-bus
+  namespace: alert-triage
+spec:
+  jetstream:
+    # Resolves to the chart's pinned nats release (configs.jetstream.versions).
+    version: latest
+    replicas: 1
+    containerTemplate:
+      # New component (2026-10-18): initial estimate, re-measure after two weeks.
+      resources:
+        requests:
+          cpu: 20m
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+    persistence:
+      storageClassName: longhorn
+      accessMode: ReadWriteOnce
+      volumeSize: 1Gi

@@ -1,0 +1,34 @@
+# Webhook intake for Grafana notifications. ClusterIP only — the contact point posts to
+# grafana-alerts-eventsource-svc.alert-triage.svc.cluster.local:12000/grafana and nothing
+# outside the cluster can reach it. The bearer token comes from the Terraform-owned
+# alert-triage-webhook Secret (SOPS: alert_triage_webhook_token).
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: grafana-alerts
+  namespace: alert-triage
+spec:
+  # Required for <name>-eventsource-svc to be created at all.
+  service:
+    ports:
+      - name: webhook
+        port: 12000
+        targetPort: 12000
+        protocol: TCP
+  template:
+    # New component (2026-10-18): initial estimate, re-measure after two weeks.
+    container:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 64Mi
+  webhook:
+    grafana:
+      endpoint: /grafana
+      method: POST
+      port: "12000"
+      authSecret:
+        name: alert-triage-webhook
+        key: token

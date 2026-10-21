@@ -184,6 +184,13 @@ variable "github_grafana_token" {
   sensitive   = true
 }
 
+variable "alert_triage_webhook_token" {
+  description = "Bearer token the Grafana alert-triage contact point presents to the Argo Events webhook EventSource. Written into the alert-triage-webhook Secret (alert-triage) as key token and into grafana-notification-secrets (observability) as alert_triage_token."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "seaweedfs_access_key" {
   description = "SeaweedFS S3 access key for the Grafana Postgres cluster's backup object store."
   type        = string

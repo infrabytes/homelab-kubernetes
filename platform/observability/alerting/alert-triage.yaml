@@ -1,0 +1,60 @@
+# The triage path is fire-and-forget (pod logs only), so a broken npm install, model call,
+# MCP connection or Discord post would otherwise fail silently. entrypoint.sh prints
+# `triage-failed: <reason>` on every failure path; this rule surfaces those lines.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: alert-triage
+  namespace: observability
+spec:
+  name: alert-triage
+  folderUID: kubernetes
+  interval: 60s
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  rules:
+    - uid: alert-triage-failing
+      title: Alert triage failing
+      condition: threshold
+      for: 0s
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: "A triage sandbox failed in the last 10 minutes; check {namespace=\"alert-triage\"} logs for triage-failed"
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: loki
+          datasourceUid: loki
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: loki
+              uid: loki
+            editorMode: code
+            expr: 'sum(count_over_time({namespace="alert-triage"} |= "triage-failed" [10m]))'
+            queryType: instant
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold

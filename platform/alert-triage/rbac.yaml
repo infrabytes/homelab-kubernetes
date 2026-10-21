@@ -1,0 +1,40 @@
+# The Sensor's only write: creating one SandboxClaim per firing notification batch.
+# Namespaced Role — nothing outside alert-triage is reachable with this identity.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alert-triage-sensor
+  namespace: alert-triage
+rules:
+  - apiGroups: ["extensions.agents.x-k8s.io"]
+    resources: ["sandboxclaims"]
+    verbs: ["create", "get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alert-triage-sensor
+  namespace: alert-triage
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: alert-triage-sensor
+subjects:
+  - kind: ServiceAccount
+    name: alert-triage-sensor
+    namespace: alert-triage
+---
+# The triage agent reads the cluster (pods, events, logs, workloads) and nothing else:
+# the aggregated view role from platform/cluster-viewer/rbac.yaml.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alert-triage-agent-viewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-viewer
+subjects:
+  - kind: ServiceAccount
+    name: alert-triage-agent
+    namespace: alert-triage

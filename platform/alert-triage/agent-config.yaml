@@ -1,0 +1,176 @@
+# ConfigMap mounted at /etc/triage in every triage Sandbox and copied into the pi agent
+# dir by entrypoint.sh. `opencode-go` is a pi built-in provider (OPENCODE_API_KEY from
+# Secret), so no models.json is needed: the model catalog follows the pi pin.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-triage-agent
+  namespace: alert-triage
+data:
+  mcp.json: |
+    {
+      "mcpServers": {
+        "grafana": {
+          "url": "http://grafana-mcp.observability.svc.cluster.local:8000/mcp",
+          "description": "Read-only Grafana: metrics (VictoriaMetrics), Loki logs, alert rules, dashboards.",
+          "headers": { "Authorization": "Bearer ${GRAFANA_MCP_TOKEN}" }
+        }
+      }
+    }
+  APPEND_SYSTEM.md: |
+    # Alert triage contract
+
+    You are the on-call triage agent for one homelab Kubernetes cluster (Talos, Cilium,
+    ArgoCD, VictoriaMetrics + Loki behind the local Grafana). A Grafana notification has
+    been handed to you. Your product is a verdict for a human, never a change.
+
+    Everything you can reach is read-only: the Grafana MCP tools (`mcp__grafana__*`) and
+    `kubectl` through the cluster-viewer role. Mutations are not available; do not try.
+
+    Answer with this structure and no preamble:
+
+    VERDICT: ACTIONABLE | NOISE | NO_ACTION — confidence high|medium|low
+    FIRED: <alertname> (<severity>, <folder>) — for <duration>
+    EVIDENCE: 2-5 bullets; each names its source (`victoriametrics: <query>`,
+      `loki: <query>`, `kubectl: <command>`) and quotes the decisive numbers or lines.
+    ROOT CAUSE: the single most likely cause, plus the alternative you ruled out and how.
+    FIX: the concrete change (file, manifest field, command, or the Grafana silence), then
+      what to check next if it does not resolve the alert.
+    LINKS: the dashboard / panel / silence URLs from the payload.
+
+    Rules:
+
+    - NOISE means the alert is expected or redundant (for example a scrape gap during a
+      known restart): say why, and what would make it actionable.
+    - NO_ACTION means real but nothing to do now (self-healing, already recovered).
+    - Never invent metric values, log lines or object names. If a query returned nothing,
+      say so and say what that absence implies.
+    - Prefer 2-3 decisive queries over many shallow ones; this is a chat message.
+    - Keep the report under 1800 characters. Plain text and short bullets, no tables.
+    - Never print secrets (tokens, webhook URLs, keys), even if you find them.
+  post.mjs: |
+    // Posts the verdict to Discord, chunked to the 2000-character message limit.
+    import { readFileSync } from "node:fs";
+
+    const url = process.env.DISCORD_WEBHOOK_URL;
+    if (!url) {
+      console.error("triage-failed: DISCORD_WEBHOOK_URL is unset");
+      process.exit(1);
+    }
+
+    const LIMIT = 1900;
+    const MAX_CHUNKS = 5;
+    const header = `**Alert triage: ${process.env.ALERT_NAME ?? "unknown"}**\n`;
+    const report = readFileSync(process.argv[2], "utf8").trim();
+    if (!report) {
+      console.error("triage-failed: report is empty");
+      process.exit(1);
+    }
+
+    const chunks = [];
+    let rest = report;
+    let first = true;
+    while (rest.length > 0 && chunks.length < MAX_CHUNKS) {
+      const room = LIMIT - (first ? header.length : 0);
+      let cut = rest.lastIndexOf("\n", room);
+      if (cut < room / 2) cut = Math.min(room, rest.length);
+      chunks.push((first ? header : "") + rest.slice(0, cut));
+      rest = rest.slice(cut).replace(/^\n+/, "");
+      first = false;
+    }
+    if (rest.length > 0) {
+      chunks[chunks.length - 1] += "\n…truncated; full report in the cluster logs";
+    }
+
+    for (const content of chunks) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+      });
+      if (!res.ok) {
+        console.error(`triage-failed: discord ${res.status} ${await res.text()}`);
+        process.exit(1);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+  entrypoint.sh: |
+    #!/usr/bin/env bash
+    # One triage run: assemble the pi agent dir, run pi headless, post the verdict.
+    # Every failure prints `triage-failed: <reason>` (matched by the "Alert triage failing"
+    # rule) and exits non-zero, so the Sandbox reports PodFailed.
+    set -euo pipefail
+
+    CONFIG_DIR=/etc/triage
+    AGENT_DIR="${PI_CODING_AGENT_DIR:-/tmp/pi-agent}"
+    SA_DIR=/var/run/secrets/kubernetes.io/serviceaccount
+
+    fail() {
+      echo "triage-failed: $*" >&2
+      exit 1
+    }
+
+    mkdir -p "$AGENT_DIR"
+    cp "$CONFIG_DIR/mcp.json" "$CONFIG_DIR/APPEND_SYSTEM.md" "$AGENT_DIR/"
+
+    # kubeconfig for the projected SA token, so the agent's bash tool can run kubectl.
+    cat > "$AGENT_DIR/kubeconfig" <<EOF
+    apiVersion: v1
+    kind: Config
+    clusters:
+      - name: in-cluster
+        cluster:
+          certificate-authority: ${SA_DIR}/ca.crt
+          server: https://kubernetes.default.svc
+    contexts:
+      - name: in-cluster
+        context:
+          cluster: in-cluster
+          user: alert-triage-agent
+    current-context: in-cluster
+    users:
+      - name: alert-triage-agent
+        user:
+          tokenFile: ${SA_DIR}/token
+    EOF
+
+    ALERT_JSON="${ALERT_JSON:-"{}"}"
+    ALERT_NAME="${ALERT_NAME:-unknown}"
+
+    PROMPT="$(cat <<EOF
+    A Grafana alert notification just fired in this cluster. Investigate it and report.
+
+    Firing: ${ALERT_NAME}
+
+    Grafana webhook payload (JSON; use its labels, annotations and URLs):
+
+    ${ALERT_JSON}
+
+    Read-only sources:
+    - MCP server \`grafana\`: tools are named mcp__grafana__* (query_prometheus,
+      query_loki_logs, list_alert_rules, get_dashboard_by_uid, ...). Metrics use datasource
+      uid victoriametrics, logs use Loki.
+    - kubectl, already configured via KUBECONFIG: pods, events, describe, logs, and
+      kubectl -n argocd get applications for ArgoCD sync state.
+
+    Start from the alert's own query and time window, then inspect the objects behind it.
+    Confirm the cause with evidence before concluding; if it stays inconclusive, say so and
+    name the next check instead of guessing. Answer with the report only.
+    EOF
+    )"
+
+    echo "triage: starting pi for ${ALERT_NAME}"
+    if ! pi -p --no-session --mode text --model opencode-go/deepseek-v4.1-flash:high \
+      --tools read,bash "$PROMPT" > "$AGENT_DIR/report.md" 2> "$AGENT_DIR/pi.err"; then
+      tail -n 40 "$AGENT_DIR/pi.err" >&2 || true
+      fail "pi exited non-zero"
+    fi
+
+    [ -s "$AGENT_DIR/report.md" ] || fail "pi returned an empty report"
+
+    echo "--- triage report: ${ALERT_NAME} ---"
+    cat "$AGENT_DIR/report.md"
+    echo "--- triage report end ---"
+
+    node "$CONFIG_DIR/post.mjs" "$AGENT_DIR/report.md" || fail "discord post failed"
+    echo "triage: verdict posted to Discord"

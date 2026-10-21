@@ -1,0 +1,33 @@
+---
+# Egress for the Sensor: DNS, the EventBus it subscribes to, and the API server it
+# creates SandboxClaims on. Once an Egress policy selects the pod, everything else is denied.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alert-triage-sensor-allow-egress
+  namespace: alert-triage
+spec:
+  podSelector:
+    matchLabels:
+      controller: sensor-controller
+      sensor-name: alert-triage
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              controller: eventbus-controller
+              eventbus-name: alert-triage-bus
+      ports:
+        - port: 4222
+          protocol: TCP

@@ -443,6 +443,26 @@ resource "kubernetes_namespace_v1" "arc_runners" {
   metadata { name = "arc-runners" }
 }
 
+# Terraform owns the alert-triage namespace: the webhook token Secret must exist before
+# the ArgoCD sync of platform/alert-triage can start the EventSource (same reasoning as
+# the observability namespace below).
+resource "kubernetes_namespace_v1" "alert_triage" {
+  metadata { name = "alert-triage" }
+}
+
+# Bearer token the Grafana contact point sends to the Argo Events webhook EventSource.
+# Two copies because a Grafana contact point can only read Secrets in its own namespace;
+# the observability copy lives in grafana-notification-secrets below.
+resource "kubernetes_secret_v1" "alert_triage_webhook" {
+  metadata {
+    name      = "alert-triage-webhook"
+    namespace = kubernetes_namespace_v1.alert_triage.metadata[0].name
+  }
+  data = {
+    "token" = var.alert_triage_webhook_token
+  }
+}
+
 # Terraform owns the observability namespace (like openbao/dex): on a cold bootstrap this unit
 # runs before ArgoCD exists, so an ArgoCD-owned namespace would fail the apply.
 # Keep the import block: without it a re-apply fails on the already-existing namespace.
@@ -520,7 +540,8 @@ resource "kubernetes_secret_v1" "grafana_notification_secrets" {
     namespace = kubernetes_namespace_v1.observability.metadata[0].name
   }
   data = {
-    discord_webhook_url = var.grafana_discord_webhook_url
+    discord_webhook_url   = var.grafana_discord_webhook_url
+    alert_triage_token    = var.alert_triage_webhook_token
   }
 }
 

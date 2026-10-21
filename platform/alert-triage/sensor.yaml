@@ -1,0 +1,72 @@
+# Turns one firing Grafana notification into one SandboxClaim. The claim name is derived
+# from the alert fingerprint, so a repeat notification while that triage still exists is
+# rejected as AlreadyExists (logged) instead of stacking sandboxes.
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: alert-triage
+  namespace: alert-triage
+spec:
+  template:
+    serviceAccountName: alert-triage-sensor
+    # New component (2026-10-18): initial estimate, re-measure after two weeks.
+    container:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 64Mi
+  dependencies:
+    - name: alert
+      eventSourceName: grafana-alerts
+      eventName: grafana
+      # Resolved notifications carry status: resolved; only firing ones are triaged.
+      filters:
+        data:
+          - path: body.status
+            type: string
+            value: ["firing"]
+  triggers:
+    - template:
+        name: create-triage-claim
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: extensions.agents.x-k8s.io/v1beta1
+              kind: SandboxClaim
+              metadata:
+                name: triage-placeholder
+                labels:
+                  app.kubernetes.io/part-of: alert-triage
+              spec:
+                warmPoolRef:
+                  name: alert-triage
+                lifecycle:
+                  # Five minutes after the pod reaches Succeeded/Failed, the claim is
+                  # deleted and GCs the Sandbox (shutdownPolicy Delete).
+                  ttlSecondsAfterFinished: 300
+                  shutdownPolicy: Delete
+                env:
+                  - name: ALERT_JSON
+                    value: "{}"
+                  - name: ALERT_NAME
+                    value: unknown
+          parameters:
+            - src:
+                dependencyName: alert
+                dataTemplate: 'triage-{{ trunc 8 (index .Input.alerts 0).fingerprint }}'
+              dest: metadata.name
+            - src:
+                dependencyName: alert
+                dataTemplate: "{{ .Input | toJson }}"
+              dest: spec.env.0.value
+            - src:
+                dependencyName: alert
+                dataTemplate: "{{ (index .Input.alerts 0).labels.alertname }}"
+              dest: spec.env.1.value
+      # Alert storm brake on top of the fingerprint dedupe and the claim quota.
+      rateLimit:
+        requestsPerUnit: 6
+        unit: Minute
