@@ -17,4 +17,10 @@ spec:
   namespaceResourceWhitelist:
     - group: "*"
       kind: "*"
-  # … which also denies every *cluster-scoped* resource
+  # … which also denies every *cluster-scoped* resource.
+  # RBAC stays out: ArgoCD applies as cluster-admin, so a RoleBinding here would escalate.
+  namespaceResourceBlacklist:
+    - group: rbac.authorization.k8s.io
+      kind: Role
+    - group: rbac.authorization.k8s.io
+      kind: RoleBinding
