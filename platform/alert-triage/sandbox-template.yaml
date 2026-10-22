@@ -33,7 +33,15 @@ spec:
         ports:
           - port: 8000
             protocol: TCP
-      # kube-apiserver, for the agent's read-only kubectl.
+      # Loki, for the flap gate and the memory digest (reads this namespace's own stream).
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: observability
+        ports:
+          - port: 3100
+            protocol: TCP
+      # kube-apiserver, for the agent's read-only kubectl and the gate's event/sync digest.
       - ports:
           - port: 6443
             protocol: TCP
@@ -60,28 +68,8 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
-        - name: install-pi
-          image: node:24-bookworm-slim
-          command:
-            - npm
-            - install
-            - -g
-            - --prefix
-            - /opt/pi
-            - "@earendil-works/pi-coding-agent@1.3.0"
-          volumeMounts:
-            - name: tools
-              mountPath: /opt/pi
-          securityContext:
-            allowPrivilegeEscalation: false
-          # New workload (2026-10-18): initial estimate; re-measure two weeks after
-          # cutover. npm peaks well above the steady state of the agent itself.
-          resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              memory: 1Gi
+        # pi itself is installed by entrypoint.sh, after the gate: a suppressed flap must not
+        # pay for it (~16s of npm).
         - name: install-kubectl
           # Matches kubernetes_version in infra/env.hcl (read-only kubectl for RCA).
           env:
@@ -125,6 +113,13 @@ spec:
               value: /tmp/pi-agent/kubeconfig
             - name: HOME
               value: /tmp
+            # Flap gate: suppress a re-fire of this alert only while the previous verdict was
+            # NOISE/NO_ACTION; an ACTIONABLE verdict re-runs with the earlier report attached.
+            - name: TRIAGE_COOLDOWN
+              value: 2h
+            # How far back the memory digest looks (triage records, cluster events, syncs).
+            - name: TRIAGE_MEMORY_WINDOW
+              value: 6h
             # pi's built-in opencode-go provider authenticates from this variable.
             - name: OPENCODE_API_KEY
               valueFrom:

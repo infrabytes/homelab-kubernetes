@@ -55,6 +55,8 @@ spec:
                     value: "{}"
                   - name: ALERT_NAME
                     value: unknown
+                  - name: ALERT_FP
+                    value: unknown
           # The webhook EventSource wraps the request as {"header": …, "body": <payload>,
           # "metadata": …}, so every path starts at .Input.body (the sensor filter's
           # `body.status` sees the same nesting).
@@ -71,6 +73,11 @@ spec:
                 dependencyName: alert
                 dataTemplate: "{{ (index .Input.body.alerts 0).labels.alertname }}"
               dest: spec.env.1.value
+            # The gate keys its flap suppression and memory lookups on the fingerprint.
+            - src:
+                dependencyName: alert
+                dataTemplate: "{{ (index .Input.body.alerts 0).fingerprint }}"
+              dest: spec.env.2.value
       # Alert storm brake on top of the fingerprint dedupe and the claim quota.
       rateLimit:
         requestsPerUnit: 6
