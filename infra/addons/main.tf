@@ -68,11 +68,13 @@ resource "helm_release" "argo_cd" {
         }
       }
       notifications = {
-        # Re-derived 2026-09-01..09-15 (Grafana Cloud, 14d): p95 28.2Mi (32Mi request holds),
-        # peak 46.2Mi (88% of the 48Mi baseline limit).
+        # Re-derived 2026-09-16..10-22 (36d retained, local VictoriaMetrics): the working
+        # set is dominated by page cache (RSS flat at ~29Mi), so a cache-warm pod holds
+        # p95 58.1Mi and peaked at 63.7Mi — 0.995 of the old 64Mi limit, which the
+        # RSS-derived 32Mi/64Mi under-sized. Limit = max(1.5x request, 1.25x peak 79.6Mi).
         resources = {
-          requests = { cpu = "10m", memory = "32Mi" }
-          limits   = { memory = "64Mi" }
+          requests = { cpu = "10m", memory = "64Mi" }
+          limits   = { memory = "96Mi" }
         }
       }
       redis = {
@@ -116,14 +118,14 @@ resource "helm_release" "argo_cd" {
           } : {},
         )
         secret = {
-          createSecret                   = true
+          createSecret = true
           # Stable hash from state
           argocdServerAdminPassword      = terraform_data.argocd_admin_password_bcrypt.output
           argocdServerAdminPasswordMtime = "2026-08-08T00:00:00Z"
           # Both secrets are optional (empty while bootstrapping): the dex
           # client secret enables SSO, the webhook secret makes the API server
           # verify GitHub webhook signatures (X-Hub-Signature-256).
-          extra                          = merge(
+          extra = merge(
             var.github_oidc_client_secret != "" ? {
               "dex.github.clientSecret" = var.github_oidc_client_secret
             } : {},
@@ -540,8 +542,8 @@ resource "kubernetes_secret_v1" "grafana_notification_secrets" {
     namespace = kubernetes_namespace_v1.observability.metadata[0].name
   }
   data = {
-    discord_webhook_url   = var.grafana_discord_webhook_url
-    alert_triage_token    = var.alert_triage_webhook_token
+    discord_webhook_url = var.grafana_discord_webhook_url
+    alert_triage_token  = var.alert_triage_webhook_token
   }
 }
 
