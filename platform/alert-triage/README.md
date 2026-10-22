@@ -141,8 +141,9 @@ The verdict lands in Discord; the full report stays in the pod log (Loki:
   `TRIAGE_MEMORY_WINDOW` (6h).
 - **Resolved notifications** are filtered out in the sensor (`body.status == firing`).
 - **Read-only** — the agent's ServiceAccount is bound to the aggregated `cluster-viewer`
-  ClusterRole; the Grafana MCP server runs with `--disable-write --disable-api` and a
-  Viewer service account.
+  ClusterRole plus a namespaced read on ArgoCD `applications` (`argocd`), which the
+  aggregation does not cover and the memory digest needs; the Grafana MCP server runs with
+  `--disable-write --disable-api` and a Viewer service account.
 - **Cold start** on the analysis path is ~40-60s (image pull + the pinned pi release
   installed by `entrypoint.sh`); a suppressed flap costs only the pod start (~4s). A
   `SandboxWarmPool` with `replicas: 1`, or a prebuilt image, would remove the rest.
