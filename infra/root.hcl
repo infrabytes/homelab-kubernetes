@@ -36,7 +36,7 @@ remote_state {
     skip_requesting_account_id  = true
     skip_metadata_api_check     = true
     skip_region_validation      = true
-    force_path_style            = true
+    use_path_style              = true
 
     access_key = local.secrets.seaweedfs_access_key
     secret_key = local.secrets.seaweedfs_secret_key
