@@ -1,7 +1,7 @@
 # Applying this replaces the whole notification tree. Discord keeps today's behaviour
-# (root group_wait 30s, critical sub-route group_wait 0s) and triage is a sibling route,
-# because Grafana routes an alert to every matching child: a receiver on a child route
-# replaces the parent's, so fan-out needs one catch-all child per receiver.
+# (root group_wait 30s, critical sub-route group_wait 0s) and triage is a sibling route.
+# Alertmanager stops at the first matching sibling unless that route sets `continue`, so
+# the Discord route continues the walk and the Triage route picks the alert up too.
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaNotificationPolicy
 metadata:
@@ -21,11 +21,13 @@ spec:
     repeat_interval: 4h
     routes:
       - receiver: Discord
+        continue: true
         object_matchers:
           - ["alertname", "=~", ".+"]
         group_wait: 30s
         routes:
           - receiver: Discord
+            continue: true
             object_matchers:
               - ["severity", "=", "critical"]
             group_wait: 0s
