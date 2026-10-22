@@ -11,6 +11,8 @@ concurrency:
 
 jobs:
   pre-commit:
+    # Fork PRs are arbitrary code and the runner holds a cluster credential; push to main is not a PR.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: homelab-runner
     timeout-minutes: 20
     steps:
