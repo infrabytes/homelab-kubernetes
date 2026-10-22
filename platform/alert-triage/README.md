@@ -180,6 +180,11 @@ cutover per the repo sizing convention. Limits are memory-only (no CPU limits).
   the EventSource CR — a missing EventBus (`eventBusName`) leaves the Service absent and
   every delivery fails.
 
+- **`pod`/`container` are structured metadata in this Loki**, so they are returned with the
+  stream but cannot be used as stream selectors: query them with a pipeline filter —
+  `{namespace="alert-triage"} | pod="triage-<fp>"` — not `{namespace=…, pod=…}`. The gate's
+  prior-report lookup depends on this.
+
 ## Known gaps
 
 

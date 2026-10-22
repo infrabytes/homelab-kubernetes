@@ -308,13 +308,14 @@ data:
 
     let recurrence = "";
     if (lastVerdict === "ACTIONABLE") {
-      // The claim name is the pod name, so the previous report is one stream lookup away.
+      // The claim name is the pod name, so the previous report is one lookup away.
       const priorPod = /pod=(\S+)/.exec(last.line)?.[1];
       let priorReport = "unavailable";
       if (priorPod) {
         try {
+          // `pod` is structured metadata in this Loki: a pipeline filter, not a selector.
           const lines = await loki(
-            `{namespace="alert-triage", pod="${priorPod}"} |~ "VERDICT|ROOT CAUSE|FIX"`,
+            `{namespace="alert-triage"} | pod="${priorPod}" |~ "VERDICT|ROOT CAUSE|FIX"`,
             Math.min(COOLDOWN, WINDOW),
             40,
           );
