@@ -16,7 +16,8 @@ concurrency:
 
 jobs:
   preview:
-    if: github.event.action != 'closed'
+    # Fork PRs are arbitrary code, rendered against the cluster by the runner.
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: homelab-runner
     timeout-minutes: 25
     permissions:
