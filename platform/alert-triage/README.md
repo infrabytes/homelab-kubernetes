@@ -139,11 +139,37 @@ matcher to the `Triage` route — or silence it.
 New workload (2026-10-18): requests are initial estimates, re-measured two weeks after
 cutover per the repo sizing convention. Limits are memory-only (no CPU limits).
 
+## Wiring gotchas (all hit on the first deploy)
+
+- **The notification policy needs `continue: true`.** Alertmanager stops at the first
+  matching sibling route, so the Discord catch-all in
+  `platform/observability/grafana-notification-policy.yaml` must continue the walk; without
+  triage silently never fires (Discord still works, so nothing looks broken).
+- **`EventBus.spec.jetstream.streamConfig.replicas` must stay 1.** The controller merges the
+  chart's `configs.jetstream.streamConfig` defaults into the bus on its first reconcile, so
+  the value is pinned on the CR too. A single (non-clustered) NATS node rejects a
+  multi-replica stream and the EventSource/Sensor crash-loop with
+  `nats: replicas > 1 not supported in non-clustered mode`.
+- **Webhook events are nested.** The EventSource publishes
+  `{"header": …, "body": <payload>, "metadata": …}`, so the sensor's filter uses
+  `body.status` and the trigger parameters use `.Input.body.alerts`.
+- **Changes to the chart's eventbus config need a controller restart.** Adaptor deployments
+  are generated from the EventBus status; after changing stream settings,
+  `kubectl -n alert-triage rollout restart deploy/argo-events-controller-manager` regenerates
+  them (deleting just the pods keeps the old env).
+- **The Grafana contact point needs the eventsource Service to exist.** The URL is
+  `grafana-alerts-eventsource-svc.alert-triage.svc.cluster.local:12000/grafana`, created by
+  the EventSource CR — a missing EventBus (`eventBusName`) leaves the Service absent and
+  every delivery fails.
+
 ## Known gaps
+
 
 - The namespace is not in the phase-1 networkpolicy table; the eventing pods carry no
   policies yet (`docs/network-policies.md` lists the follow-up). The sandbox pods
   themselves are covered by the template's managed policy.
+- No "Alert triage" dashboard panel yet; the pipeline is visible through pod logs and the
+  `triage-failed` rule only.
 - Prompt injection through alert annotations is theoretically possible (labels/annotations
   reach the model). The blast radius is bounded by read-only RBAC, but keep alert
   annotations factual.
