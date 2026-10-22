@@ -80,6 +80,7 @@ spec:
             - sh
             - -c
             - >-
+              mkdir -p /opt/pi/bin &&
               curl -fsSL
               "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
               -o /opt/pi/bin/kubectl && chmod +x /opt/pi/bin/kubectl
