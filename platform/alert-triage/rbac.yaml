@@ -38,3 +38,31 @@ subjects:
   - kind: ServiceAccount
     name: alert-triage-agent
     namespace: alert-triage
+---
+# ArgoCD Applications, for the memory digest ("what was deployed right before the alert")
+# and for the agent's own RCA. The aggregated cluster-viewer role does not cover the
+# argoproj.io CRDs, so this is granted explicitly, read-only and only in the argocd
+# namespace — the binding crosses namespaces because ArgoCD owns that namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alert-triage-agent-argocd-read
+  namespace: argocd
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alert-triage-agent-argocd-read
+  namespace: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: alert-triage-agent-argocd-read
+subjects:
+  - kind: ServiceAccount
+    name: alert-triage-agent
+    namespace: alert-triage
