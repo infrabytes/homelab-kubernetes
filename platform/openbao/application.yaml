@@ -366,13 +366,14 @@ spec:
                 bound_service_account_namespaces=alert-triage \
                 policies=eso-alert-triage \
                 ttl=1h
-          # 14d p95 usage (Grafana Cloud): CPU requests only, memory limit = 1.5x request.
+          # 36d (2026-09-16..10-22, local VM): ws p95 172.5Mi → request 192Mi, limit 288Mi;
+          # cpu p95 160m. The old 192Mi limit pinned ws at 0.99 (RSS only 55Mi).
           resources:
             requests:
-              cpu: 50m
-              memory: 128Mi
-            limits:
+              cpu: 160m
               memory: 192Mi
+            limits:
+              memory: 288Mi
           # Audited egress: DNS, raft peers, and the Dex backends behind the LAN and tailnet routes.
           # Envoy enforces this pod's egress against the HTTPRoute backend (pod + pod port), not the Gateway address.
           networkPolicy:

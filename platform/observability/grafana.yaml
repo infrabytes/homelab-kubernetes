@@ -79,13 +79,14 @@ spec:
                     secretKeyRef:
                       name: grafana-admin-credentials
                       key: GF_SECURITY_ADMIN_PASSWORD
-              # New component (2026-09-16): initial estimate; re-measure after two weeks.
+              # 36d (2026-09-16..10-22, local VM): ws p95 494Mi → request 512Mi, limit 768Mi
+              # (1.5x request, 1.25x peak 497Mi). The old 512Mi limit pinned ws at 0.96 (RSS 203Mi).
               resources:
                 requests:
-                  cpu: 100m
-                  memory: 256Mi
-                limits:
+                  cpu: 140m
                   memory: 512Mi
+                limits:
+                  memory: 768Mi
               volumeMounts:
                 - name: grafana-datasources
                   mountPath: /etc/grafana/provisioning/datasources
