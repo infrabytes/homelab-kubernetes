@@ -56,20 +56,40 @@ Three values live in OpenBao at `secret/alert-triage` and reach the pods through
 | `grafana_mcp_token` | `Authorization: Bearer …` for the Grafana MCP server |
 | `discord_webhook_url` | the verdict destination |
 
-Seed or rotate them (the MCP token and the Discord URL already exist in
-`infra/secrets.sops.yaml` as `grafana_mcp_server_token` and
-`grafana_discord_webhook_url`; the LLM key is the host pi's `opencode-go` key):
+**Use a dedicated OpenCode Go key, not the host pi's key.** The agent runs unattended and
+its spend should be attributable on its own: create the key in the OpenCode Console
+(Account › Personal API keys, or — cleaner — a Service account under Settings › Service
+accounts, which gets its own usage and budget) and give it `Models: Request` if you choose
+Restricted permissions. Nothing in the manifests changes: the sandbox reads
+`OPENCODE_API_KEY` from this Secret, so swapping the value is the whole rotation.
+
+Seed all three (the MCP token and the Discord URL already exist in
+`infra/secrets.sops.yaml` as `grafana_mcp_server_token` and `grafana_discord_webhook_url`).
+Read the model key from stdin (`read -rs`) so it never lands in shell history:
 
 ```sh
 # after the PR merged and the openbao pod restarted (it creates the policy + role)
+read -rs TRIAGE_KEY
 bao kv put secret/alert-triage \
-  llm_api_key="$(pi auth print-api-key --provider opencode-go)" \
+  llm_api_key="$TRIAGE_KEY" \
   grafana_mcp_token="$(sops -d --extract '["grafana_mcp_server_token"]' infra/secrets.sops.yaml)" \
   discord_webhook_url="$(sops -d --extract '["grafana_discord_webhook_url"]' infra/secrets.sops.yaml)"
 ```
 
-The policy only grants `read` on `secret/data/alert-triage`, so the seed uses an admin
-session (OIDC SSO or root), not the ESO identity.
+Rotate only the model key, leaving the other two untouched (KV v2 patch: one key, a new
+version):
+
+```sh
+read -rs TRIAGE_KEY
+bao kv patch secret/alert-triage llm_api_key="$TRIAGE_KEY"
+```
+
+In the UI the same edit is `secret/` → `alert-triage` → Edit. ESO refreshes the Secret
+within an hour (`refreshInterval: 1h`), and a sandbox reads it only when it starts — a
+running triage keeps the key it started with, so nothing needs restarting.
+
+The policy only grants `read` on `secret/data/alert-triage`, so seeding and rotation use an
+admin session (OIDC SSO or root), never the ESO identity.
 
 A rotation takes effect on the next sandbox; nothing needs restarting inside the cluster.
 The OpenBao policy (`eso-alert-triage`, read-only on that path) and its Kubernetes auth
