@@ -363,6 +363,19 @@
       "groupSlug": "cilium-chart"
     },
     {
+      "description": "agent-sandbox is a git-sourced chart pinned twice: its targetRevision comes from the argocd manager's git-tags lookup, its image.tag from the regex docker lookup. Neither datasource reports a release timestamp (git-tags has none; docker does only on Docker Hub), so minimumReleaseAgeBehaviour=timestamp-optional let both skip the 3-day gate and git-tags offered the v1.0.8 tag while upstream had no v1.0.8 release. github-releases only offers published releases and carries published_at; the tag's images are promoted before the release is published, so image.tag still names a real image.",
+      "matchFileNames": [
+        "platform/agent-sandbox/application.yaml"
+      ],
+      "matchPackageNames": [
+        "https://github.com/kubernetes-sigs/agent-sandbox",
+        "registry.k8s.io/agent-sandbox/agent-sandbox-controller"
+      ],
+      "overrideDatasource": "github-releases",
+      "overrideDepName": "kubernetes-sigs/agent-sandbox",
+      "overridePackageName": "kubernetes-sigs/agent-sandbox"
+    },
+    {
       "description": "Hold majors for review regardless of changelog content",
       "matchUpdateTypes": [
         "major"
