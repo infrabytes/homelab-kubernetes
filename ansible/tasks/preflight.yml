@@ -32,6 +32,13 @@
     grafana_cloud_loki_username: "{{ lookup('ansible.builtin.env', 'grafana_cloud_loki_username') }}"
     grafana_cloud_loki_token: "{{ lookup('ansible.builtin.env', 'grafana_cloud_loki_token') }}"
 
+- name: Split the Proxmox API token into user, id and secret
+  ansible.builtin.set_fact:
+    pve_token_user: "{{ proxmox_api_token.split('!')[0] }}"
+    pve_token_id: "{{ proxmox_api_token.split('!')[1].split('=')[0] }}"
+    # maxsplit=1: the secret itself may contain '='.
+    pve_token_secret: "{{ proxmox_api_token.split('=', 1)[1] }}"
+
 - name: Read PVE cluster status from the API
   community.proxmox.proxmox_cluster_status_info:
     api_host: "{{ pve_api_host.split(':')[0] }}"
@@ -43,10 +50,6 @@
     validate_certs: "{{ pve_validate_certs | bool }}"
   register: pve_cluster
   delegate_to: localhost
-  vars:
-    pve_token_user: "{{ proxmox_api_token.split('!')[0] }}"
-    pve_token_id: "{{ proxmox_api_token.split('!')[1].split('=')[0] }}"
-    pve_token_secret: "{{ proxmox_api_token.split('=')[1] }}"
 
 - name: Abort unless the PVE cluster is quorate
   ansible.builtin.assert:
@@ -61,12 +64,6 @@
     kind: Node
   register: talos_nodes
   delegate_to: localhost
-
-- name: Split the Proxmox API token into user, id and secret
-  ansible.builtin.set_fact:
-    pve_token_user: "{{ proxmox_api_token.split('!')[0] }}"
-    pve_token_id: "{{ proxmox_api_token.split('!')[1].split('=')[0] }}"
-    pve_token_secret: "{{ proxmox_api_token.split('=', 1)[1] }}"
 
 - name: Verify the Talos VM exists on this host
   community.proxmox.proxmox_vm_info:
@@ -114,14 +111,14 @@
 - name: Abort unless every Talos node is Ready
   ansible.builtin.assert:
     that:
-      - talos_nodes.resources | length == 4
+      - talos_nodes.resources | length == (groups['pve'] | length)
       - talos_nodes.resources
         | selectattr('status.conditions', 'defined')
         | map(attribute='status.conditions') | flatten
         | selectattr('type', 'equalto', 'Ready')
-        | selectattr('status', 'equalto', 'True') | list | length == 4
+        | selectattr('status', 'equalto', 'True') | list | length == (groups['pve'] | length)
     fail_msg: >-
-      Not all four Talos nodes are Ready — aborting before touching
+      Not all {{ groups['pve'] | length }} Talos nodes are Ready — aborting before touching
       {{ inventory_hostname }}.
 
 - name: Query Longhorn volumes

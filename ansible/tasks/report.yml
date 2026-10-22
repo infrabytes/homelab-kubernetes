@@ -4,7 +4,7 @@
     host_line: >-
       host={{ inventory_hostname }}
       result={{ 'success' if not ansible_check_mode else 'check-mode' }}
-      upgrades_applied={{ simulated_upgrade.stdout | length > 0 }}
+      upgrades_applied={{ upgrade_result is changed }}
       reboot={{ reboot_required | bool }}
       reboot_reason={{ reboot_reason if reboot_required | bool else 'none' }}
       drained={{ drain | bool and reboot_required | bool }}

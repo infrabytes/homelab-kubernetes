@@ -27,6 +27,7 @@
     upgrade: full
     autoremove: true
     purge: true
+  register: upgrade_result
 
 - name: Verify no pending upgrades remain
   ansible.builtin.command: apt-get -sqq dist-upgrade
