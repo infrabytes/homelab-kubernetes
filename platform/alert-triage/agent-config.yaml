@@ -1,6 +1,10 @@
-# ConfigMap mounted at /etc/triage in every triage Sandbox and copied into the pi agent
-# dir by entrypoint.sh. `opencode-go` is a pi built-in provider (OPENCODE_API_KEY from
-# Secret), so no models.json is needed: the model catalog follows the pi pin.
+# ConfigMap mounted at /etc/triage in every triage Sandbox. `opencode-go` is a pi built-in
+# provider (OPENCODE_API_KEY from Secret), so no models.json is needed: the model catalog
+# follows the pi pin.
+#
+# The run's stdout is its state store: gate.mjs reads `triage-record` / `triage-skip` lines
+# back from Loki (this namespace's stream) to suppress flapping alerts and to build the
+# memory digest, so keep those lines one-line and keep their field names stable.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -38,6 +42,17 @@ data:
       what to check next if it does not resolve the alert.
     LINKS: the dashboard / panel / silence URLs from the payload.
 
+    Memory rules. The prompt carries a "Triage memory" section: earlier triage verdicts for
+    every alert, recent cluster warnings/rollouts, ArgoCD syncs, and — when this alert has
+    already been triaged as ACTIONABLE — the earlier report:
+
+    - Say plainly when this is a recurrence or a sibling of another alert in the memory, and
+      build on the earlier verdict instead of re-deriving it from scratch.
+    - If a deploy, sync or restart in the memory lines up with when the alert started, test
+      that hypothesis first.
+    - Memory is context, never evidence: confirm with a query before you rely on it.
+    - If the memory contradicts what you observe now, that contradiction is the finding.
+
     Rules:
 
     - NOISE means the alert is expected or redundant (for example a scrape gap during a
@@ -60,7 +75,8 @@ data:
 
     const LIMIT = 1900;
     const MAX_CHUNKS = 5;
-    const header = `**Alert triage: ${process.env.ALERT_NAME ?? "unknown"}**\n`;
+    const recurrence = process.env.ALERT_RECURRENCE ? " (recurrence of an actionable alert)" : "";
+    const header = `**Alert triage: ${process.env.ALERT_NAME ?? "unknown"}**${recurrence}\n`;
     const report = readFileSync(process.argv[2], "utf8").trim();
     if (!report) {
       console.error("triage-failed: report is empty");
@@ -94,9 +110,235 @@ data:
       }
       await new Promise((resolve) => setTimeout(resolve, 800));
     }
+  gate.mjs: |
+    // Pre-flight gate for one triage run: flap suppression and the memory digest, both read
+    // from the triage's own Loki stream (this component logs everything it does, so the logs
+    // are the state store — no database, no CRs, and the retention is the memory horizon).
+    //
+    // Exit codes: 0 = analyse (digest written to DIGEST), 10 = suppressed (triage-skip printed).
+    import { writeFileSync } from "node:fs";
+    import { execFileSync } from "node:child_process";
+
+    const COOLDOWN = ms(process.env.TRIAGE_COOLDOWN ?? "2h");
+    const WINDOW = ms(process.env.TRIAGE_MEMORY_WINDOW ?? "6h");
+    const FP = process.env.ALERT_FP ?? "";
+    const POD = process.env.HOSTNAME ?? "unknown";
+    const LOKI = process.env.LOKI_URL ?? "http://loki.observability.svc.cluster.local:3100";
+    const DIGEST = process.env.TRIAGE_DIGEST ?? "/tmp/triage-memory.md";
+    const RECURRENCE = "/tmp/triage-recurrence";
+    const SUPPRESSIBLE = new Set(["NOISE", "NO_ACTION"]);
+
+    const alert = parseAlert();
+
+    function ms(spec) {
+      const m = /^(\d+)([smhd])$/.exec(String(spec).trim());
+      if (!m) return 2 * 3600 * 1000;
+      const unit = { s: 1e3, m: 6e4, h: 3.6e6, d: 8.64e7 }[m[2]];
+      return Number(m[1]) * unit;
+    }
+
+    function parseAlert() {
+      try {
+        const payload = JSON.parse(process.env.ALERT_JSON ?? "{}");
+        const first = payload.alerts?.[0] ?? {};
+        return {
+          name: first.labels?.alertname ?? process.env.ALERT_NAME ?? "unknown",
+          severity: first.labels?.severity ?? "unknown",
+        };
+      } catch {
+        return { name: process.env.ALERT_NAME ?? "unknown", severity: "unknown" };
+      }
+    }
+
+    // Bounded capture: a record line has to stay one LogQL-filterable line.
+    const oneLine = (text, max = 200) =>
+      String(text ?? "")
+        .replace(/\s+/g, " ")
+        .replace(/["\\]/g, "'")
+        .trim()
+        .slice(0, max);
+
+    function age(ts) {
+      const seconds = Math.max(0, Math.round((Date.now() - ts) / 1000));
+      if (seconds < 90) return `${seconds}s`;
+      if (seconds < 5400) return `${Math.round(seconds / 60)}m`;
+      return `${(seconds / 3600).toFixed(1).replace(/\.0$/, "")}h`;
+    }
+
+    function lokiBase() {
+      try {
+        return new URL("/loki/api/v1/query_range", LOKI);
+      } catch (err) {
+        throw new Error(`bad LOKI_URL: ${err.message}`);
+      }
+    }
+
+    async function loki(query, sinceMs, limit = 200) {
+      const url = lokiBase();
+      url.searchParams.set("query", query);
+      url.searchParams.set("start", `${Math.round((Date.now() - sinceMs) / 1000)}000000000`);
+      url.searchParams.set("end", `${Math.round(Date.now() / 1000)}000000000`);
+      url.searchParams.set("limit", String(limit));
+      url.searchParams.set("direction", "backward");
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error(`loki ${res.status}`);
+      const body = await res.json();
+      const lines = [];
+      for (const stream of body.data?.result ?? []) {
+        for (const [ts, line] of stream.values ?? []) lines.push({ ts: Number(ts) / 1e6, line });
+      }
+      return lines.sort((a, b) => b.ts - a.ts);
+    }
+
+    function kubectlJson(args, timeout = 8000) {
+      const out = execFileSync("kubectl", args, { encoding: "utf8", timeout, maxBuffer: 16 * 1024 * 1024 });
+      try {
+        return JSON.parse(out);
+      } catch (err) {
+        throw new Error(`kubectl ${args.join(" ")} returned non-JSON: ${err.message}`);
+      }
+    }
+
+    function formatEvents(since) {
+      const events = kubectlJson(["get", "events", "-A", "-o", "json"]).items ?? [];
+      const recent = events
+        .map((event) => ({
+          ts: Date.parse(event.lastTimestamp ?? event.eventTime ?? event.metadata?.creationTimestamp ?? 0),
+          event,
+        }))
+        .filter(({ ts, event }) => ts >= since && (event.type === "Warning" || event.reason === "ScalingReplicaSet"))
+        .sort((a, b) => b.ts - a.ts)
+        .slice(0, 25);
+      if (recent.length === 0) return "none";
+      return recent
+        .map(
+          ({ ts, event }) =>
+            `- ${age(ts)} ${event.type} ${event.reason} ` +
+            `${event.involvedObject?.kind}/${event.involvedObject?.name}` +
+            (event.involvedObject?.namespace ? ` (${event.involvedObject.namespace})` : "") +
+            `: ${oneLine(event.message, 120)}`,
+        )
+        .join("\n");
+    }
+
+    function formatSyncs(since) {
+      // finishedAt is the last real sync (reconciledAt refreshes constantly and would flood
+      // the digest with apps that merely re-checked).
+      const apps = kubectlJson(["-n", "argocd", "get", "applications", "-o", "json"]).items ?? [];
+      const synced = apps
+        .map((app) => {
+          const op = app.status?.operationState ?? {};
+          return {
+            name: app.metadata?.name,
+            ts: Date.parse(op.finishedAt ?? 0) || 0,
+            phase: op.phase ?? "?",
+            rev: (op.operation?.sync?.revision ?? op.syncResult?.revision ?? "").slice(0, 7),
+            health: app.status?.health?.status ?? "?",
+          };
+        })
+        .filter((app) => app.ts >= since)
+        .sort((a, b) => b.ts - a.ts)
+        .slice(0, 15);
+      if (synced.length === 0) return "none";
+      return synced
+        .map((app) => `- ${age(app.ts)} ${app.name} ${app.phase} (${app.health}) rev ${app.rev || "?"}`)
+        .join("\n");
+    }
+
+    function formatHistory(lines) {
+      if (lines.length === 0) return "none";
+      return lines
+        .map(({ ts, line }) => {
+          const kind = line.includes("triage-skip") ? "suppressed" : "analysed";
+          const verdict = /verdict=([A-Z_]+)/.exec(line)?.[1] ?? "-";
+          const name = /alertname="([^"]*)"/.exec(line)?.[1] ?? "?";
+          const cause = /cause="([^"]*)"/.exec(line)?.[1] ?? "";
+          return `- ${age(ts)} ${name} → ${kind}${verdict === "-" ? "" : ` (${verdict})`}${cause ? `: ${cause}` : ""}`;
+        })
+        .join("\n");
+    }
+
+    function safe(fn, arg) {
+      try {
+        return fn(arg);
+      } catch (err) {
+        return `unavailable (${oneLine(err.message ?? err, 80)})`;
+      }
+    }
+
+    const section = (title, body) => `## ${title}\n\n${body}\n\n`;
+
+    // ---------------------------------------------------------------- flap gate
+    let records = [];
+    let degraded = "";
+    try {
+      records = await loki(`{namespace="alert-triage"} |= "triage-record fingerprint=${FP}"`, COOLDOWN, 50);
+    } catch (err) {
+      // Fail open: a broken gate must never hide an incident (a broken Loki is its own alert).
+      degraded = oneLine(err.message ?? err, 120);
+    }
+
+    const last = records[0];
+    const lastVerdict = last ? /verdict=([A-Z_]+)/.exec(last.line)?.[1] : undefined;
+
+    if (lastVerdict && SUPPRESSIBLE.has(lastVerdict)) {
+      console.log(
+        `triage-skip fingerprint=${FP} alertname="${oneLine(alert.name)}" reason=cooldown ` +
+          `prior_verdict=${lastVerdict} prior_age=${age(last.ts)}`,
+      );
+      process.exit(10);
+    }
+
+    // ---------------------------------------------------------------- memory digest
+    const since = Date.now() - WINDOW;
+    let digest = "# Triage memory for this run\n\n";
+    digest += section(
+      "Cluster events (warnings, rollouts; Kubernetes keeps events ~1h, so this is the recent tail)",
+      safe(formatEvents, since),
+    );
+    digest += section("ArgoCD applications synced inside the memory window", safe(formatSyncs, since));
+    try {
+      digest += section(
+        "Recent triage activity (every alert, newest first)",
+        formatHistory(await loki(`{namespace="alert-triage"} |~ "triage-(record|skip) "`, WINDOW, 200)),
+      );
+    } catch (err) {
+      digest += section("Recent triage activity", `unavailable (${oneLine(err.message ?? err, 80)})`);
+    }
+
+    let recurrence = "";
+    if (lastVerdict === "ACTIONABLE") {
+      // The claim name is the pod name, so the previous report is one stream lookup away.
+      const priorPod = /pod=(\S+)/.exec(last.line)?.[1];
+      let priorReport = "unavailable";
+      if (priorPod) {
+        try {
+          const lines = await loki(
+            `{namespace="alert-triage", pod="${priorPod}"} |~ "VERDICT|ROOT CAUSE|FIX"`,
+            Math.min(COOLDOWN, WINDOW),
+            40,
+          );
+          if (lines.length) priorReport = lines.map(({ line }) => line).toReversed().join("\n").slice(0, 4000);
+        } catch {
+          /* keep "unavailable" */
+        }
+      }
+      digest += section(`Previous analysis of this alert (${age(last.ts)} ago, verdict ACTIONABLE)`, priorReport);
+      recurrence = ` recurrence=1 prior_verdict=ACTIONABLE prior_age=${age(last.ts)}`;
+      writeFileSync(RECURRENCE, `${lastVerdict} ${age(last.ts)} ${priorPod ?? ""}`);
+    }
+
+    writeFileSync(DIGEST, digest);
+
+    console.log(
+      `triage-event fingerprint=${FP} alertname="${oneLine(alert.name)}" severity=${oneLine(alert.severity)} ` +
+        `pod=${POD} history=${records.length}${recurrence}` +
+        `${degraded ? ` gate=degraded reason="${degraded}"` : ""}`,
+    );
   entrypoint.sh: |
     #!/usr/bin/env bash
-    # One triage run: assemble the pi agent dir, run pi headless, post the verdict.
+    # One triage run: gate (flap suppression + memory digest), run pi headless, record the
+    # verdict, post it. The run's own stdout is the state store the gate reads next time.
     # Every failure prints `triage-failed: <reason>` (matched by the "Alert triage failing"
     # rule) and exits non-zero, so the Sandbox reports PodFailed.
     set -euo pipefail
@@ -104,6 +346,11 @@ data:
     CONFIG_DIR=/etc/triage
     AGENT_DIR="${PI_CODING_AGENT_DIR:-/tmp/pi-agent}"
     SA_DIR=/var/run/secrets/kubernetes.io/serviceaccount
+    DIGEST=/tmp/triage-memory.md
+    RECURRENCE=/tmp/triage-recurrence
+    ALERT_JSON="${ALERT_JSON:-"{}"}"
+    ALERT_NAME="${ALERT_NAME:-unknown}"
+    ALERT_FP="${ALERT_FP:-unknown}"
 
     fail() {
       echo "triage-failed: $*" >&2
@@ -134,28 +381,69 @@ data:
           tokenFile: ${SA_DIR}/token
     EOF
 
-    ALERT_JSON="${ALERT_JSON:-"{}"}"
-    ALERT_NAME="${ALERT_NAME:-unknown}"
+    # ---- gate: suppress flapping alerts, collect the memory digest (no model, no pi yet)
+    gate_status=0
+    node "$CONFIG_DIR/gate.mjs" || gate_status=$?
+    case "$gate_status" in
+    0) ;;
+    10)
+      echo "triage: suppressed by the flap gate (no analysis spent)"
+      exit 0
+      ;;
+    *)
+      # Fail open: if the gate itself breaks, analyse anyway.
+      echo "triage-gate-degraded: gate exited ${gate_status}, continuing without a gate" >&2
+      ;;
+    esac
+
+    # pi is only installed when a run actually happens; the gate path uses the image's node.
+    if ! command -v pi >/dev/null 2>&1; then
+      echo "triage: installing pi"
+      npm install -g --prefix /opt/pi "@earendil-works/pi-coding-agent@1.3.0" >/tmp/npm.log 2>&1 ||
+        { tail -n 20 /tmp/npm.log >&2; fail "pi install failed"; }
+    fi
+
+    MEMORY=""
+    if [ -s "$DIGEST" ]; then
+      MEMORY="$(cat "$DIGEST")"
+    fi
+
+    RECURRENCE_NOTE=""
+    if [ -s "$RECURRENCE" ]; then
+      RECURRENCE_NOTE="This alert already had an ACTIONABLE verdict $(cut -d' ' -f2 "$RECURRENCE") ago and has
+    fired again. Treat the fix as unproven: check whether it landed, and whether it worked."
+      export ALERT_RECURRENCE=1
+    fi
 
     PROMPT="$(cat <<EOF
     A Grafana alert notification just fired in this cluster. Investigate it and report.
 
-    Firing: ${ALERT_NAME}
+    Firing: ${ALERT_NAME} (fingerprint ${ALERT_FP})
+
+    ${RECURRENCE_NOTE}
 
     Grafana webhook payload (JSON; use its labels, annotations and URLs):
 
     ${ALERT_JSON}
 
+    Triage memory: what this cluster was doing recently and what earlier triages concluded.
+    Use it to answer "is this the same issue again?", "did something change right before it
+    fired?" and "is another alert part of the same story?". It is context, not evidence:
+    verify anything you rely on.
+
+    ${MEMORY}
+
     Read-only sources:
-    - MCP server \`grafana\`: tools are named mcp__grafana__* (query_prometheus,
+    - MCP server grafana: tools are named mcp__grafana__* (query_prometheus,
       query_loki_logs, list_alert_rules, get_dashboard_by_uid, ...). Metrics use datasource
-      uid victoriametrics, logs use Loki.
+      uid victoriametrics, logs use Loki, including this namespace's earlier triage reports.
     - kubectl, already configured via KUBECONFIG: pods, events, describe, logs, and
       kubectl -n argocd get applications for ArgoCD sync state.
 
-    Start from the alert's own query and time window, then inspect the objects behind it.
-    Confirm the cause with evidence before concluding; if it stays inconclusive, say so and
-    name the next check instead of guessing. Answer with the report only.
+    Start from the alert's own query and time window, then inspect the objects behind it and
+    anything recent in the memory that lines up in time. Confirm the cause with evidence
+    before concluding; if it stays inconclusive, say so and name the next check instead of
+    guessing. Answer with the report only.
     EOF
     )"
 
@@ -171,6 +459,15 @@ data:
     echo "--- triage report: ${ALERT_NAME} ---"
     cat "$AGENT_DIR/report.md"
     echo "--- triage report end ---"
+
+    # One machine-readable record per analysis: the next run's gate and memory digest read it.
+    # One line, stable field names, no quotes (LogQL line filters match on it).
+    verdict="$(grep -m1 -oE 'VERDICT:[[:space:]]*[A-Z_]+' "$AGENT_DIR/report.md" | sed 's/.*[[:space:]]//' || true)"
+    confidence="$(grep -m1 -oE 'confidence[[:space:]]+(high|medium|low)' "$AGENT_DIR/report.md" | awk '{print $2}' || true)"
+    cause="$(grep -m1 '^ROOT CAUSE:' "$AGENT_DIR/report.md" | cut -c1-200 || true)"
+    safe_name="$(printf '%s' "$ALERT_NAME" | tr -d '"' | tr '\n' ' ')"
+    safe_cause="$(printf '%s' "${cause#ROOT CAUSE: }" | tr -d '"' | tr '\n' ' ')"
+    echo "triage-record fingerprint=${ALERT_FP} alertname=\"${safe_name}\" verdict=${verdict:-UNKNOWN} confidence=${confidence:-n/a} pod=${HOSTNAME} cause=\"${safe_cause}\""
 
     node "$CONFIG_DIR/post.mjs" "$AGENT_DIR/report.md" || fail "discord post failed"
     echo "triage: verdict posted to Discord"

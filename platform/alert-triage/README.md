@@ -18,6 +18,7 @@ Grafana alertmanager ──webhook POST /grafana (Bearer)──► EventSource g
                                                               ▼
                                 SandboxTemplate alert-triage ─► Sandbox ─► Pod
                                                                             │
+   gate (flap check + memory digest, no model) ──> loki (own records)      │
    pi -p (headless) ──MCP──► grafana-mcp (metrics/logs/alerts/dashboards)    │
                      ──kubectl──► kube-apiserver (cluster-viewer, read-only) │
                      ──curl──► Discord webhook (verdict, ≤1900 chars)        │
@@ -40,7 +41,7 @@ The Argo Events controller and its CRDs live in their own folder,
 [`platform/argo-events/`](../argo-events/application.yaml): ArgoCD validates a whole
 directory before applying it, so the chart Application cannot share a folder with the
 `EventBus`/`EventSource`/`Sensor` objects whose CRDs it installs.
-| `agent-config.yaml` | ConfigMap: `mcp.json`, triage contract (`APPEND_SYSTEM.md`), `entrypoint.sh`, `post.mjs` |
+| `agent-config.yaml` | ConfigMap: `mcp.json`, triage contract (`APPEND_SYSTEM.md`), flap gate (`gate.mjs`), `entrypoint.sh`, `post.mjs` |
 | `service-account.yaml`, `rbac.yaml` | sensor write scope (claims) and agent read scope (`cluster-viewer`) |
 | `secret-store.yaml`, `external-secret.yaml` | agent credentials from OpenBao |
 
@@ -114,21 +115,37 @@ The verdict lands in Discord; the full report stays in the pod log (Loki:
 
 ## Behaviour and guardrails
 
-- **Dedupe** — the claim is named `triage-<first 8 of the alert fingerprint>`. A repeat
-  notification for the same alert while that claim still exists fails `AlreadyExists` and
-  only logs a sensor error.
+- **Flap gate** — before any model call, `gate.mjs` reads this namespace's own Loki stream
+  for a `triage-record` of the same alert fingerprint inside `TRIAGE_COOLDOWN` (2h). If the
+  previous verdict was `NOISE` or `NO_ACTION`, the run is suppressed: one line
+  (`triage-skip …`) is logged and the pod exits 0 without installing pi or calling a model
+  (~4s, no tokens). An `ACTIONABLE` verdict instead re-arms the agent, which then re-checks
+  whether the fix landed — and gets the earlier report attached. The gate fails **open**:
+  if Loki is unreachable the analysis runs anyway (`triage-gate-degraded`).
+- **Memory** — every run logs one `triage-record` line (fingerprint, alert, verdict,
+  confidence, one-line cause, pod). The gate feeds the newest 6h of those records (every
+  alert, not just this one), the cluster's warning/rollout events and the ArgoCD syncs in
+  the same window into the prompt, so the agent can answer "is this the same issue again?",
+  "did a deploy land right before it fired?" and "is another alert part of the same story?".
+  For a recurrence it also pulls the previous report of the same claim (same pod name).
+  Logs are the store: no database, no extra CRs, and Loki's 2160h retention is the horizon.
+- **Name dedupe** — the claim is named `triage-<first 8 of the alert fingerprint>`, so a
+  second notification while that claim still exists fails `AlreadyExists` and is only
+  logged. This covers the minutes a run takes; the flap gate covers the hours after it.
 - **Concurrency** — `ResourceQuota` caps claims at 2. A third simultaneous alert is
   rejected (sensor log), never queued; the claim TTL (5 min after the pod finishes) frees
   the slot.
 - **Time** — `activeDeadlineSeconds: 1200` kills a stuck run; the pod then reports Failed
   and the claim is still collected by its TTL.
+- **Knobs** (env on `sandbox-template.yaml`): `TRIAGE_COOLDOWN` (2h) and
+  `TRIAGE_MEMORY_WINDOW` (6h).
 - **Resolved notifications** are filtered out in the sensor (`body.status == firing`).
 - **Read-only** — the agent's ServiceAccount is bound to the aggregated `cluster-viewer`
   ClusterRole; the Grafana MCP server runs with `--disable-write --disable-api` and a
   Viewer service account.
-- **Cold start** is ~40-60s (npm install of the pinned pi release, image pull). A
-  `SandboxWarmPool` with `replicas: 1`, or a prebuilt image, would make it seconds at a
-  small idle cost.
+- **Cold start** on the analysis path is ~40-60s (image pull + the pinned pi release
+  installed by `entrypoint.sh`); a suppressed flap costs only the pod start (~4s). A
+  `SandboxWarmPool` with `replicas: 1`, or a prebuilt image, would remove the rest.
 
 Choosing which alerts triage: the Grafana notification policy routes every alert to both
 Discord and the `Triage` contact point. To opt a rule out, give it a label and add a
