@@ -87,6 +87,12 @@ repos:
         entry: .github/scripts/check-grafana-logql.py
         language: script
         files: ^platform/observability/dashboards/.*\.ya?ml$
+      - id: triage-gate-test
+        name: alert triage gate fixtures
+        entry: .github/scripts/check-triage-gate.sh
+        language: script
+        pass_filenames: false
+        files: ^platform/alert-triage/(agent-config\.ya?ml|gate\.test\.mjs)$
       - id: terragrunt-validate
         name: terragrunt validate
         entry: .github/scripts/terragrunt-validate.sh
