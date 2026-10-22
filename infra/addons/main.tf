@@ -22,49 +22,54 @@ resource "helm_release" "argo_cd" {
         service = { type = "ClusterIP" }
         ingress = { enabled = false }
         metrics = { enabled = true }
-        # Re-derived 2026-09-16 (pod age 2d, local VictoriaMetrics): p95 169Mi → 192Mi
-        # request; limit = max(1.5x request, 1.25x peak 174Mi) = 288Mi. The 128Mi/192Mi
-        # it replaces left the server 32% over its request and at 90% of its limit.
+        # Re-derived 2026-09-16..10-22 (36d retained, local VictoriaMetrics): p95 124.9Mi
+        # → 128Mi request; limit = max(1.5x request 192Mi, 1.25x peak 203.3Mi) = 256Mi.
+        # The 192Mi/288Mi it replaces came from a 2-day window.
         resources = {
-          requests = { cpu = "10m", memory = "192Mi" }
-          limits   = { memory = "288Mi" }
+          requests = { cpu = "10m", memory = "128Mi" }
+          limits   = { memory = "256Mi" }
         }
       }
       applicationSet = {
         enabled = true
         metrics = { enabled = true }
-        # One-shot escalation: the retained series is censored by the old 96Mi limit
-        # (last termination reason OOMKilled), so p95 cannot size it. Re-measure 2026-09-24.
+        # Re-derived 2026-09-16..10-22 (36d retained): p95 132.8Mi → 192Mi request (the old
+        # 128Mi sat below its own p95); the 255.7Mi peak sat at 0.999 of the old 256Mi limit,
+        # so limit = 1.25x peak = 320Mi. Retires the 2026-09-24 escalation.
         resources = {
-          requests = { cpu = "10m", memory = "128Mi" }
-          limits   = { memory = "256Mi" }
+          requests = { cpu = "10m", memory = "192Mi" }
+          limits   = { memory = "320Mi" }
         }
       }
       # Expose the /metrics endpoints as Services so the k8s-monitoring
       # ServiceMonitors in platform/k8s-monitoring can scrape them.
       controller = {
         metrics = { enabled = true }
-        # One-shot escalation: the retained series is censored by the old 912Mi limit
-        # (last termination reason OOMKilled), so p95 cannot size it. Re-measure 2026-09-24.
+        # Re-derived 2026-09-16..10-22 (36d retained): p95 704.4Mi → 768Mi request, cpu p95
+        # 136m → 140m; limit = max(1.5x request 1152Mi, 1.25x peak 847.3Mi). Retires the
+        # 1Gi/2Gi escalation — the 36d series is no longer limit-censored.
         resources = {
-          requests = { cpu = "80m", memory = "1Gi" }
-          limits   = { memory = "2Gi" }
+          requests = { cpu = "140m", memory = "768Mi" }
+          limits   = { memory = "1152Mi" }
         }
       }
       repoServer = {
         metrics = { enabled = true }
-        # One-shot escalation: the policy-derived 327Mi limit was hit during the
-        # full-fleet render burst that followed the sizing apply, so the retained
-        # series cannot size it. Re-measure 2026-09-24.
+        # Re-derived 2026-09-16..10-22 (36d retained): steady p95 136.7Mi → 192Mi request and
+        # cpu p95 88m → 90m; the 518.6Mi peak is the full-fleet render burst (minutes, not
+        # steady state), so the limit stays on it: 1.25x = 648Mi → 704Mi.
         resources = {
-          requests = { cpu = "170m", memory = "256Mi" }
-          limits   = { memory = "1Gi" }
+          requests = { cpu = "90m", memory = "192Mi" }
+          limits   = { memory = "704Mi" }
         }
       }
       dex = {
+        # Re-derived 2026-09-16..10-22 (36d retained): p95 118.9Mi (the 128Mi request still
+        # holds); peak 164.5Mi was 0.86 of the old 192Mi limit, so limit = 1.25x = 206Mi,
+        # rounded to 256Mi.
         resources = {
           requests = { cpu = "10m", memory = "128Mi" }
-          limits   = { memory = "192Mi" }
+          limits   = { memory = "256Mi" }
         }
       }
       notifications = {
