@@ -49,7 +49,7 @@ spec:
             wget -q -O "$INIT_SHARED_DIR/kubectl" \
               https://dl.k8s.io/release/v1.37.1/bin/linux/amd64/kubectl
             chmod 755 "$INIT_SHARED_DIR/terragrunt" "$INIT_SHARED_DIR/sops" "$INIT_SHARED_DIR/kubectl"
-        # Sizing: one docker stats sample (604MiB RSS, 2026-10-23) — the host kept no history for a p95; the 2Gi limit is headroom for tofu/terragrunt peaks, not a derivation.
+        # Sizing: one docker stats sample (604MiB RSS, 2026-10-23); the host kept no history for a p95, so the 2Gi limit is headroom for tofu/terragrunt peaks, not a derivation.
         resources:
           requests:
             cpu: 50m

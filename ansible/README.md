@@ -153,7 +153,7 @@ the single-node k3s cluster that runs Atlantis: installs or upgrades k3s
 `atlantis-env` Secret from `~/appdata/atlantis/atlantis.env`, creates the
 `argocd-manager` service account with a non-expiring token, and renders the
 ArgoCD cluster registration to `~/appdata/atlantis/cluster-windrunner.yaml`.
-Applying that manifest to the Talos cluster and the SWAG cutover are manual —
+Applying that manifest to the Talos cluster and the SWAG cutover are manual;
 see the root README's
 [Atlantis management cluster](../README.md#atlantis-management-cluster-k3s).
 

@@ -320,7 +320,7 @@ webhook (shared secret + payload cap; see
 [`infra/addons/README.md`](infra/addons/README.md#argocd-github-webhook)),
 and a second webhook drives Atlantis PR automation
 (`atlantis.icaninto.space`, a Helm release in the k3s management cluster on
-`windrunner` behind SWAG — see
+`windrunner` behind SWAG, see
 [Atlantis management cluster](#atlantis-management-cluster-k3s)).
 
 Secrets: edit `infra/secrets.sops.yaml` with `sops` (re-encrypts on save). The
