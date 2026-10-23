@@ -129,8 +129,8 @@ re-runs are no-ops.
 
 ## windrunner setup
 
-`windrunner-setup.sh` (run as the `deschain` user; the final
-`install`/`systemctl` step needs sudo) installs the pinned `sops` binary, a
+`windrunner-setup.sh` (run as the `deschain` user; the systemd step calls
+`sudo`) installs the pinned `sops` binary, a
 venv with `ansible-core` + `proxmoxer` + `kubernetes` + the collections, the
 age key, known_hosts entries, and the system units:
 
