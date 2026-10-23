@@ -145,6 +145,33 @@ age key, known_hosts entries, and the system units:
 Never `systemctl start proxmox-node-updates` as a test — that performs a
 real roll. Use the dry run above instead.
 
+## windrunner k3s cluster (Atlantis)
+
+`windrunner-k3s.yml` (host `windrunner` in the `management` group) provisions
+the single-node k3s cluster that runs Atlantis: installs or upgrades k3s
+(`--disable traefik`, SWAG owns 80/443), publishes the kubeconfig, stages the
+`atlantis-env` Secret from `~/appdata/atlantis/atlantis.env`, creates the
+`argocd-manager` service account with a non-expiring token, and renders the
+ArgoCD cluster registration to `~/appdata/atlantis/cluster-windrunner.yaml`.
+Applying that manifest to the Talos cluster and the SWAG cutover are manual;
+see the root README's
+[Atlantis management cluster](../README.md#atlantis-management-cluster-k3s).
+
+```sh
+ansible-galaxy collection install -r requirements.yml      # pinned collections
+ansible-playbook -i inventory.yml windrunner-k3s.yml --check --diff
+ansible-playbook -i inventory.yml windrunner-k3s.yml
+kubectl --kubeconfig ../infra/cluster/artifacts/kubeconfig \
+  apply -f ~/appdata/atlantis/cluster-windrunner.yaml
+```
+
+Re-running is idempotent and is the refresh path for the Secret when the GitHub
+token or the SOPS age key rotates. It needs SSH to `ssh.icaninto.space:21496`
+as `deschain` with passwordless sudo, and the `kubernetes` Python package on
+the controller (this laptop has it; otherwise run it from windrunner's
+maintenance venv). `WINDRUNNER_KUBECONFIG` overrides where the fetched k3s
+kubeconfig lands (`/tmp/windrunner-kubeconfig` by default).
+
 ## Requirements
 
 - ansible-core with the collections pinned in `requirements.yml`

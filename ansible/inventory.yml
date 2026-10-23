@@ -48,3 +48,9 @@ all:
         vm_shutdown_timeout: 600
         node_ready_timeout: 900
         longhorn_healthy_timeout: 900
+    management:
+      hosts:
+        windrunner:
+          ansible_host: ssh.icaninto.space
+          ansible_port: 21496
+          ansible_user: deschain
