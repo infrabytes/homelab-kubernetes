@@ -18,6 +18,9 @@ spec:
         service:
           type: NodePort
           nodePort: 30414
+        # The chart's default Ingress has no class, never gets an address, and keeps the app Progressing.
+        ingress:
+          enabled: false
         # ArgoCD never runs `helm test`, so the unsized bats hook Pod is not worth rendering.
         test:
           enabled: false
