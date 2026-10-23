@@ -8,6 +8,9 @@ plans slower than those two workflows: the aggregate `atlantis/plan` update is
 commonly the last gate to turn green. Resolves the pull request behind the
 triggering SHA and comments `atlantis apply` once every gate on that SHA is
 green, so Atlantis applies the units and merges without a human in the loop.
+Green must also exist: a gate context that was never posted (renovate-gate
+exits 0 when its status POST is rejected) blocks the apply instead of
+letting a held major through.
 
 The comment body is deliberately the bare single line `atlantis apply`:
 Atlantis ignores a comment whose body has a second non-empty line
@@ -35,6 +38,7 @@ BOT_LOGIN = "github-actions[bot]"
 INFRA_PREFIX = "infra/"
 APPLY_COMMENT = "atlantis apply"
 PLAN_CONTEXT = "atlantis/plan"
+GATE_CONTEXT = "breaking-change-gate"
 GREEN_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
 
 
@@ -112,6 +116,13 @@ def evaluate(
         return False, f"no {PLAN_CONTEXT} status on {run_sha}"
     if plan.get("state") != "success":
         return False, f"{PLAN_CONTEXT} is {plan.get('state')}"
+
+    # renovate-gate exits 0 without posting when its status POST is rejected, so a missing gate means "never decided", not "passed".
+    gate = newest_status(statuses, GATE_CONTEXT)
+    if gate is None:
+        return False, f"no {GATE_CONTEXT} status on {run_sha}"
+    if gate.get("state") != "success":
+        return False, f"{GATE_CONTEXT} is {gate.get('state')}"
 
     if has_apply_comment(comments, head_committer_date):
         return False, f"apply already requested on {run_sha}"
@@ -251,7 +262,10 @@ def fixture(**overrides) -> dict:
             },
         ],
         "combined_state": "success",
-        "statuses": [{"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"}],
+        "statuses": [
+            {"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"},
+            {"context": GATE_CONTEXT, "state": "success", "created_at": "2026-09-16T10:31:00Z"},
+        ],
         "comments": [],
         "head_committer_date": FIXTURE_HEAD_DATE,
         "run_sha": FIXTURE_SHA,
@@ -319,6 +333,37 @@ SELF_TEST_CASES = [
         ),
         False,
         "atlantis/plan is pending",
+    ),
+    (
+        "missing breaking-change-gate status",
+        fixture(
+            statuses=[{"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"}]
+        ),
+        False,
+        "no breaking-change-gate status",
+    ),
+    (
+        "failed breaking-change-gate status",
+        fixture(
+            statuses=[
+                {"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"},
+                {"context": GATE_CONTEXT, "state": "failure", "created_at": "2026-09-16T10:31:00Z"},
+            ]
+        ),
+        False,
+        "breaking-change-gate is failure",
+    ),
+    (
+        "newest breaking-change-gate wins",
+        fixture(
+            statuses=[
+                {"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"},
+                {"context": GATE_CONTEXT, "state": "pending", "created_at": "2026-09-16T10:32:00Z"},
+                {"context": GATE_CONTEXT, "state": "success", "created_at": "2026-09-16T10:31:00Z"},
+            ]
+        ),
+        False,
+        "breaking-change-gate is pending",
     ),
     (
         "prior apply comment belongs to an older sha",
@@ -432,7 +477,10 @@ def stub_responses(sha: str, *, combined_state: str, extra_check_runs: list | No
             ]
         },
         f"/repos/o/r/commits/{sha}/status": {"state": combined_state},
-        f"/repos/o/r/commits/{sha}/statuses": [{"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"}],
+        f"/repos/o/r/commits/{sha}/statuses": [
+            {"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"},
+            {"context": GATE_CONTEXT, "state": "success", "created_at": "2026-09-16T10:31:00Z"},
+        ],
         "/repos/o/r/issues/7/comments": [],
         f"/repos/o/r/commits/{sha}": {"commit": {"committer": {"date": FIXTURE_HEAD_DATE}}},
     }

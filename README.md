@@ -225,7 +225,10 @@ repository — the status trigger is what picks a PR up when Atlantis posts its
 script comments `atlantis apply` on the head SHA — at most once per SHA — and
 only when every commit status and check run on that SHA is green
 (`breaking-change-gate` included) and Atlantis has posted a successful
-`atlantis/plan` status for that same SHA. The comment is authored by
+`atlantis/plan` status for that same SHA. A *missing* `breaking-change-gate`
+status also blocks the apply: the gate workflow exits 0 without posting one
+when its status POST is rejected, and absence must not read as green.
+The comment is authored by
 `github-actions[bot]` with the workflow's `GITHUB_TOKEN`, adds no secret, and a
 rebase or new push is evaluated afresh. Held major/breaking PRs stay
 uncommented until an approval re-runs `renovate-gate` green.
