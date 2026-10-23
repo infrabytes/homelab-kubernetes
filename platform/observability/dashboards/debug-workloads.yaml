@@ -652,7 +652,7 @@ spec:
     matchLabels:
       grafanaInstance: main
   allowCrossNamespaceImport: true
-  folder: kubernetes
+  folderUID: kubernetes
   resyncPeriod: 1h
   configMapRef:
     name: debug-workloads
