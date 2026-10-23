@@ -366,6 +366,19 @@ spec:
                 bound_service_account_namespaces=alert-triage \
                 policies=eso-alert-triage \
                 ttl=1h
+              bao policy write eso-memory-rightsize - <<'EOF'
+              path "secret/data/memory-rightsize" {
+                capabilities = ["read"]
+              }
+              path "sys/mounts/secret" {
+                capabilities = ["read"]
+              }
+              EOF
+              bao write auth/kubernetes/role/eso-memory-rightsize \
+                bound_service_account_names=memory-rightsize-eso \
+                bound_service_account_namespaces=alert-triage \
+                policies=eso-memory-rightsize \
+                ttl=1h
           # 36d (2026-09-16..10-22, local VM): ws p95 172.5Mi → request 192Mi, limit 288Mi;
           # cpu p95 160m. The old 192Mi limit pinned ws at 0.99 (RSS only 55Mi).
           resources:

@@ -1,10 +1,16 @@
-# Alert triage Sandbox
+# Alert sandbox
 
-Every Grafana alert that fires in this cluster starts a sandboxed [pi](https://github.com/earendil-works/pi)
-agent. The agent investigates with the read-only Grafana MCP server and read-only
-`kubectl`, then posts a verdict to Discord: what fired, whether it is actionable, the most
-likely root cause with the evidence behind it, and a concrete fix suggestion. It never
-changes anything.
+Two sandboxed [pi](https://github.com/earendil-works/pi) agents run in namespace
+`alert-triage`, both fed by the same Grafana webhook.
+
+**alert-triage** starts on every firing alert. The agent investigates with the read-only
+Grafana MCP server and read-only `kubectl`, then posts a verdict to Discord: what fired,
+whether it is actionable, the most likely root cause with the evidence behind it, and a
+concrete fix suggestion. It never changes anything.
+
+**memory-rightsize** starts on the two memory rules. The agent measures the container's
+memory over 14 days, decides whether the request/limit should be raised, and opens a pull
+request with the change (see [Memory rightsize](#memory-rightsize)).
 
 ```
 Grafana alertmanager ──webhook POST /grafana (Bearer)──► EventSource grafana-alerts
@@ -43,8 +49,13 @@ directory before applying it, so the chart Application cannot share a folder wit
 `EventBus`/`EventSource`/`Sensor` objects whose CRDs it installs.
 | `agent-config.yaml` | ConfigMap: `mcp.json`, triage contract (`APPEND_SYSTEM.md`), flap gate (`gate.mjs`), `entrypoint.sh`, `post.mjs` |
 | `service-account.yaml`, `rbac.yaml` | sensor write scope (claims) and agent read scope (`cluster-viewer`) |
-| `gate.test.mjs` | node fixtures for the flap gate (suppress / re-run / fail open); run by the `triage-gate-test` pre-commit hook |
-| `secret-store.yaml`, `external-secret.yaml` | agent credentials from OpenBao |
+| `gate.test.mjs`, `rightsize-gate.test.mjs` | node fixtures for both gates; run by the `triage-gate-test` pre-commit hook |
+| `secret-store.yaml`, `external-secret.yaml` | triage agent credentials from OpenBao |
+| `memory-rightsize-sensor.yaml` | filters the two memory alertnames, creates one claim per alert |
+| `memory-rightsize-sandbox-template.yaml` | the rightsize sandbox: pi + git + kubectl, read-only SA |
+| `memory-rightsize-warm-pool.yaml` | zero-replica pool for that template |
+| `memory-rightsize-agent-config.yaml` | ConfigMap: `mcp.json`, rightsize contract, `gate.mjs`, `entrypoint.sh`, `post.mjs` |
+| `memory-rightsize-secret-store.yaml`, `memory-rightsize-external-secret.yaml` | the repository token, isolated from the triage store |
 
 ## Credentials
 
@@ -103,6 +114,20 @@ here and a key in `grafana-notification-secrets` in `observability`). The Grafan
 does not watch that Secret: after rotating it, touch the `GrafanaContactPoint` and delete
 the eventsource pod.
 
+The rightsize agent adds one credential of its own: a fine-grained GitHub PAT restricted to
+this repository with `Contents: write` and `Pull requests: write`. It lives at
+`secret/memory-rightsize` and reaches the sandbox as `GITHUB_TOKEN` through the
+`memory-rightsize-agent-creds` ExternalSecret, so the triage identity cannot read it.
+
+```sh
+read -rs GH_PAT
+bao kv put secret/memory-rightsize github_token="$GH_PAT"
+```
+
+Its policy (`eso-memory-rightsize`) and role are in the same openbao postStart script, so a
+fresh value lands after the next OpenBao pod restart. The agent uses the models' key from
+`secret/alert-triage`; rotating it rotates both agents.
+
 The `alert-triage` namespace itself is Terraform-owned (`infra/addons`), like
 `observability`: the webhook Secret has to exist before ArgoCD first syncs this folder.
 
@@ -134,6 +159,74 @@ kubectl -n alert-triage logs -f sandbox/triage-manual-1   # pi's transcript + re
 The verdict lands in Discord; the full report stays in the pod log (Loki:
 `{namespace="alert-triage"}`). A failed run prints `triage-failed: <reason>`.
 
+## Memory rightsize
+
+The `Container memory above 90% of limit` and `Container OOMKilled` rules start a second
+agent from the same webhook: `Sensor memory-rightsize` filters those two alertnames, and the
+memory route in `grafana-notification-policy.yaml` groups them per pod so one notification
+carries one container. The agent measures 14 days of `container_memory_working_set_bytes`
+through the Grafana MCP server, decides whether the working set justifies a bigger
+request/limit or whether the series is a leak, and edits the owning manifest in a fresh
+checkout of this repository. The sandbox pushes and opens the pull request itself.
+
+```
+memory alert ──► eventsource ──► Sensor memory-rightsize ──► SandboxClaim
+                                                                 │
+   gate (per-workload dedupe, context digest) ──> loki           │
+   pi -p (headless) ──MCP──► grafana-mcp (metrics)               │
+                     ──kubectl──► kube-apiserver (read-only)     │
+                     ──edit──► /work/repo                        ▼
+                              entrypoint: allowlisted diff → commit → push → GitHub PR
+                                          │
+                                          └─► Discord note (PR link, or why it declined)
+```
+
+The model never runs git. The entrypoint commits only `platform/`, `apps/` and `charts/` and
+fails the run when the diff touches anything else — `infra/` in particular, where a PR is
+auto-applied by Atlantis. The numbers follow the repo's sizing convention (memory request =
+p95 rounded up to 64Mi with a 32Mi floor; limit = max(1.5x request, 1.25x peak); no CPU
+limits), and the contract makes the agent decline when the series climbs without a plateau: a
+bigger limit only buys time on a leak.
+
+Dedupe is per workload, not per pod. Several replicas of one Deployment firing together
+resolve to the same object, and the gate suppresses a run when this namespace logged a
+`rightsize-record` for that workload inside `RIGHTSIZE_COOLDOWN` (7d) or when a `rightsize/*`
+pull request is still open. Branches are `rightsize/<namespace>-<workload>-<YYYYMMDD>`, so the
+first proposal of the day wins and a rerun after the merge gets a fresh branch.
+
+A SKIP decision still posts to Discord and records itself, so a suspected leak stays visible
+instead of being re-sized silently.
+
+Running one by hand is the same claim, with the container spelled out:
+
+```sh
+kubectl -n alert-triage create -f - <<'EOF'
+apiVersion: extensions.agents.x-k8s.io/v1beta1
+kind: SandboxClaim
+metadata:
+  name: rightsize-manual-1
+spec:
+  warmPoolRef:
+    name: memory-rightsize
+  lifecycle:
+    ttlSecondsAfterFinished: 600
+    shutdownPolicy: Delete
+  env:
+    - name: ALERT_NAME
+      value: Container memory above 90% of limit
+    - name: ALERT_NS
+      value: observability
+    - name: ALERT_POD
+      value: <pod>
+    - name: ALERT_CONTAINER
+      value: <container>
+    - name: ALERT_JSON
+      value: '{}'
+EOF
+
+kubectl -n alert-triage logs -f sandbox/rightsize-manual-1
+```
+
 ## Behaviour and guardrails
 
 - **Flap gate** — before any model call, `gate.mjs` reads this namespace's own Loki stream
@@ -153,9 +246,9 @@ The verdict lands in Discord; the full report stays in the pod log (Loki:
 - **Name dedupe** — the claim is named `triage-<first 8 of the alert fingerprint>`, so a
   second notification while that claim still exists fails `AlreadyExists` and is only
   logged. This covers the minutes a run takes; the flap gate covers the hours after it.
-- **Concurrency** — `ResourceQuota` caps claims at 2. A third simultaneous alert is
-  rejected (sensor log), never queued; the claim TTL (5 min after the pod finishes) frees
-  the slot.
+- **Concurrency** — `ResourceQuota` caps claims at 3 across both agents. A fourth simultaneous
+  alert is rejected (sensor log), never queued; the claim TTL (5 min after the pod finishes)
+  frees the slot.
 - **Time** — `activeDeadlineSeconds: 1200` kills a stuck run; the pod then reports Failed
   and the claim is still collected by its TTL.
 - **Knobs** (env on `sandbox-template.yaml`): `TRIAGE_COOLDOWN` (2h) and
@@ -211,9 +304,12 @@ cutover per the repo sizing convention. Limits are memory-only (no CPU limits).
 
 - The namespace is not in the phase-1 networkpolicy table; the eventing pods carry no
   policies yet (`docs/network-policies.md` lists the follow-up). The sandbox pods
-  themselves are covered by the template's managed policy.
+  themselves are covered by each template's managed policy.
 - No "Alert triage" dashboard panel yet; the pipeline is visible through pod logs and the
-  `triage-failed` rule only.
+  failed-run rule only.
 - Prompt injection through alert annotations is theoretically possible (labels/annotations
-  reach the model). The blast radius is bounded by read-only RBAC, but keep alert
-  annotations factual.
+  reach the model). The blast radius is bounded by read-only RBAC and, for rightsize, an
+  allowlisted diff — but keep alert annotations factual.
+- Two replicas of one workload alerting within the same minute can race the rightsize gate.
+  Both resolve to the same branch, so the second push (or PR) is rejected and only costs a
+  Discord note; the 7-day record prevents the slow repeat.

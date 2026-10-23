@@ -1,5 +1,6 @@
-# Two triage runs at a time. A third simultaneous alert fails claim creation (the sensor
-# logs it); the claim TTL frees the slot five minutes after a run finishes.
+# Three sandbox runs at a time, across both agents (triage and memory rightsize). A fourth
+# simultaneous alert fails claim creation (the sensor logs it); the claim TTL frees the slot
+# five minutes after a run finishes.
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -7,4 +8,4 @@ metadata:
   namespace: alert-triage
 spec:
   hard:
-    count/sandboxclaims.extensions.agents.x-k8s.io: "2"
+    count/sandboxclaims.extensions.agents.x-k8s.io: "3"

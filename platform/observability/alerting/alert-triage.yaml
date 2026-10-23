@@ -1,6 +1,6 @@
-# The triage path is fire-and-forget (pod logs only), so a broken npm install, model call,
-# MCP connection or Discord post would otherwise fail silently. entrypoint.sh prints
-# `triage-failed: <reason>` on every failure path; this rule surfaces those lines.
+# Both sandbox pipelines are fire-and-forget (pod logs only), so a broken npm install, model
+# call, MCP connection, push or Discord post would otherwise fail silently. entrypoint.sh
+# prints `triage-failed:` / `rightsize-failed:` on every failure path; this rule surfaces them.
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaAlertRuleGroup
 metadata:
@@ -21,7 +21,7 @@ spec:
       noDataState: OK
       execErrState: Alerting
       annotations:
-        summary: "A triage sandbox failed in the last 10 minutes; check {namespace=\"alert-triage\"} logs for triage-failed"
+        summary: "A triage or memory-rightsize sandbox failed in the last 10 minutes; check {namespace=\"alert-triage\"} logs for (triage|rightsize)-failed"
       labels:
         severity: warning
       data:
@@ -36,7 +36,7 @@ spec:
               type: loki
               uid: loki
             editorMode: code
-            expr: 'sum(count_over_time({namespace="alert-triage"} |= "triage-failed" [10m]))'
+            expr: 'sum(count_over_time({namespace="alert-triage"} |~ "(triage|rightsize)-failed" [10m]))'
             queryType: instant
             refId: query
         - refId: threshold
