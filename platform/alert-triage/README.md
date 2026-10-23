@@ -43,6 +43,7 @@ directory before applying it, so the chart Application cannot share a folder wit
 `EventBus`/`EventSource`/`Sensor` objects whose CRDs it installs.
 | `agent-config.yaml` | ConfigMap: `mcp.json`, triage contract (`APPEND_SYSTEM.md`), flap gate (`gate.mjs`), `entrypoint.sh`, `post.mjs` |
 | `service-account.yaml`, `rbac.yaml` | sensor write scope (claims) and agent read scope (`cluster-viewer`) |
+| `gate.test.mjs` | node fixtures for the flap gate (suppress / re-run / fail open); run by the `triage-gate-test` pre-commit hook |
 | `secret-store.yaml`, `external-secret.yaml` | agent credentials from OpenBao |
 
 ## Credentials
