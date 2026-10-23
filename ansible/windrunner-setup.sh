@@ -1,7 +1,6 @@
 #!/bin/sh
 # Idempotent windrunner setup for the proxmox-node-updates job; run as deschain
-# (ssh ican 'bash -s' < ansible/windrunner-setup.sh); the final install/systemctl
-# step needs sudo.
+# (ssh ican 'bash -s' < ansible/windrunner-setup.sh); the systemd step calls sudo.
 set -eu
 
 REPO=~/homelab/homelab-kubernetes
@@ -12,9 +11,11 @@ ANSIBLE_CORE_VERSION=2.19.13
 
 mkdir -p "$BIN"
 
-if [ ! -x "$BIN/sops" ] || ! "$BIN/sops" --version | grep -q "$SOPS_VERSION"; then
-  curl -fsSL "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64" -o "$BIN/sops"
-  chmod 700 "$BIN/sops"
+# sops --version also advertises the latest release on its second line, so compare the first one.
+if [ ! -x "$BIN/sops" ] || [ "$("$BIN/sops" --version 2>/dev/null | head -1 | awk '{print $2}')" != "$SOPS_VERSION" ]; then
+  curl -fsSL "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64" -o "$BIN/.sops.new"
+  chmod 700 "$BIN/.sops.new"
+  mv "$BIN/.sops.new" "$BIN/sops"
 fi
 
 if [ ! -x "$VENV/bin/ansible-playbook" ]; then
@@ -40,10 +41,10 @@ if [ -n "$CURRENT" ] && ! echo "$CURRENT" | grep -q 'git@github.com:infrabytes/h
   git -C "$REPO" remote set-url origin git@github.com:infrabytes/homelab-kubernetes.git
 fi
 
-install -m 644 "$REPO/ansible/systemd/proxmox-node-updates.service" /etc/systemd/system/
-install -m 644 "$REPO/ansible/systemd/proxmox-node-updates.timer" /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable --now proxmox-node-updates.timer
+sudo install -m 644 "$REPO/ansible/systemd/proxmox-node-updates.service" /etc/systemd/system/
+sudo install -m 644 "$REPO/ansible/systemd/proxmox-node-updates.timer" /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now proxmox-node-updates.timer
 
 systemctl list-timers proxmox-node-updates.timer --no-pager | head -3
 systemd-analyze verify /etc/systemd/system/proxmox-node-updates.service /etc/systemd/system/proxmox-node-updates.timer && echo VERIFY-OK
