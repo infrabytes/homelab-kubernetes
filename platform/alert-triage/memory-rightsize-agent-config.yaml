@@ -250,7 +250,10 @@ data:
     const key = `${NS}/${workload.kind}/${workload.name}`;
     const branch = `rightsize/${slug(`${NS}-${workload.name}`).slice(0, 40)}-${day()}`;
     const container = containerOf(workload);
-    const source = argocdSource(pod.tracking);
+    // ArgoCD annotates the workload it owns, not the pods it creates.
+    const tracking =
+      workload.object.metadata?.annotations?.["argocd.argoproj.io/tracking-id"] || pod.tracking;
+    const source = argocdSource(tracking);
     let degraded = "";
 
     let records = [];

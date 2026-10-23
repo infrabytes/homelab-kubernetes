@@ -14,7 +14,6 @@ const BLOCK = "\n  gate.mjs: |\n";
 const POD = {
   metadata: {
     name: "web-abc-xyz",
-    annotations: { "argocd.argoproj.io/tracking-id": "web:apps/Deployment:web/web" },
     ownerReferences: [{ kind: "ReplicaSet", name: "web-abc" }],
   },
   status: {
@@ -30,7 +29,10 @@ const POD = {
 };
 const REPLICASET = { metadata: { name: "web-abc", ownerReferences: [{ kind: "Deployment", name: "web" }] } };
 const DEPLOYMENT = {
-  metadata: { name: "web" },
+  metadata: {
+    name: "web",
+    annotations: { "argocd.argoproj.io/tracking-id": "web:apps/Deployment:web/web" },
+  },
   spec: {
     template: {
       spec: {
