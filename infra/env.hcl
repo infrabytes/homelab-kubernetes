@@ -31,6 +31,7 @@ locals {
     cluster_name     = "talos-cluster"
     cluster_endpoint = "https://192.168.0.67:6443"
 
+    # kubernetes_version also pins the windrunner k3s management cluster (ansible/windrunner-k3s.yml).
     talos_version            = "v1.14.4"
     kubernetes_version       = "1.37.1"
     cilium_chart_version     = "1.20.3"
