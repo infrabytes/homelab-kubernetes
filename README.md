@@ -15,6 +15,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | Cilium (1.20.1)              | CNI, kube-proxy-free, L2 LB (LB-IPAM 192.168.0.200-219), Gateway API (Gateway `homelab` at 192.168.0.200), WireGuard encryption, Hubble |
 | Network policies             | Phase-1 namespace isolation for the chart-value workloads: chart values + per-namespace ingress default-deny + egress derived from Hubble flow audits, all co-located with their component under `platform/<component>/`; posture, verified gotchas and the phase-2 backlog in `docs/network-policies.md` |
 | ArgoCD                       | GitOps delivery: `platform`/`apps`/`pdeu`/`tenants` ApplicationSets committed in `argocd/appsets/`, applied by a Terraform-managed bootstrap ApplicationSet; UI at argocd.icaninto.space |
+| Atlantis (k3s)               | Terraform PR automation for `infra/**` (plan per unit, apply, squash-merge) in a single-node k3s cluster on the `windrunner` VM, registered in ArgoCD as cluster `windrunner` and deployed from `platform/atlantis/`; SWAG terminates TLS at atlantis.icaninto.space |
 | cert-manager                 | TLS via Let's Encrypt DNS-01 (Cloudflare), ClusterIssuer `letsencrypt-dns01` |
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
 | OpenBao                      | Cluster secrets manager (Vault fork): HA raft (3 replicas, Longhorn), static-key auto-unseal, KV v2 + Kubernetes auth; UI at bao.icaninto.space (LAN only) |
@@ -74,16 +75,17 @@ platform/           ArgoCD-managed cluster-level resources: one folder per
                     component holding the Helm chart Application plus its
                     companion manifests (namespace, ESO store/secret, routes,
                     network policies); e.g. velero/, openbao/,
-                    tailscale-operator/, arc/, observability/ (which also
-                    carries the loki/victoria-metrics/grafana-operator chart
-                    Applications and the GrafanaDashboard CRs)
+                    tailscale-operator/, arc/, observability/, atlantis/
+                    (Atlantis runs in the windrunner k3s cluster, registered
+                    as a second ArgoCD destination)
 apps/               ArgoCD-managed end-user applications (external-secrets-demo,
                     the ArgoCD HTTPRoute)
 docs/               cross-cutting ops docs (network-policies.md)
 hack/               laptop-side dev tooling; grafana-dev/ runs a disposable local Grafana
                     and exports authored dashboards into the ConfigMap-backed CRs
 ansible/            rolling PVE host maintenance playbook (proxmox01-04) + windrunner
-                    systemd units; see ansible/README.md
+                    systemd units, plus windrunner-k3s.yml (k3s management
+                    cluster + Atlantis bootstrap); see ansible/README.md
 .github/            CI workflows + scripts (pre-commit, PR preview diff)
 .pre-commit-config.yaml  the single lint/format gate
 renovate.json       dependency automation
@@ -317,9 +319,9 @@ Pushes to this repo also trigger an instant ArgoCD app refresh via a GitHub
 webhook (shared secret + payload cap; see
 [`infra/addons/README.md`](infra/addons/README.md#argocd-github-webhook)),
 and a second webhook drives Atlantis PR automation
-(`atlantis.icaninto.space`, self-hosted on the `windrunner` VM via SWAG; the
-Atlantis user token, webhook secret and the SOPS age key live in its
-`atlantis.env`, outside this repo).
+(`atlantis.icaninto.space`, a Helm release in the k3s management cluster on
+`windrunner` behind SWAG — see
+[Atlantis management cluster](#atlantis-management-cluster-k3s)).
 
 Secrets: edit `infra/secrets.sops.yaml` with `sops` (re-encrypts on save). The
 age key is not in the repo; all units decrypt via `env.hcl`. Runtime secrets
@@ -330,6 +332,51 @@ Validation: `pre-commit run --all-files` (terragrunt fmt/validate/tflint,
 yamllint, kubeconform, argocd-apps-check, ansible-lint, ansible-inventory-check,
 detect-secrets, sops-encrypted, ruff, renovate-config-validator). CI runs the
 same on push/PR.
+
+### Atlantis management cluster (k3s)
+
+Atlantis applies `infra/cluster` (Talos/k8s upgrades, Cilium, the Proxmox VMs),
+so it does not live in the cluster it repairs. It runs in a single-node k3s
+cluster on the `windrunner` VM (192.168.0.23), registered in ArgoCD as cluster
+`windrunner` and deployed from `platform/atlantis/` (chart
+`runatlantis/atlantis` pinned in that Application, namespace `atlantis`). That
+is the only Application whose destination is not the Talos cluster.
+
+What lives where:
+
+- The chart's `initConfig` fetches terragrunt, sops and kubectl into `/plugins`
+  (first on PATH) at every pod start; tofu is Atlantis's own download per
+  `atlantis.yaml`. The server-side repo settings (formerly `repos.yaml` on the
+  VM) are the chart's `repoConfig` value.
+- `kubeconfig`/`talosconfig` reach each checkout from the state bucket
+  (`infra/scripts/sync-artifacts.sh`, run by the Terragrunt hooks), so the old
+  `pre_workflow_hooks` copy is gone.
+- Credentials are not in git: the `atlantis-env` Secret in namespace `atlantis`
+  holds `ATLANTIS_GH_USER`, `ATLANTIS_GH_TOKEN`, `ATLANTIS_GH_WEBHOOK_SECRET`,
+  `ATLANTIS_API_SECRET` and `SOPS_AGE_KEY`, staged by the playbook from the
+  VM's `~/appdata/atlantis/atlantis.env`.
+- SWAG keeps terminating TLS: `atlantis.icaninto.space` proxies to the Atlantis
+  NodePort 30414, so the GitHub webhook URL is unchanged.
+
+Bootstrap, from a host with the Talos kubeconfig and the pinned collections
+(`ansible-galaxy collection install -r ansible/requirements.yml`):
+
+```sh
+ansible-playbook -i ansible/inventory.yml ansible/windrunner-k3s.yml --check --diff
+ansible-playbook -i ansible/inventory.yml ansible/windrunner-k3s.yml
+kubectl --kubeconfig infra/cluster/artifacts/kubeconfig \
+  apply -f ~/appdata/atlantis/cluster-windrunner.yaml  # written on windrunner
+```
+
+Re-runs are safe: they refresh `atlantis-env` after a GitHub token or age key
+rotation and install k3s version bumps. Then merge the PR that touches
+`platform/atlantis/`; ArgoCD creates the `atlantis` app and deploys the
+release. Before the cutover, check the new instance on
+`http://192.168.0.23:30414/healthz`, stop the old container (`docker compose
+down` in `~/appdata/atlantis`), point `$upstream_port` in SWAG's
+`site-confs/atlantis.conf` at `30414` and reload nginx. Rollback is the reverse
+(`docker compose up`, port `4143`); the k3s side keeps nothing worth
+preserving, so open PRs just need a fresh `atlantis plan`.
 
 ### Dashboard authoring (grafana-dev sandbox)
 

@@ -1,0 +1,71 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: atlantis-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://runatlantis.github.io/helm-charts
+    chart: atlantis
+    targetRevision: 6.16.2
+    helm:
+      releaseName: atlantis
+      values: |
+        orgAllowlist: github.com/infrabytes/homelab-kubernetes
+        atlantisUrl: https://atlantis.icaninto.space
+        # SWAG terminates TLS on the host and proxies to this NodePort.
+        service:
+          type: NodePort
+          nodePort: 30414
+        # ArgoCD never runs `helm test`, so the unsized bats hook Pod is not worth rendering.
+        test:
+          enabled: false
+        # Secret keys staged by ansible/windrunner-k3s.yml: GitHub user/token/webhook secret, API secret, SOPS age key.
+        loadEnvFromSecrets:
+          - atlantis-env
+        environment:
+          ATLANTIS_AUTOMERGE: "true"
+          ATLANTIS_AUTOMERGE_METHOD: squash
+          ATLANTIS_ENABLE_DIFF_MARKDOWN_FORMAT: "true"
+          ATLANTIS_HIDE_PREV_PLAN_COMMENTS: "true"
+          ATLANTIS_DEFAULT_TF_DISTRIBUTION: opentofu
+        repoConfig: |
+          repos:
+            - id: github.com/infrabytes/homelab-kubernetes
+              allowed_overrides: [workflow, apply_requirements]
+              allow_custom_workflows: true
+        # PATH-injected toolchain: terragrunt (workflow), sops (env.hcl), kubectl (converge local-exec); tofu is Atlantis's own download.
+        initConfig:
+          enabled: true
+          image: alpine:3.22
+          script: |
+            #!/bin/sh
+            set -eu
+            wget -q -O "$INIT_SHARED_DIR/terragrunt" \
+              https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.6/terragrunt_linux_amd64
+            wget -q -O "$INIT_SHARED_DIR/sops" \
+              https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
+            wget -q -O "$INIT_SHARED_DIR/kubectl" \
+              https://dl.k8s.io/release/v1.37.1/bin/linux/amd64/kubectl
+            chmod 755 "$INIT_SHARED_DIR/terragrunt" "$INIT_SHARED_DIR/sops" "$INIT_SHARED_DIR/kubectl"
+        # Sizing: one docker stats sample (604MiB RSS, 2026-10-23) — the host kept no history for a p95; the 2Gi limit is headroom for tofu/terragrunt peaks, not a derivation.
+        resources:
+          requests:
+            cpu: 50m
+            memory: 768Mi
+          limits:
+            memory: 2Gi
+        volumeClaim:
+          enabled: true
+          dataStorage: 5Gi
+          storageClassName: local-path
+  destination:
+    name: windrunner
+    namespace: atlantis
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

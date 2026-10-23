@@ -1,0 +1,277 @@
+---
+- name: Provision the windrunner k3s management cluster
+  hosts: windrunner
+  become: true
+  any_errors_fatal: true
+  gather_facts: true
+  vars:
+    k3s_version: "v1.37.1+k3s1"
+    # SWAG owns 80/443 on the host, so the packaged ingress cannot bind and is disabled.
+    k3s_exec: server --disable traefik
+    windrunner_api: https://192.168.0.23:6443
+    windrunner_user: deschain
+    windrunner_home: /home/deschain
+    atlantis_namespace: atlantis
+    atlantis_env_file: "{{ windrunner_home }}/appdata/atlantis/atlantis.env"
+    cluster_secret_file: "{{ windrunner_home }}/appdata/atlantis/cluster-windrunner.yaml"
+    kubeconfig_path: "{{ lookup('ansible.builtin.env', 'WINDRUNNER_KUBECONFIG', default='/tmp/windrunner-kubeconfig') }}"
+  tasks:
+    - name: Report what the check-mode run would do
+      ansible.builtin.debug:
+        msg: >-
+          CHECK MODE: windrunner would be (re)provisioned with k3s {{ k3s_version }}
+          ({{ k3s_exec }}), namespace {{ atlantis_namespace }} and the atlantis-env
+          Secret from {{ atlantis_env_file }}, plus the argocd-manager token and
+          {{ cluster_secret_file }}.
+      when: ansible_check_mode
+
+    - name: Check the Atlantis environment file
+      ansible.builtin.stat:
+        path: "{{ atlantis_env_file }}"
+      register: atlantis_env_stat
+      check_mode: false
+
+    - name: Read the installed k3s version
+      ansible.builtin.command:
+        cmd: k3s --version
+      register: k3s_installed
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read the listening ports
+      ansible.builtin.command:
+        cmd: ss -Htuln
+      register: listening
+      changed_when: false
+      check_mode: false
+      when: k3s_installed.rc != 0
+
+    - name: Assert the host is ready for k3s
+      vars:
+        listening_text: "{{ listening.stdout | default('') }}"
+      ansible.builtin.assert:
+        that:
+          - atlantis_env_stat.stat.exists
+          - atlantis_env_stat.stat.pw_name == windrunner_user
+          - not (listening_text is search(':(6443|8472|30414)\s'))
+        fail_msg: >-
+          {{ atlantis_env_file }} must exist and be owned by {{ windrunner_user }}, and
+          ports 6443/8472/30414 must be free while k3s is not yet installed.
+
+    - name: Install or upgrade k3s
+      ansible.builtin.shell:
+        cmd: set -euo pipefail; curl -sfL https://get.k3s.io | sh -
+        executable: /bin/bash
+      environment:
+        INSTALL_K3S_VERSION: "{{ k3s_version }}"
+        INSTALL_K3S_EXEC: "{{ k3s_exec }}"
+      changed_when: true
+      when:
+        - not ansible_check_mode
+        - k3s_installed.rc != 0 or k3s_version not in k3s_installed.stdout
+
+    - name: Ensure the kubeconfig directory exists
+      ansible.builtin.file:
+        path: "{{ windrunner_home }}/.kube"
+        state: directory
+        owner: "{{ windrunner_user }}"
+        group: "{{ windrunner_user }}"
+        mode: "0700"
+      when: not ansible_check_mode
+
+    - name: Publish the k3s kubeconfig to the windrunner home
+      ansible.builtin.copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "{{ windrunner_home }}/.kube/windrunner.yaml"
+        remote_src: true
+        owner: "{{ windrunner_user }}"
+        group: "{{ windrunner_user }}"
+        mode: "0600"
+      when: not ansible_check_mode
+
+    - name: Wait for the k3s node to report Ready
+      ansible.builtin.command:
+        cmd: k3s kubectl wait --for=condition=Ready node/windrunner --timeout=300s
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Fetch the k3s kubeconfig to the controller
+      ansible.builtin.fetch:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "{{ kubeconfig_path }}"
+        flat: true
+      when: not ansible_check_mode
+
+    - name: Point the controller kubeconfig at the LAN API endpoint
+      ansible.builtin.replace:
+        path: "{{ kubeconfig_path }}"
+        regexp: 'server: https://127\.0\.0\.1:6443'
+        replace: 'server: {{ windrunner_api }}'
+      delegate_to: localhost
+      become: false
+      when: not ansible_check_mode
+
+    - name: Restrict the fetched kubeconfig
+      ansible.builtin.file:
+        path: "{{ kubeconfig_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+      when: not ansible_check_mode
+
+    - name: Read the Atlantis environment file
+      ansible.builtin.slurp:
+        src: "{{ atlantis_env_file }}"
+      register: atlantis_env_raw
+      check_mode: false
+
+    - name: Build the Atlantis environment map
+      ansible.builtin.set_fact:
+        # ATLANTIS_REPO_CONFIG is dropped: the chart mounts repos.yaml and sets it.
+        atlantis_env: >-
+          {{ dict((atlantis_env_raw.content | b64decode).splitlines()
+                  | reject('match', '^\s*(#|$)')
+                  | reject('match', '^ATLANTIS_REPO_CONFIG=')
+                  | map('split', '=', 1) | list) }}
+
+    - name: Assert the Atlantis environment carries the required values
+      ansible.builtin.assert:
+        that:
+          - "'ATLANTIS_GH_USER' in atlantis_env"
+          - "'ATLANTIS_GH_TOKEN' in atlantis_env"
+          - "'ATLANTIS_GH_WEBHOOK_SECRET' in atlantis_env"
+          - "'SOPS_AGE_KEY' in atlantis_env"
+        fail_msg: "{{ atlantis_env_file }} is missing ATLANTIS_GH_USER / ATLANTIS_GH_TOKEN / ATLANTIS_GH_WEBHOOK_SECRET / SOPS_AGE_KEY."
+
+    - name: Ensure the Atlantis namespace exists
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ atlantis_namespace }}"
+      delegate_to: localhost
+      become: false
+      when: not ansible_check_mode
+
+    - name: Stage the Atlantis environment as a cluster Secret
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: atlantis-env
+            namespace: "{{ atlantis_namespace }}"
+          type: Opaque
+          stringData: "{{ atlantis_env }}"
+      delegate_to: localhost
+      become: false
+      when: not ansible_check_mode
+
+    - name: Ensure the argocd-manager service account exists
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: argocd-manager
+            namespace: kube-system
+      delegate_to: localhost
+      become: false
+      when: not ansible_check_mode
+
+    - name: Grant argocd-manager cluster-admin
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: argocd-manager
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: cluster-admin
+          subjects:
+            - kind: ServiceAccount
+              name: argocd-manager
+              namespace: kube-system
+      delegate_to: localhost
+      become: false
+      when: not ansible_check_mode
+
+    - name: Ensure a non-expiring token Secret exists for argocd-manager
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: argocd-manager-token
+            namespace: kube-system
+            annotations:
+              kubernetes.io/service-account.name: argocd-manager
+          type: kubernetes.io/service-account-token
+      delegate_to: localhost
+      become: false
+      when: not ansible_check_mode
+
+    - name: Read the argocd-manager token
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        api_version: v1
+        kind: Secret
+        name: argocd-manager-token
+        namespace: kube-system
+      register: argocd_manager_token
+      until: argocd_manager_token.resources[0].data.token is defined
+      retries: 12
+      delay: 5
+      delegate_to: localhost
+      become: false
+      when: not ansible_check_mode
+
+    - name: Read the cluster CA and token for the ArgoCD registration
+      ansible.builtin.set_fact:
+        windrunner_token: "{{ argocd_manager_token.resources[0].data.token | b64decode }}"
+        windrunner_ca: "{{ (lookup('ansible.builtin.file', kubeconfig_path) | from_yaml).clusters[0].cluster['certificate-authority-data'] }}"
+      when: not ansible_check_mode
+
+    - name: Render the ArgoCD cluster registration Secret
+      ansible.builtin.copy:
+        dest: "{{ cluster_secret_file }}"
+        owner: "{{ windrunner_user }}"
+        group: "{{ windrunner_user }}"
+        mode: "0600"
+        content: |
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: cluster-windrunner
+            namespace: argocd
+            labels:
+              argocd.argoproj.io/secret-type: cluster
+          type: Opaque
+          stringData:
+            name: windrunner
+            server: {{ windrunner_api }}
+            config: |
+              {{ {'bearerToken': windrunner_token, 'tlsClientConfig': {'caData': windrunner_ca}} | to_json }}
+      when: not ansible_check_mode
+
+    - name: Print the remaining manual step
+      ansible.builtin.debug:
+        msg:
+          - "ArgoCD cluster registration written to {{ cluster_secret_file }}"
+          - "Apply it from a host that holds the Talos kubeconfig:"
+          - "  kubectl --kubeconfig infra/cluster/artifacts/kubeconfig apply -f {{ cluster_secret_file }}"
+      when: not ansible_check_mode

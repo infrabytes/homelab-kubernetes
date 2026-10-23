@@ -49,3 +49,7 @@ allow:
     workload: spegel-cleanup-wait
     container: cleanup-wait
     reason: "spegel 0.7.4 hook Pod; no resources value"
+  - namespace: atlantis
+    workload: atlantis
+    container: init-config
+    reason: "atlantis 6.16.2 initConfig init container; the chart exposes no resources value"
