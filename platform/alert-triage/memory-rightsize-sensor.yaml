@@ -1,0 +1,93 @@
+# One memory alert -> one SandboxClaim, named per pod; dedupe per workload is the gate's job.
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: memory-rightsize
+  namespace: alert-triage
+spec:
+  # Shares the triage bus; the alertname filter is what selects this sensor's events.
+  eventBusName: alert-triage-bus
+  template:
+    serviceAccountName: alert-triage-sensor
+    # New workload (2026-10-22): initial estimate, re-measure after two weeks.
+    container:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 64Mi
+  dependencies:
+    - name: alert
+      eventSourceName: grafana-alerts
+      eventName: grafana
+      filters:
+        data:
+          - path: body.status
+            type: string
+            value: ["firing"]
+          # The memory route groups per pod, so one notification carries one container.
+          - path: body.alerts.0.labels.alertname
+            type: string
+            value:
+              - Container memory above 90% of limit
+              - Container OOMKilled
+  triggers:
+    - template:
+        name: create-rightsize-claim
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: extensions.agents.x-k8s.io/v1beta1
+              kind: SandboxClaim
+              metadata:
+                name: rightsize-placeholder
+                labels:
+                  app.kubernetes.io/part-of: memory-rightsize
+              spec:
+                warmPoolRef:
+                  name: memory-rightsize
+                lifecycle:
+                  ttlSecondsAfterFinished: 300
+                  shutdownPolicy: Delete
+                env:
+                  - name: ALERT_JSON
+                    value: "{}"
+                  - name: ALERT_NAME
+                    value: unknown
+                  - name: ALERT_NS
+                    value: unknown
+                  - name: ALERT_POD
+                    value: unknown
+                  - name: ALERT_CONTAINER
+                    value: unknown
+          parameters:
+            - src:
+                dependencyName: alert
+                dataTemplate: "rightsize-{{ trunc 8 (index .Input.body.alerts 0).fingerprint }}"
+              dest: metadata.name
+            - src:
+                dependencyName: alert
+                dataTemplate: "{{ .Input.body | toJson }}"
+              dest: spec.env.0.value
+            - src:
+                dependencyName: alert
+                dataTemplate: "{{ (index .Input.body.alerts 0).labels.alertname }}"
+              dest: spec.env.1.value
+            - src:
+                dependencyName: alert
+                dataTemplate: "{{ (index .Input.body.alerts 0).labels.namespace }}"
+              dest: spec.env.2.value
+            - src:
+                dependencyName: alert
+                dataTemplate: "{{ (index .Input.body.alerts 0).labels.pod }}"
+              dest: spec.env.3.value
+            - src:
+                dependencyName: alert
+                dataTemplate: "{{ (index .Input.body.alerts 0).labels.container }}"
+              dest: spec.env.4.value
+      # Storm brake on top of the fingerprint dedupe and the claim quota.
+      rateLimit:
+        requestsPerUnit: 6
+        unit: Minute

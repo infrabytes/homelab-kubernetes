@@ -88,11 +88,11 @@ repos:
         language: script
         files: ^platform/observability/dashboards/.*\.ya?ml$
       - id: triage-gate-test
-        name: alert triage gate fixtures
+        name: alert sandbox gate fixtures
         entry: .github/scripts/check-triage-gate.sh
         language: script
         pass_filenames: false
-        files: ^platform/alert-triage/(agent-config\.ya?ml|gate\.test\.mjs)$
+        files: ^platform/alert-triage/(.*agent-config\.ya?ml|gate\.test\.mjs|rightsize-gate\.test\.mjs)$
       - id: terragrunt-validate
         name: terragrunt validate
         entry: .github/scripts/terragrunt-validate.sh

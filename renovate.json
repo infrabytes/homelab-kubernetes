@@ -293,9 +293,9 @@
     },
     {
       "customType": "regex",
-      "description": "pi release installed into the alert-triage sandbox; the triage model list and flags follow it",
+      "description": "pi release installed into both sandboxes; the agent models and flags follow it",
       "managerFilePatterns": [
-        "/^platform\\/alert-triage\\/sandbox-template\\.ya?ml$/"
+        "/^platform\\/alert-triage\\/(agent-config|memory-rightsize-agent-config)\\.ya?ml$/"
       ],
       "matchStrings": [
         "(?<depName>@earendil-works/pi-coding-agent)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"
@@ -304,9 +304,9 @@
     },
     {
       "customType": "regex",
-      "description": "kubectl downloaded into the alert-triage sandbox; must match kubernetes_version in infra/env.hcl",
+      "description": "kubectl downloaded into both sandboxes; must match kubernetes_version in infra/env.hcl",
       "managerFilePatterns": [
-        "/^platform\\/alert-triage\\/sandbox-template\\.ya?ml$/"
+        "/^platform\\/alert-triage\\/(sandbox-template|memory-rightsize-sandbox-template)\\.ya?ml$/"
       ],
       "matchStrings": [
         "name:\\s*KUBECTL_VERSION\\s*\\n\\s*value:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"

@@ -1,0 +1,156 @@
+# One rightsize sandbox per claim (SandboxWarmPool replicas: 0), cold-started on the
+# analysis path only. Same read-only identity as triage: the write it performs is a git
+# branch in the repository, not a change to the cluster.
+apiVersion: extensions.agents.x-k8s.io/v1beta1
+kind: SandboxTemplate
+metadata:
+  name: memory-rightsize
+  namespace: alert-triage
+spec:
+  service: false
+  envVarsInjectionPolicy: Allowed
+  networkPolicyManagement: Managed
+  networkPolicy:
+    egress:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+        ports:
+          - port: 53
+            protocol: UDP
+          - port: 53
+            protocol: TCP
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: observability
+        ports:
+          - port: 8000
+            protocol: TCP
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: observability
+        ports:
+          - port: 3100
+            protocol: TCP
+      - ports:
+          - port: 6443
+            protocol: TCP
+      # npm registry, model calls, Discord, github.com and api.github.com.
+      - ports:
+          - port: 443
+            protocol: TCP
+  podTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: memory-rightsize
+        app.kubernetes.io/part-of: alert-triage
+    spec:
+      # Bound to the aggregated cluster-viewer ClusterRole (see rbac.yaml).
+      serviceAccountName: alert-triage-agent
+      automountServiceAccountToken: true
+      # clone + analysis + PR; the pod reporting Failed is what frees the claim slot.
+      activeDeadlineSeconds: 1800
+      restartPolicy: Never
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: install-kubectl
+          # Matches kubernetes_version in infra/env.hcl.
+          env:
+            - name: KUBECTL_VERSION
+              value: v1.37.1
+          image: curlimages/curl:8.23.0
+          command:
+            - sh
+            - -c
+            - >-
+              mkdir -p /opt/pi/bin &&
+              curl -fsSL
+              "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+              -o /opt/pi/bin/kubectl && chmod +x /opt/pi/bin/kubectl
+          volumeMounts:
+            - name: tools
+              mountPath: /opt/pi
+          securityContext:
+            allowPrivilegeEscalation: false
+            # curlimages/curl runs as uid 100 and cannot write the root-owned shared volume.
+            runAsUser: 0
+            runAsGroup: 0
+          # New workload (2026-10-22): initial estimate, re-measure after two weeks.
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+      containers:
+        - name: rightsize
+          # The full (not slim) Debian variant: it ships git, curl and a glibc node, so the
+          # only runtime install is pi itself.
+          image: node:24-bookworm
+          command: ["/bin/bash", "/etc/rightsize/entrypoint.sh"]
+          workingDir: /work
+          env:
+            - name: PATH
+              value: /opt/pi/bin:/usr/local/bin:/usr/bin:/bin
+            - name: PI_CODING_AGENT_DIR
+              value: /tmp/pi-agent
+            - name: KUBECONFIG
+              value: /tmp/pi-agent/kubeconfig
+            - name: HOME
+              value: /tmp
+            - name: GITHUB_REPO
+              value: infrabytes/homelab-kubernetes
+            # One proposal per workload per cooldown, measured on this namespace's own records.
+            - name: RIGHTSIZE_COOLDOWN
+              value: 7d
+            - name: OPENCODE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: alert-triage-agent-creds
+                  key: llm_api_key
+            - name: GRAFANA_MCP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: alert-triage-agent-creds
+                  key: grafana_mcp_token
+            - name: DISCORD_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: alert-triage-agent-creds
+                  key: discord_webhook_url
+            # Fine-grained PAT: contents:write + pull_requests:write on GITHUB_REPO only.
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: memory-rightsize-agent-creds
+                  key: github_token
+          volumeMounts:
+            - name: tools
+              mountPath: /opt/pi
+            - name: work
+              mountPath: /work
+            - name: config
+              mountPath: /etc/rightsize
+          securityContext:
+            allowPrivilegeEscalation: false
+          # New workload (2026-10-22): initial estimate, re-measure after two weeks. Node
+          # runtime, a shallow clone, a pi session with 2-3 tool round trips.
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: tools
+          emptyDir: {}
+        - name: work
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: memory-rightsize-agent

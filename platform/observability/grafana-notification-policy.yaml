@@ -32,7 +32,21 @@ spec:
               - ["severity", "=", "critical"]
             group_wait: 0s
             repeat_interval: 1h
-      # Every alert also starts a triage sandbox; 24h repeat keeps a long-running alert
+      # Memory alerts are grouped per pod: the rightsize sensor acts on one container, and a
+      # folder-wide group would hand it up to maxAlerts pods in one notification. This route
+      # comes first and does not continue, so it replaces the catch-all below for these rules.
+      - receiver: Triage
+        object_matchers:
+          - ["alertname", "=~", "Container memory above 90% of limit|Container OOMKilled"]
+        group_by:
+          - grafana_folder
+          - alertname
+          - namespace
+          - pod
+        group_wait: 0s
+        group_interval: 5m
+        repeat_interval: 24h
+      # Every other alert also starts a triage sandbox; 24h repeat keeps a long-running alert
       # from re-triaging on every Discord repeat_interval.
       - receiver: Triage
         object_matchers:
