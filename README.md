@@ -16,6 +16,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | Network policies             | Phase-1 namespace isolation for the chart-value workloads: chart values + per-namespace ingress default-deny + egress derived from Hubble flow audits, all co-located with their component under `platform/<component>/`; posture, verified gotchas and the phase-2 backlog in `docs/network-policies.md` |
 | ArgoCD                       | GitOps delivery: one umbrella `platform` Application plus the `apps`/`pdeu`/`tenants` ApplicationSets, committed in `argocd/appsets/` and applied by a Terraform-managed bootstrap ApplicationSet; UI at argocd.icaninto.space |
 | Atlantis (k3s)               | Terraform PR automation for `infra/**` (plan per unit, apply, squash-merge) in a single-node k3s cluster on the `windrunner` VM, registered in ArgoCD as cluster `windrunner` and deployed from `platform/atlantis/`; SWAG terminates TLS at atlantis.icaninto.space |
+| SeaweedFS (k3s)              | S3 object store backing the Terragrunt state bucket, Velero and the Grafana/CNPG backups, in the same k3s cluster (`platform/seaweedfs/`): chart `allInOne` on a `local-path` PVC, `s3.icaninto.space` + `seaweedfs.icaninto.space` still fronted by SWAG; only the S3 and admin ports are NodePorts |
 | cert-manager                 | TLS via Let's Encrypt DNS-01 (Cloudflare), ClusterIssuer `letsencrypt-dns01` |
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
 | OpenBao                      | Cluster secrets manager (Vault fork): HA raft (3 replicas, Longhorn), static-key auto-unseal, KV v2 + Kubernetes auth; UI at bao.icaninto.space (LAN only) |
@@ -364,8 +365,10 @@ Bootstrap, from a host with the Talos kubeconfig and the pinned collections
 (`ansible-galaxy collection install -r ansible/requirements.yml`):
 
 ```sh
-ansible-playbook -i ansible/inventory.yml ansible/windrunner-k3s.yml --check --diff
-ansible-playbook -i ansible/inventory.yml ansible/windrunner-k3s.yml
+sops exec-env infra/secrets.sops.yaml \
+  'ansible-playbook -i ansible/inventory.yml ansible/windrunner-k3s.yml --check --diff'
+sops exec-env infra/secrets.sops.yaml \
+  'ansible-playbook -i ansible/inventory.yml ansible/windrunner-k3s.yml'
 kubectl --kubeconfig infra/cluster/artifacts/kubeconfig \
   apply -f ~/appdata/atlantis/cluster-windrunner.yaml  # written on windrunner
 ```
@@ -379,6 +382,64 @@ down` in `~/appdata/atlantis`), point `$upstream_port` in SWAG's
 `site-confs/atlantis.conf` at `30414` and reload nginx. Rollback is the reverse
 (`docker compose up`, port `4143`); the k3s side keeps nothing worth
 preserving, so open PRs just need a fresh `atlantis plan`.
+
+#### SeaweedFS
+
+The same k3s cluster hosts the S3 store the repo depends on
+(`platform/seaweedfs/`, chart `seaweedfs` pinned in that Application). Its
+`allInOne` mode is the exact single `weed server -dir=/data -s3` process the
+Docker container ran, now on a 100 Gi `local-path` PVC
+(`seaweedfs-all-in-one-data`) with the `seaweedfs-admin` UI beside it. Only S3
+(NodePort 30833) and the admin UI (32346) leave the pod network; SWAG keeps
+the TLS certificates, the allowlist and both DNS names, so
+`infra/root.hcl`, Velero and the CNPG backups keep using
+`https://s3.icaninto.space/` unchanged.
+
+The S3 identities are not in git: the playbook renders the
+`seaweedfs-s3-config` Secret (key `seaweedfs_s3_config`, the `-s3.config`
+file) from `infra/secrets.sops.yaml`, which is why it runs under
+`sops exec-env`. SeaweedFS reads that file at start, so a key rotation needs a
+`kubectl rollout restart deploy/seaweedfs-all-in-one` afterwards.
+
+The one-time cutover seeds the PVC before the release exists, because
+`local-path` only provisions on first consume:
+
+```sh
+sudo k3s kubectl apply -f - <<'EOF'   # the chart's PVC name, plus a pod that binds it
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: seaweedfs-all-in-one-data, namespace: seaweedfs}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources: {requests: {storage: 100Gi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: seaweedfs-seed, namespace: seaweedfs}
+spec:
+  containers:
+    - {name: seed, image: busybox, command: [sleep, "3600"],
+       volumeMounts: [{name: data, mountPath: /data}]}
+  volumes:
+    - {name: data, persistentVolumeClaim: {claimName: seaweedfs-all-in-one-data}}
+EOF
+cd ~ && docker compose stop seaweedfs seaweedfs-admin
+rsync -a ~/appdata/seaweedfs/data/ \
+  "$(sudo k3s kubectl get pv \
+      "$(sudo k3s kubectl -n seaweedfs get pvc seaweedfs-all-in-one-data -o jsonpath={.spec.volumeName})" \
+      -o jsonpath={.spec.local.path})/"
+sudo k3s kubectl -n seaweedfs delete pod seaweedfs-seed   # the PVC stays
+```
+
+Then merge the `platform/seaweedfs/` PR, point `$upstream_app` at `172.17.0.1`
+and `$upstream_port` at 30833 in SWAG's `proxy-confs/s3.subdomain.conf` (23646 →
+32346 for `seaweedfs.subdomain.conf`), reload nginx and drop the two services
+from `~/docker-compose.yml`. Rollback is a reverse of that: remove the app from
+ArgoCD (selfHeal reverts a plain scale-down), `docker compose up -d seaweedfs
+seaweedfs-admin`, restore both upstream lines — `~/appdata/seaweedfs/data` is
+never modified. Leave that directory alone until the new instance has run for a
+few days.
 
 ### Dashboard authoring (grafana-dev sandbox)
 

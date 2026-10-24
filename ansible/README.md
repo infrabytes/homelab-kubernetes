@@ -148,29 +148,36 @@ real roll. Use the dry run above instead.
 ## windrunner k3s cluster (Atlantis)
 
 `windrunner-k3s.yml` (host `windrunner` in the `management` group) provisions
-the single-node k3s cluster that runs Atlantis: installs or upgrades k3s
-(`--disable traefik`, SWAG owns 80/443), publishes the kubeconfig, stages the
-`atlantis-env` Secret from `~/appdata/atlantis/atlantis.env`, creates the
+the single-node k3s cluster that runs Atlantis and SeaweedFS: installs or
+upgrades k3s (`--disable traefik`, SWAG owns 80/443), publishes the kubeconfig,
+stages the `atlantis-env` Secret from `~/appdata/atlantis/atlantis.env`, renders
+the `seaweedfs-s3-config` Secret from `infra/secrets.sops.yaml`, creates the
 `argocd-manager` service account with a non-expiring token, and renders the
 ArgoCD cluster registration to `~/appdata/atlantis/cluster-windrunner.yaml`.
-Applying that manifest to the Talos cluster and the SWAG cutover are manual;
+Applying that manifest to the Talos cluster and both SWAG cutovers are manual;
 see the root README's
 [Atlantis management cluster](../README.md#atlantis-management-cluster-k3s).
 
 ```sh
 ansible-galaxy collection install -r requirements.yml      # pinned collections
-ansible-playbook -i inventory.yml windrunner-k3s.yml --check --diff
-ansible-playbook -i inventory.yml windrunner-k3s.yml
+sops exec-env ../infra/secrets.sops.yaml \
+  'ansible-playbook -i inventory.yml windrunner-k3s.yml --check --diff'
+sops exec-env ../infra/secrets.sops.yaml \
+  'ansible-playbook -i inventory.yml windrunner-k3s.yml'
 kubectl --kubeconfig ../infra/cluster/artifacts/kubeconfig \
   apply -f ~/appdata/atlantis/cluster-windrunner.yaml
 ```
 
-Re-running is idempotent and is the refresh path for the Secret when the GitHub
-token or the SOPS age key rotates. It needs SSH to `ssh.icaninto.space:21496`
-as `deschain` with passwordless sudo, and the `kubernetes` Python package on
-the controller (this laptop has it; otherwise run it from windrunner's
-maintenance venv). `WINDRUNNER_KUBECONFIG` overrides where the fetched k3s
-kubeconfig lands (`/tmp/windrunner-kubeconfig` by default).
+Re-running is idempotent and is the refresh path for both Secrets when the
+GitHub token, the SOPS age key or the SeaweedFS S3 keys rotate (the last one
+also needs a `kubectl rollout restart deploy/seaweedfs-all-in-one`, since
+SeaweedFS only reads the file at start). It needs SSH to `ssh.icaninto.space:21496`
+as `deschain` with passwordless sudo, sops plus the age key on the controller
+(the `sops exec-env` wrapper is what supplies `seaweedfs_access_key` /
+`seaweedfs_secret_key`), and the `kubernetes` Python package (this laptop has
+it; otherwise run it from windrunner's maintenance venv).
+`WINDRUNNER_KUBECONFIG` overrides where the fetched k3s kubeconfig lands
+(`/tmp/windrunner-kubeconfig` by default).
 
 ## Requirements
 
