@@ -37,6 +37,8 @@ spec:
             memory: 144Mi
         serviceMonitor:
           enabled: true
+        podAnnotations:
+          reloader.stakater.com/auto: "true"
         # Egress: cluster DNS + GitHub over 443; storage is in-memory, so no API-server edge.
         networkPolicy:
           enabled: true

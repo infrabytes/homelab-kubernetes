@@ -55,6 +55,8 @@ spec:
             memory: 144Mi
         serviceMonitor:
           enabled: true
+        podAnnotations:
+          reloader.stakater.com/auto: "true"
         # Same egress needs as dex: shared GitHub connector plus cluster DNS.
         networkPolicy:
           enabled: true

@@ -1,8 +1,7 @@
 # Datasource provisioning file, mounted by the Grafana CR at /etc/grafana/provisioning/datasources
-# because the GrafanaDatasource CRD cannot express correlations. Provisioning runs on pod
-# start only, and the operator's ConfigMap watch does not retrigger the Grafana CR (v5.25):
-# bump grafana-datasources-revision in grafana.yaml after edits. Keep name/uid stable -
-# provisioning upserts by name and dashboards reference the uids.
+# because the GrafanaDatasource CRD cannot express correlations. Provisioning runs only at pod
+# start; the reloader.stakater.com/auto annotation on the Grafana CR rolls it on change. Keep
+# name/uid stable - provisioning upserts by name and dashboards reference the uids.
 apiVersion: v1
 kind: ConfigMap
 metadata:
