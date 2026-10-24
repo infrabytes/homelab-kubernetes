@@ -13,6 +13,10 @@
     windrunner_home: /home/deschain
     atlantis_namespace: atlantis
     atlantis_env_file: "{{ windrunner_home }}/appdata/atlantis/atlantis.env"
+    seaweedfs_namespace: seaweedfs
+    # sops exec-env exports the secrets.sops.yaml keys verbatim, lowercase.
+    seaweedfs_access_key: "{{ lookup('ansible.builtin.env', 'seaweedfs_access_key') }}"
+    seaweedfs_secret_key: "{{ lookup('ansible.builtin.env', 'seaweedfs_secret_key') }}"
     cluster_secret_file: "{{ windrunner_home }}/appdata/atlantis/cluster-windrunner.yaml"
     kubeconfig_path: "{{ lookup('ansible.builtin.env', 'WINDRUNNER_KUBECONFIG', default='/tmp/windrunner-kubeconfig') }}"
   tasks:
@@ -21,8 +25,9 @@
         msg: >-
           CHECK MODE: windrunner would be (re)provisioned with k3s {{ k3s_version }}
           ({{ k3s_exec }}), namespace {{ atlantis_namespace }} and the atlantis-env
-          Secret from {{ atlantis_env_file }}, plus the argocd-manager token and
-          {{ cluster_secret_file }}.
+          Secret from {{ atlantis_env_file }}, namespace {{ seaweedfs_namespace }} and the
+          seaweedfs-s3-config Secret from the SOPS environment, plus the argocd-manager
+          token and {{ cluster_secret_file }}.
       when: ansible_check_mode
 
     - name: Check the Atlantis environment file
@@ -146,3 +151,16 @@
 
     - name: Cluster objects and the ArgoCD registration
       ansible.builtin.include_tasks: tasks/windrunner-k3s/atlantis-cluster.yml
+
+    - name: Assert the SeaweedFS S3 credentials came from the SOPS environment
+      ansible.builtin.assert:
+        that:
+          - seaweedfs_access_key | length > 0
+          - seaweedfs_secret_key | length > 0
+        fail_msg: >-
+          seaweedfs_access_key / seaweedfs_secret_key are unset — wrap the run in
+          `sops exec-env infra/secrets.sops.yaml 'ansible-playbook …'`.
+      no_log: true
+
+    - name: SeaweedFS namespace and S3 identity Secret
+      ansible.builtin.include_tasks: tasks/windrunner-k3s/seaweedfs.yml

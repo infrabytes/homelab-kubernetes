@@ -1,0 +1,77 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: seaweedfs
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://seaweedfs.github.io/seaweedfs/helm
+    chart: seaweedfs
+    targetRevision: 4.49.0
+    helm:
+      releaseName: seaweedfs
+      values: |
+        # allInOne does not switch the component templates off; each keeps its own flag.
+        master: {enabled: false}
+        volume: {enabled: false}
+        filer: {enabled: false}
+        s3: {enabled: false}
+        sftp: {enabled: false}
+        global:
+          seaweedfs:
+            createClusterRole: false  # COSI provisioning RBAC, unused here
+        allInOne:
+          enabled: true
+          data:
+            type: persistentVolumeClaim
+            size: 100Gi               # 20G today; local-path cannot grow a claim later
+            storageClass: local-path
+          s3:
+            enabled: true
+            enableAuth: true
+            existingConfigSecret: seaweedfs-s3-config  # staged by ansible/windrunner-k3s.yml
+          service:
+            type: NodePort
+            nodePorts:
+              s3: 30833               # SWAG upstream for s3.icaninto.space
+          # Sizing: one docker stats sample (594MiB RSS, 2026-10-24); no host p95 history, so the limit is headroom.
+          resources:
+            requests:
+              cpu: 20m
+              memory: 640Mi
+            limits:
+              cpu: null                # chart default is limits.cpu: 2; house rule is no CPU limits
+              memory: 960Mi
+        admin:
+          enabled: true
+          # `weed admin` since 4.46 refuses a non-loopback bind without auth; SWAG's allowlist is the gate.
+          allowInsecureBind: true
+          masters: seaweedfs-all-in-one:9333
+          service:
+            type: NodePort
+            nodePorts:
+              http: 32346             # SWAG upstream for seaweedfs.icaninto.space
+          resources:
+            requests:
+              cpu: 10m
+              memory: 128Mi
+            limits:
+              memory: 192Mi
+  destination:
+    name: windrunner
+    namespace: seaweedfs
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  ignoreDifferences:
+    # allInOne always renders this unused Secret with a fresh random SSH key, so it can never match.
+    - group: ""
+      kind: Secret
+      name: seaweedfs-sftp-secret
+      jqPathExpressions:
+        - .data
+        - .stringData

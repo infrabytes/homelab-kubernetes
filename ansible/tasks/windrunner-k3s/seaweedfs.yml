@@ -1,0 +1,40 @@
+---
+- name: Render the SeaweedFS S3 identities from the SOPS environment
+  ansible.builtin.set_fact:
+    seaweedfs_s3_config: >-
+      {{ {'identities': [{'name': 'admin',
+                          'credentials': [{'accessKey': seaweedfs_access_key,
+                                           'secretKey': seaweedfs_secret_key}],
+                          'actions': ['Admin', 'Read', 'List', 'Tagging', 'Write']}]}
+         | to_json }}
+
+- name: Ensure the SeaweedFS namespace exists
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ seaweedfs_namespace }}"
+  delegate_to: localhost
+  become: false
+  when: not ansible_check_mode
+
+- name: Stage the SeaweedFS S3 identity as a cluster Secret
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: seaweedfs-s3-config
+        namespace: "{{ seaweedfs_namespace }}"
+      type: Opaque
+      stringData:
+        seaweedfs_s3_config: "{{ seaweedfs_s3_config }}"
+  no_log: true
+  delegate_to: localhost
+  become: false
+  when: not ansible_check_mode
