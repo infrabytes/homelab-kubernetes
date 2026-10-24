@@ -100,8 +100,15 @@ def pod_containers(doc):
     """Yield (container_name, resources, kind, workload) for pod-bearing docs."""
     kind = doc.get("kind")
     name = (doc.get("metadata") or {}).get("name", "?")
-    if kind in POD_KINDS:
-        spec = doc.get("spec") or {}
+    spec = doc.get("spec") or {}
+    if kind == "Alloy":
+        alloy = spec.get("alloy") or {}
+        yield "alloy", alloy.get("resources") or {}, kind, name
+        return
+    if kind == "Collector":
+        yield "collector", spec.get("resources") or {}, kind, name
+        return
+    if kind in POD_KINDS or "template" in spec:
         if kind == "CronJob":
             pod_spec = ((spec.get("jobTemplate") or {}).get("spec") or {}).get(
                 "template", {}
@@ -109,17 +116,13 @@ def pod_containers(doc):
         elif kind == "Pod":
             pod_spec = spec
         else:
+            # Catches pod templates nested in CRs (e.g. AutoscalingRunnerSet).
             pod_spec = (spec.get("template") or {}).get("spec") or {}
         containers = (pod_spec.get("containers") or []) + (
             pod_spec.get("initContainers") or []
         )
         for container in containers:
             yield container.get("name"), container.get("resources") or {}, kind, name
-    elif kind == "Alloy":
-        alloy = (doc.get("spec") or {}).get("alloy") or {}
-        yield "alloy", alloy.get("resources") or {}, kind, name
-    elif kind == "Collector":
-        yield "collector", (doc.get("spec") or {}).get("resources") or {}, kind, name
 
 
 def coverage_problems(rendered, dest_ns, app, allowlist):
