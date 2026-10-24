@@ -21,14 +21,12 @@ env:
 
 jobs:
   renovate:
-    # Ticking a dashboard or PR checkbox starts a run; the bot's own rewrites of those bodies must not, or every run would loop.
+    # Ticking a dashboard or PR checkbox starts a run; the bots' own rewrites of those bodies must not, or every run would loop.
     if: >-
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues' && github.event.issue.title == 'Dependency Dashboard'
-        && github.actor != 'infrabytes-renovate[bot]') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'renovate/')
-        && github.actor != 'infrabytes-renovate[bot]')
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (github.actor != 'infrabytes-renovate[bot]' && github.actor != 'renovate[bot]' &&
+        ((github.event_name == 'issues' && github.event.issue.title == 'Dependency Dashboard') ||
+         (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'renovate/'))))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -36,7 +34,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          app-id: ${{ vars.RENOVATE_APP_ID }}
+          client-id: ${{ vars.RENOVATE_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
 
       - name: Run Renovate
