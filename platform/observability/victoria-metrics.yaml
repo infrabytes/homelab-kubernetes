@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: victoria-metrics-app
+  name: victoria-metrics
   namespace: argocd
 spec:
   project: default

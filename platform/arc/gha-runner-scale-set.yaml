@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: gha-runner-scale-set-app
+  name: gha-runner-scale-set
   namespace: argocd
 spec:
   project: default

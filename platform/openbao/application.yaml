@@ -9,7 +9,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: openbao-app
+  name: openbao
   namespace: argocd
 spec:
   project: default

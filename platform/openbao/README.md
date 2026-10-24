@@ -29,7 +29,7 @@ such a source exists).
 ## Bootstrap (one-time)
 
 Cluster must be reachable (`kubectl get nodes`), addons applied, and the chart
-synced (`openbao-app` Healthy in ArgoCD):
+synced (`openbao` app Healthy in ArgoCD):
 
 ```sh
 kubectl port-forward -n openbao svc/openbao-active 8200:8200 &

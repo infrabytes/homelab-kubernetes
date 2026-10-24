@@ -1,6 +1,6 @@
 # Velero
 
-Chart app `velero-app` (`vmware-tanzu/velero`, pinned `targetRevision`).
+Chart app `velero` (`vmware-tanzu/velero`, pinned `targetRevision`).
 Namespace `velero`; the ESO-owned `cloud-credentials` Secret
 (`platform/velero/`) feeds both the BSL credential ref and the node-agent's
 `AWS_SHARED_CREDENTIALS_FILE`.

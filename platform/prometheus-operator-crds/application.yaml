@@ -5,7 +5,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: prometheus-operator-crds-app
+  name: prometheus-operator-crds
   namespace: argocd
 spec:
   project: default

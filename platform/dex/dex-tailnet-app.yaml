@@ -2,7 +2,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: dex-tailnet-app
+  name: dex-tailnet
   namespace: argocd
 spec:
   project: default

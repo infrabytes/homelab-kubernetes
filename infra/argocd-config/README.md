@@ -12,11 +12,11 @@ the argocd provider can only connect once the ArgoCD server exists.
   directory generator matches `argocd/appsets/*` in the repo and generates one
   Application per subdir (`appset-{{path.basename}}`) that applies the
   ApplicationSet YAML committed there (app-of-appsets pattern).
-- The real `platform` (cluster admin-level resources) and `apps` (regular
-  applications) ApplicationSets are therefore plain GitOps manifests under
-  `argocd/appsets/`, reviewable and diffable (e.g. by the Argo CD diff preview
-  workflow) instead of being defined in Terraform. Adding or changing an
-  ApplicationSet is a normal repo PR that needs no Terraform change.
+- The real `platform` Application (cluster admin-level resources) and the
+  `apps` ApplicationSet (regular applications) are therefore plain GitOps
+  manifests under `argocd/appsets/`, reviewable and diffable (e.g. by the Argo CD
+  diff preview workflow) instead of being defined in Terraform. Adding or
+  changing one is a normal repo PR that needs no Terraform change.
 - ArgoCD reads GitOps content only from the git repo (`gitops_repo_url` from
   `env.hcl`).
 
@@ -25,10 +25,12 @@ ApplicationSet dirs may carry more than ApplicationSets: `argocd/appsets/pdeu/`
 they are plain objects applied in the same operation by the generated
 `appset-pdeu` Application.
 
-The `platform` ApplicationSet generates one app per `platform/*` folder.
-Each component folder holds the Helm chart `Application` (app-of-apps: one
-outer folder app that applies the inner `<chart>-app`) next to its companion
-manifests (namespace, ESO resources, routes, network policies).
+The `platform` Application applies the whole `platform/` tree recursively: each
+component folder holds its Helm chart `Application` next to its companion
+manifests (namespace, ESO resources, routes, network policies), and the chart
+`Application` carries the component's name (`platform/cert-manager/application.yaml`
+→ Application `cert-manager`). One component therefore shows up as one app, and
+a new `platform/<name>/` folder needs no registration anywhere.
 
 The argocd provider connects to the in-cluster server (ClusterIP) via
 port-forwarding, deriving the cluster connection from the kubeconfig the

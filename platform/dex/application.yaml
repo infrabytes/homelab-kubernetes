@@ -2,7 +2,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: dex-app
+  name: dex
   namespace: argocd
 spec:
   project: default

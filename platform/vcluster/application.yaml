@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: vcluster-app
+  name: vcluster
   namespace: argocd
 spec:
   project: default

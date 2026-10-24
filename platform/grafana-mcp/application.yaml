@@ -3,7 +3,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: grafana-mcp-app
+  name: grafana-mcp
   namespace: argocd
 spec:
   project: default
