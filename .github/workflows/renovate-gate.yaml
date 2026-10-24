@@ -95,7 +95,7 @@ jobs:
           title = pr.get("title") or ""
           pr_url = pr["html_url"]
 
-          if author != "renovate[bot]":
+          if author not in ("renovate[bot]", "infrabytes-renovate[bot]"):
               state, desc = "success", "not a Renovate PR"
           else:
               reviews = api(f"/repos/{REPO}/pulls/{pr_number}/reviews")

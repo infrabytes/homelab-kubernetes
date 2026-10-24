@@ -1,0 +1,52 @@
+name: renovate
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+  issues:
+    types: [edited]
+  pull_request:
+    types: [edited]
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  RENOVATE_VERSION: 44.172.1
+
+jobs:
+  renovate:
+    # Ticking a dashboard or PR checkbox starts a run; the bot's own rewrites of those bodies must not, or every run would loop.
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && github.event.issue.title == 'Dependency Dashboard'
+        && github.actor != 'infrabytes-renovate[bot]') ||
+      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'renovate/')
+        && github.actor != 'infrabytes-renovate[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Mint GitHub App installation token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
+      - name: Run Renovate
+        uses: renovatebot/github-action@a63d9a7bc606f7336fd20b47f2f32259a35e6213 # v46.3.9
+        with:
+          # App installation token: a GITHUB_TOKEN PR would not trigger pre-commit/renovate-gate, stalling automerge.
+          token: ${{ steps.app-token.outputs.token }}
+          renovate-version: ${{ env.RENOVATE_VERSION }}
+        env:
+          LOG_LEVEL: info
+          RENOVATE_PLATFORM: github
+          # Env-only global config: renovate.json stays the repository config instead of doubling as global config.
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
