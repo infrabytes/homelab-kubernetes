@@ -88,6 +88,14 @@ def pinned_renovate_version() -> str:
     fail("could not read the renovate rev from .pre-commit-config.yaml")
 
 
+def workflow_renovate_version() -> str:
+    workflow = (REPO_ROOT / ".github/workflows/renovate.yaml").read_text()
+    m = re.search(r"RENOVATE_VERSION:\s*(\d+\.\d+\.\d+)", workflow)
+    if not m:
+        fail("could not read RENOVATE_VERSION from .github/workflows/renovate.yaml")
+    return m.group(1)
+
+
 def github_token() -> str:
     token = os.environ.get("GITHUB_TOKEN", "")
     if not token and shutil.which("gh"):
@@ -226,6 +234,13 @@ def parse_updates_section(log_text: str):
 
 def main() -> None:
     version = pinned_renovate_version()
+    workflow_version = workflow_renovate_version()
+    if workflow_version != version:
+        fail(
+            f"RENOVATE_VERSION ({workflow_version}) differs from the "
+            f"renovatebot/pre-commit-hooks rev ({version}): the self-hosted engine "
+            f"would run a different version than the validator checked"
+        )
     host_rules = json.dumps(
         [{"matchHost": "github.com", "hostType": "github", "token": github_token()}]
     )

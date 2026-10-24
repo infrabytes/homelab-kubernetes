@@ -389,15 +389,6 @@
       "groupSlug": "github-actions"
     },
     {
-      "description": "The self-hosted image and the pre-commit validator rev are the same Renovate release stream; bump both in one branch",
-      "matchPackageNames": [
-        "ghcr.io/renovatebot/renovate",
-        "renovatebot/pre-commit-hooks"
-      ],
-      "groupName": "renovate",
-      "groupSlug": "renovate"
-    },
-    {
       "matchFileNames": [
         ".pre-commit-config.yaml"
       ],
@@ -515,6 +506,15 @@
       ],
       "groupName": "kubernetes version",
       "groupSlug": "kubernetes-version"
+    },
+    {
+      "description": "The self-hosted image and the pre-commit validator rev are the same Renovate release stream; bump both in one branch. Must stay below the file-based group rules, which set groupName for .github/** and .pre-commit-config.yaml and win by being later.",
+      "matchPackageNames": [
+        "ghcr.io/renovatebot/renovate",
+        "renovatebot/pre-commit-hooks"
+      ],
+      "groupName": "renovate",
+      "groupSlug": "renovate"
     }
   ]
 }
