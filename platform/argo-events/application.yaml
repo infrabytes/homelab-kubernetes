@@ -5,7 +5,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: argo-events-app
+  name: argo-events
   namespace: argocd
 spec:
   project: default

@@ -67,12 +67,12 @@ Rotating the secret: set the new value in SOPS (`argocd_webhook_secret`), apply
 this unit, then paste the same value into the GitHub webhook. The API server
 picks up the secret change automatically (no pod restart).
 
-Note: the committed `platform`/`apps`/`pdeu` ApplicationSets also refresh
-instantly on pushes to their repos (the API-server webhook matches on
-`repoURL`). Only the discovery of *new* app directories (the ApplicationSet
-git generator) still waits for the 3-minute poll — the ApplicationSet
-controller exposes a separate webhook server that would need its own hostname
-+ HTTPRoute, which is not set up.
+Note: the committed `platform` Application and the `apps`/`pdeu` ApplicationSets
+also refresh instantly on pushes to their repos (the API-server webhook matches
+on `repoURL`), so a new `platform/<name>/` folder is picked up right away. Only
+new directories under `apps/` (the ApplicationSet git generator) wait for the
+3-minute poll — the ApplicationSet controller exposes a separate webhook server
+that would need its own hostname + HTTPRoute, which is not set up.
 
 ### **Component namespaces and bootstrap Secrets**
 
@@ -102,8 +102,9 @@ adding a static client) roll the pod:
 Secrets (kept out of git as SOPS-encrypted values in the shared
 `../secrets.sops.yaml`).
 
-The ArgoCD **ApplicationSets** (`platform`, `apps`) are NOT managed here, they
-live in the separate [`../argocd-config`](../argocd-config/README.md) unit that
+The ArgoCD `platform` Application and the `apps`/`pdeu`/`tenants`
+**ApplicationSets** are NOT managed here, they live in the separate
+[`../argocd-config`](../argocd-config/README.md) unit that
 runs after ArgoCD is up (otherwise the argocd provider couldn't connect during a
 from-scratch apply).
 
@@ -145,12 +146,11 @@ terragrunt apply --all     # cluster -> viewer-kubeconfig, addons (this unit) ->
 ```
 
 Once ArgoCD is up, `cd ../argocd-config && terragrunt apply` (or `--all`)
-creates the ApplicationSets, and ArgoCD syncs:
+creates the `platform` Application and the ApplicationSets, and ArgoCD syncs:
 
-- `platform` ApplicationSet syncs each `platform/` subdir — one app per
-  component folder, each applying the folder's Helm chart `Application`
-  (cert-manager, external-dns, spegel, longhorn, ...) plus its companion
-  manifests.
+- the `platform` Application applies all of `platform/` — each component's Helm
+  chart `Application` (cert-manager, external-dns, spegel, longhorn, ...) plus
+  its companion manifests, one app per component.
 - `apps` ApplicationSet syncs `apps/` (ArgoCD's HTTPRoute →
   `argocd.icaninto.space`).
 - Cert-manager issues the cert (DNS-01, ~1 min); external-dns creates the

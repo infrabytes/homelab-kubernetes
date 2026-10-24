@@ -14,7 +14,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | Terragrunt + OpenTofu        | Infrastructure provisioning: `cluster -> addons -> argocd-config`    |
 | Cilium (1.20.1)              | CNI, kube-proxy-free, L2 LB (LB-IPAM 192.168.0.200-219), Gateway API (Gateway `homelab` at 192.168.0.200), WireGuard encryption, Hubble |
 | Network policies             | Phase-1 namespace isolation for the chart-value workloads: chart values + per-namespace ingress default-deny + egress derived from Hubble flow audits, all co-located with their component under `platform/<component>/`; posture, verified gotchas and the phase-2 backlog in `docs/network-policies.md` |
-| ArgoCD                       | GitOps delivery: `platform`/`apps`/`pdeu`/`tenants` ApplicationSets committed in `argocd/appsets/`, applied by a Terraform-managed bootstrap ApplicationSet; UI at argocd.icaninto.space |
+| ArgoCD                       | GitOps delivery: one umbrella `platform` Application plus the `apps`/`pdeu`/`tenants` ApplicationSets, committed in `argocd/appsets/` and applied by a Terraform-managed bootstrap ApplicationSet; UI at argocd.icaninto.space |
 | Atlantis (k3s)               | Terraform PR automation for `infra/**` (plan per unit, apply, squash-merge) in a single-node k3s cluster on the `windrunner` VM, registered in ArgoCD as cluster `windrunner` and deployed from `platform/atlantis/`; SWAG terminates TLS at atlantis.icaninto.space |
 | cert-manager                 | TLS via Let's Encrypt DNS-01 (Cloudflare), ClusterIssuer `letsencrypt-dns01` |
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
@@ -68,8 +68,8 @@ infra/              Terragrunt/OpenTofu units: cluster -> viewer-kubeconfig, add
   viewer-kubeconfig/ Mints the view-only client cert + kubeconfig (CSR API, no CA key extraction)
   addons/           Installs ArgoCD, cert-manager, external-dns, OpenBao namespace + seal Secret, dex + dex-tailnet namespaces + config Secrets, headlamp namespace + OIDC Secret, ARC namespaces (runner PAT now synced by ESO from OpenBao)
   argocd-config/    ArgoCD bootstrap ApplicationSet (app-of-appsets)
-argocd/appsets/     committed ApplicationSets (platform, apps, pdeu, tenants), applied via the
-                    Terraform bootstrap ApplicationSet
+argocd/appsets/     committed ApplicationSets (apps, pdeu, tenants) and the platform umbrella
+                    Application, applied via the Terraform bootstrap ApplicationSet
 argocd/tenants/     tenant list (source of truth for the tenants ApplicationSet + the
                     openbao postStart tenant config)
 charts/             in-repo Helm charts rendered by ApplicationSets (tenant-access)
@@ -283,9 +283,9 @@ terragrunt apply --all    # cluster -> viewer-kubeconfig, addons (ArgoCD, cert-m
 ```
 
 The `argocd-config` unit creates a bootstrap ApplicationSet that applies the
-committed `platform`/`apps` ApplicationSets from `argocd/appsets/`. ArgoCD then
-syncs `platform/` and `apps/` automatically (automated sync with prune +
-selfHeal).
+committed `platform` Application and `apps` ApplicationSet from
+`argocd/appsets/`. ArgoCD then syncs `platform/` and `apps/` automatically
+(automated sync with prune + selfHeal).
 
 ### Day-2 workflows
 

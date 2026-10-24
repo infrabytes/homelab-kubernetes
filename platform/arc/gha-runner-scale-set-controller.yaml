@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: gha-runner-scale-set-controller-app
+  name: gha-runner-scale-set-controller
   namespace: argocd
 spec:
   project: default
@@ -34,6 +34,6 @@ spec:
       selfHeal: true
     # The chart's CRDs exceed the 256KB annotation limit of client-side apply,
     # so the CRDs must be applied with server-side apply (same as
-    # prometheus-operator-crds-app).
+    # the prometheus-operator-crds app).
     syncOptions:
       - ServerSideApply=true

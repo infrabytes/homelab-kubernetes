@@ -1,6 +1,6 @@
 # Grafana MCP server
 
-Chart app `grafana-mcp-app`, release `grafana-mcp` in `observability`
+Chart app `grafana-mcp`, release `grafana-mcp` in `observability`
 (`grafana-community/grafana-mcp`, pinned `targetRevision`). Streamable HTTP on
 `/mcp` (port 8000; `/healthz` at the root); it talks to the local Grafana at
 `grafana-service:3000`.

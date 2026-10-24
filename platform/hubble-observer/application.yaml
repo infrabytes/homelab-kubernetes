@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: hubble-observer-app
+  name: hubble-observer
   namespace: argocd
 spec:
   project: default

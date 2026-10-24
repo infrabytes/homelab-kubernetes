@@ -3,7 +3,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: headlamp-app
+  name: headlamp
   namespace: argocd
 spec:
   project: default

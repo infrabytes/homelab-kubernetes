@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: csi-driver-nfs-app
+  name: csi-driver-nfs
   namespace: argocd
 spec:
   project: default
