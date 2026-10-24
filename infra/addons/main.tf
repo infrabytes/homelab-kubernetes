@@ -45,12 +45,14 @@ resource "helm_release" "argo_cd" {
       # ServiceMonitors in platform/k8s-monitoring can scrape them.
       controller = {
         metrics = { enabled = true }
-        # Re-derived 2026-09-16..10-22 (36d retained): p95 704.4Mi → 768Mi request, cpu p95
-        # 136m → 140m; limit = max(1.5x request 1152Mi, 1.25x peak 847.3Mi). Retires the
-        # 1Gi/2Gi escalation — the 36d series is no longer limit-censored.
+        # Request re-derived 2026-09-16..10-22 (36d retained): p95 704.4Mi → 768Mi, cpu p95
+        # 136m → 140m. The limit is not derivable: a full-fleet sync burst on 2026-10-24
+        # (18 apps in 30s after a push to main, four operations resumed in parallel on
+        # every restart) OOMKilled the controller at 1152Mi, and the spike falls between
+        # the 30s cadvisor scrapes. 2Gi is a dated escalation; re-measure 2026-11-24.
         resources = {
           requests = { cpu = "140m", memory = "768Mi" }
-          limits   = { memory = "1152Mi" }
+          limits   = { memory = "2Gi" }
         }
       }
       repoServer = {
