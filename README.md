@@ -273,10 +273,13 @@ repository config instead of doubling as global config.
 
 Triggers: `0 5 * * *` UTC as the baseline, `workflow_dispatch` for a run on
 demand, and `issues`/`pull_request` `edited` events so ticking a Dependency
-Dashboard box (issue #6, matched by title) or a PR's "rebase/retry" box starts
-a run in seconds. The job `if` narrows those edits to the dashboard and to
-`renovate/*` branches and ignores the bot's own edits — Renovate rewrites both
-bodies on every run and an App token's writes do fire workflow events.
+Dashboard box (matched by title) or a PR's "rebase/retry" box starts a run in
+seconds. The job `if` narrows those edits to the dashboard and to `renovate/*`
+branches and ignores the bot's own edits — Renovate rewrites both bodies on
+every run and an App token's writes do fire workflow events. Renovate only
+manages dashboards it authored itself (the issue query is filtered by author),
+so the self-hosted bot creates its own dashboard rather than adopting the
+Mend-hosted one.
 `prHourlyLimit: 0` in `renovate.json` compensates for the daily schedule: the
 default of 2 would cap creation at ~2 PRs per day, while `prConcurrentLimit`
 (10) still bounds open PRs.
@@ -298,8 +301,12 @@ The run needs no `GITHUB_TOKEN` permission: the App token does the writing, and
 because it is an installation token the PRs it opens do trigger `pre-commit`
 and `renovate-gate`, which a `GITHUB_TOKEN` PR would not. Uninstall the Mend
 Renovate app once the self-hosted run is verified, so a single engine manages
-branches; the legacy `renovate[bot]` login stays accepted by the gate and the
-apply script until its PRs close.
+branches — until then the old app keeps reading this repo's `renovate.json`
+and can open branches under the same names. Branches it authored are reported
+by the new bot as "PR Edited (Blocked)"; ticking their rebase boxes on the new
+dashboard discards those commits and recreates the branch. The legacy
+`renovate[bot]` login stays accepted by the gate and the apply script until its
+PRs close.
 
 ## Getting started
 
