@@ -401,45 +401,14 @@ file) from `infra/secrets.sops.yaml`, which is why it runs under
 `sops exec-env`. SeaweedFS reads that file at start, so a key rotation needs a
 `kubectl rollout restart deploy/seaweedfs-all-in-one` afterwards.
 
-The one-time cutover seeds the PVC before the release exists, because
-`local-path` only provisions on first consume:
-
-```sh
-sudo k3s kubectl apply -f - <<'EOF'   # the chart's PVC name, plus a pod that binds it
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata: {name: seaweedfs-all-in-one-data, namespace: seaweedfs}
-spec:
-  accessModes: [ReadWriteOnce]
-  storageClassName: local-path
-  resources: {requests: {storage: 100Gi}}
----
-apiVersion: v1
-kind: Pod
-metadata: {name: seaweedfs-seed, namespace: seaweedfs}
-spec:
-  containers:
-    - {name: seed, image: busybox, command: [sleep, "3600"],
-       volumeMounts: [{name: data, mountPath: /data}]}
-  volumes:
-    - {name: data, persistentVolumeClaim: {claimName: seaweedfs-all-in-one-data}}
-EOF
-cd ~ && docker compose stop seaweedfs seaweedfs-admin
-rsync -a ~/appdata/seaweedfs/data/ \
-  "$(sudo k3s kubectl get pv \
-      "$(sudo k3s kubectl -n seaweedfs get pvc seaweedfs-all-in-one-data -o jsonpath={.spec.volumeName})" \
-      -o jsonpath={.spec.local.path})/"
-sudo k3s kubectl -n seaweedfs delete pod seaweedfs-seed   # the PVC stays
-```
-
-Then merge the `platform/seaweedfs/` PR, point `$upstream_app` at `172.17.0.1`
-and `$upstream_port` at 30833 in SWAG's `proxy-confs/s3.subdomain.conf` (23646 →
-32346 for `seaweedfs.subdomain.conf`), reload nginx and drop the two services
-from `~/docker-compose.yml`. Rollback is a reverse of that: remove the app from
-ArgoCD (selfHeal reverts a plain scale-down), `docker compose up -d seaweedfs
-seaweedfs-admin`, restore both upstream lines — `~/appdata/seaweedfs/data` is
-never modified. Leave that directory alone until the new instance has run for a
-few days.
+The release was cut over on 2026-10-24: the claim was seeded from the old
+`~/appdata/seaweedfs/data` (a throwaway pod mounted the claim while the Docker
+containers were stopped, `rsync -a` into the bound PV, then the pod was
+deleted), and SWAG's `proxy-confs/s3.subdomain.conf` and
+`seaweedfs.subdomain.conf` now point at `172.17.0.1` with ports 30833 and 32346.
+That directory, both containers and their compose services are gone, so the
+claim is the only copy of the buckets — rsync the PV directory off-host if they
+should survive a windrunner reinstall.
 
 ### Dashboard authoring (grafana-dev sandbox)
 
