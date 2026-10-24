@@ -66,6 +66,13 @@ spec:
                     value: /opt/tool-cache/local/pre-commit
                   - name: PATH
                     value: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                # 7d p95 over 331 runner pods (p95 860Mi); limit = 1.25x the 1.1Gi peak.
+                resources:
+                  requests:
+                    cpu: 1090m
+                    memory: 896Mi
+                  limits:
+                    memory: 1536Mi
   destination:
     namespace: arc-runners
     server: https://kubernetes.default.svc
