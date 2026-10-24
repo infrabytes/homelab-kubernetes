@@ -8,6 +8,7 @@
   ],
   "automergeType": "pr",
   "automergeStrategy": "squash",
+  "prHourlyLimit": 0,
   "ignorePaths": [
     "**/.terragrunt-cache/**",
     "**/artifacts/**"
@@ -364,6 +365,19 @@
       ],
       "depNameTemplate": "kubernetes/kubernetes",
       "datasourceTemplate": "github-tags"
+    },
+    {
+      "customType": "regex",
+      "description": "Self-hosted Renovate engine version pinned in the renovate workflow; must match the pre-commit renovatebot/pre-commit-hooks rev (same release stream)",
+      "managerFilePatterns": [
+        "/^\\.github\\/workflows\\/renovate\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "RENOVATE_VERSION:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "ghcr.io/renovatebot/renovate",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
     }
   ],
   "packageRules": [
@@ -373,6 +387,15 @@
       ],
       "groupName": "GitHub Actions",
       "groupSlug": "github-actions"
+    },
+    {
+      "description": "The self-hosted image and the pre-commit validator rev are the same Renovate release stream; bump both in one branch",
+      "matchPackageNames": [
+        "ghcr.io/renovatebot/renovate",
+        "renovatebot/pre-commit-hooks"
+      ],
+      "groupName": "renovate",
+      "groupSlug": "renovate"
     },
     {
       "matchFileNames": [

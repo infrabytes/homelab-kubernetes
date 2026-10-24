@@ -33,7 +33,9 @@ import urllib.request
 
 API_ROOT = "https://api.github.com"
 TRIGGER_WORKFLOWS = frozenset({"pre-commit", "renovate-gate"})
-RENOVATE_LOGIN = "renovate[bot]"
+RENOVATE_LOGIN = "infrabytes-renovate[bot]"
+# PRs opened by the Mend-hosted app stay eligible until they close.
+LEGACY_RENOVATE_LOGIN = "renovate[bot]"
 BOT_LOGIN = "github-actions[bot]"
 INFRA_PREFIX = "infra/"
 APPLY_COMMENT = "atlantis apply"
@@ -90,7 +92,7 @@ def evaluate(
         return False, f"pr is {pr.get('state')}"
 
     author = (pr.get("user") or {}).get("login")
-    if author != RENOVATE_LOGIN:
+    if author not in (RENOVATE_LOGIN, LEGACY_RENOVATE_LOGIN):
         return False, f"author {author!r} is not {RENOVATE_LOGIN}"
 
     head_sha = (pr.get("head") or {}).get("sha")
@@ -278,7 +280,8 @@ def fixture(**overrides) -> dict:
 SELF_TEST_CASES = [
     ("happy path", fixture(), True, "posting"),
     ("closed pr", fixture(pr={"state": "closed", "user": {"login": RENOVATE_LOGIN}, "head": {"sha": FIXTURE_SHA}}), False, "pr is closed"),
-    ("non-renovate author", fixture(pr={"state": "open", "user": {"login": "bbayrakt"}, "head": {"sha": FIXTURE_SHA}}), False, "not renovate[bot]"),
+    ("non-renovate author", fixture(pr={"state": "open", "user": {"login": "bbayrakt"}, "head": {"sha": FIXTURE_SHA}}), False, "not infrabytes-renovate[bot]"),
+    ("legacy mend-app author", fixture(pr={"state": "open", "user": {"login": LEGACY_RENOVATE_LOGIN}, "head": {"sha": FIXTURE_SHA}}), True, "posting"),
     ("pr head moved past run sha", fixture(pr={"state": "open", "user": {"login": RENOVATE_LOGIN}, "head": {"sha": "c" * 40}}), False, "moved past"),
     ("no infra files", fixture(files=[".pre-commit-config.yaml"]), False, "no infra/**"),
     (
