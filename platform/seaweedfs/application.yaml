@@ -12,6 +12,9 @@ spec:
     helm:
       releaseName: seaweedfs
       values: |
+        # chart appVersion 4.49 names chrislusf/seaweedfs:4.49, which Docker Hub has not published yet.
+        image:
+          tag: "4.48"
         # allInOne does not switch the component templates off; each keeps its own flag.
         master: {enabled: false}
         volume: {enabled: false}
