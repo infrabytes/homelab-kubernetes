@@ -1160,7 +1160,8 @@ spec:
             datasource:
               type: prometheus
               uid: victoriametrics
-            expr: 100 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes
+            # Hosts pin ~90% by construction (one 14 GiB VM on 16.66 GB RAM, no ballooning); only guests carry signal.
+            expr: 100 - (node_memory_MemAvailable_bytes{job!="pve-node"} / node_memory_MemTotal_bytes{job!="pve-node"}
               * 100) > 90
             instant: true
             intervalMs: 1000
