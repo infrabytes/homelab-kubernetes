@@ -15,6 +15,8 @@ spec:
       values: |
         credentials:
           existingSecret: cloud-credentials
+        podAnnotations:
+          reloader.stakater.com/auto: "true"
         configuration:
           backupStorageLocation:
             - name: default

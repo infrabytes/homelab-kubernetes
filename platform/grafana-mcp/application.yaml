@@ -64,6 +64,8 @@ spec:
             memory: 64Mi
           limits:
             memory: 128Mi
+        podAnnotations:
+          reloader.stakater.com/auto: "true"
 
         automountServiceAccountToken: false
         serviceAccount:

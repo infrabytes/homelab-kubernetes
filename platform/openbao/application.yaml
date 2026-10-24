@@ -122,6 +122,9 @@ spec:
             - envName: OIDC_TAILNET_CA_PEM
               secretName: openbao-oidc-tailnet-ca
               secretKey: ca.crt
+          # Reloader roll on the seal/OIDC Secrets; updateStrategyType is RollingUpdate, so raft keeps quorum.
+          annotations:
+            reloader.stakater.com/auto: "true"
           # Bootstraps the oidc auth method on every pod start as the pod's own SA
           # (Kubernetes auth, no root token in the cluster); a failure crash-loops to surface misconfig.
           postStart:

@@ -37,6 +37,8 @@ spec:
               secretKeyRef:
                 name: cloudflare-api-token
                 key: cloudflare-api-token
+        podAnnotations:
+          reloader.stakater.com/auto: "true"
   destination:
     namespace: external-dns
     server: https://kubernetes.default.svc
