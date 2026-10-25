@@ -18,18 +18,18 @@ spec:
       name: grafana
       user: grafana
       ssl_mode: require
-    # LAN path: Dex (GitHub); the tailnet path reads the ingress proxy's Tailscale identity header.
+    # LAN path: Authentik; the tailnet path reads the ingress proxy's Tailscale identity header.
     auth.generic_oauth:
       enabled: "true"
-      name: GitHub
+      name: Authentik
       allow_sign_up: "true"
       client_id: grafana
       scopes: openid profile email
-      auth_url: https://dex.icaninto.space/auth
-      token_url: https://dex.icaninto.space/token
-      api_url: https://dex.icaninto.space/userinfo
+      auth_url: https://authentik.icaninto.space/application/o/authorize/
+      token_url: https://authentik.icaninto.space/application/o/token/
+      api_url: https://authentik.icaninto.space/application/o/userinfo/
       login_attribute_path: preferred_username
-      # Matches both identities: the tailnet proxy sends `bbayrakt@github`, the LAN Dex login `bbayrakt`.
+      # Matches both identities: the tailnet proxy sends `bbayrakt@github`, the LAN Authentik login `bbayrakt`.
       role_attribute_path: "contains(preferred_username, 'bbayrakt') && 'GrafanaAdmin' || 'Viewer'"
       # Without this Grafana caps the mapped role at Admin, so the GrafanaAdmin above never lands.
       allow_assign_grafana_admin: "true"
@@ -48,11 +48,11 @@ spec:
           annotations:
             reloader.stakater.com/auto: "true"
         spec:
-          # Grafana resolves the Dex issuer server-side (OIDC discovery + token exchange); the LAN name is not in cluster DNS, so pin it.
+          # Grafana resolves the Authentik issuer server-side (OIDC discovery + token exchange); the LAN name is not in cluster DNS, so pin it.
           hostAliases:
             - ip: 192.168.0.200
               hostnames:
-                - dex.icaninto.space
+                - authentik.icaninto.space
           volumes:
             - name: grafana-datasources
               configMap:
