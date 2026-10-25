@@ -273,22 +273,28 @@ version pinned in `RENOVATE_VERSION` — the same release stream as the
 repository config instead of doubling as global config.
 
 Triggers: `0 5 * * *` UTC as the baseline, `workflow_dispatch` for a run on
-demand, and `issues`/`pull_request` `edited` events so ticking a Dependency
-Dashboard box (matched by title) or a PR's "rebase/retry" box starts a run in
-seconds. The job `if` narrows those edits to the dashboard and to `renovate/*`
-branches and ignores the bot's own edits — Renovate rewrites both bodies on
-every run and an App token's writes do fire workflow events. Renovate only
-manages dashboards it authored itself (the issue query is filtered by author),
-so the self-hosted bot creates its own dashboard rather than adopting the
-Mend-hosted one.
+demand, `pre-commit`/`renovate-gate` completions on `renovate/*` branches, and
+`issues`/`pull_request` `edited` events so ticking a Dependency Dashboard box
+(matched by title) or a PR's "rebase/retry" box starts a run in seconds. The job
+`if` narrows those edits to the dashboard and to `renovate/*` branches and
+ignores the bot's own edits — Renovate rewrites both bodies on every run and an
+App token's writes do fire workflow events. Renovate only manages dashboards it
+authored itself (the issue query is filtered by author), so the self-hosted bot
+creates its own dashboard rather than adopting the Mend-hosted one.
 
-The `workflow_run` trigger is what actually merges: a run that creates or
-rebases a branch leaves that PR waiting on CI, and only a later run merges it.
-`pre-commit`/`renovate-gate` completions on `renovate/*` branches start that
-later run, which is why automerge lands a minute or two after CI instead of at
-the next scheduled tick. GitHub's scheduler is no help here: this repo's
-`0 5` cron (and `warm-tool-cache`'s `03:23`) fire around 08:15-08:45 UTC, so
-the daily run is a backstop for discovering new releases, not the merge path.
+The `workflow_run` edge is what actually merges: Renovate merges only inside a
+run, and a branch it just created or rebased is waiting on CI, so a later pass
+does the merge. The cron cannot fill that role here, because GitHub's scheduler
+runs hours late in this repo (`warm-tool-cache`'s `03:23` landed at 08:16-08:46
+UTC on five consecutive days). The daily run is the backstop for discovering new
+releases, not the merge path.
+
+`prHourlyLimit: 0` in `renovate.json` compensates for the daily schedule: the
+default of 2 would cap creation at ~2 PRs per day, while `prConcurrentLimit`
+(10) still bounds open PRs. The `renovate` group rule turns
+`minimumReleaseAge` off: only the pre-commit hook reports a release timestamp,
+so the 3-day gate would hold the validator back while the image (no timestamp)
+ran ahead, leaving the engine and its validator on different versions.
 
 `prHourlyLimit: 0` in `renovate.json` compensates for the daily schedule: the
 default of 2 would cap creation at ~2 PRs per day, while `prConcurrentLimit`
