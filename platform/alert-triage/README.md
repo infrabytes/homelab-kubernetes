@@ -1,7 +1,7 @@
 # Alert sandbox
 
-Two sandboxed [pi](https://github.com/earendil-works/pi) agents run in namespace
-`alert-triage`, both fed by the same Grafana webhook.
+Three sandboxed [pi](https://github.com/earendil-works/pi) agents run in namespace
+`alert-triage`: two are fed by the Grafana webhook, the third by the Renovate gate.
 
 **alert-triage** starts on every firing alert. The agent investigates with the read-only
 Grafana MCP server and read-only `kubectl`, then posts a verdict to Discord: what fired,
@@ -11,6 +11,11 @@ concrete fix suggestion. It never changes anything.
 **memory-rightsize** starts on the two memory rules. The agent measures the container's
 memory over 14 days, decides whether the request/limit should be raised, and opens a pull
 request with the change (see [Memory rightsize](#memory-rightsize)).
+
+**breaking-change** starts when the `breaking-change-gate` status on a Renovate pull request
+turns red. The agent reads the upstream release notes, checks this repository for usage of
+whatever changed, and posts one comment on the PR saying whether it matters and what to do
+(see [Breaking-change review](#breaking-change-review)).
 
 ```
 Grafana alertmanager ──webhook POST /grafana (Bearer)──► EventSource grafana-alerts
@@ -39,7 +44,7 @@ Grafana alertmanager ──webhook POST /grafana (Bearer)──► EventSource g
 | `event-bus.yaml` | NATS JetStream bus carrying webhook events to the sensor |
 | `event-source.yaml` | webhook intake on port 12000, `/grafana`, bearer-token guarded |
 | `sensor.yaml` | turns a firing notification into one `SandboxClaim` |
-| `resource-quota.yaml` | at most 2 claims (sandboxes) at a time |
+| `resource-quota.yaml` | at most 5 claims (sandboxes) at a time, across all three agents |
 | `sandbox-template.yaml` | the sandbox: pi + kubectl, read-only SA, managed egress policy |
 | `warm-pool.yaml` | zero-replica pool that supplies the template reference |
 
@@ -48,7 +53,7 @@ The Argo Events controller and its CRDs live in their own folder,
 directory before applying it, so the chart Application cannot share a folder with the
 `EventBus`/`EventSource`/`Sensor` objects whose CRDs it installs.
 | `agent-config.yaml` | ConfigMap: `mcp.json`, triage contract (`APPEND_SYSTEM.md`), flap gate (`gate.mjs`), `entrypoint.sh`, `post.mjs` |
-| `service-account.yaml`, `rbac.yaml` | sensor write scope (claims) and agent read scope (`cluster-viewer`) |
+| `service-account.yaml`, `rbac.yaml` | sensor write scope (claims), agent read scope (`cluster-viewer`), and the `arc-runner` claim/log scope the gate workflow uses |
 | `gate.test.mjs`, `rightsize-gate.test.mjs` | node fixtures for both gates; run by the `triage-gate-test` pre-commit hook |
 | `secret-store.yaml`, `external-secret.yaml` | triage agent credentials from OpenBao |
 | `memory-rightsize-sensor.yaml` | filters the two memory alertnames, creates one claim per alert |
@@ -56,6 +61,9 @@ directory before applying it, so the chart Application cannot share a folder wit
 | `memory-rightsize-warm-pool.yaml` | zero-replica pool for that template |
 | `memory-rightsize-agent-config.yaml` | ConfigMap: `mcp.json`, rightsize contract, `gate.mjs`, `entrypoint.sh`, `post.mjs` |
 | `memory-rightsize-secret-store.yaml`, `memory-rightsize-external-secret.yaml` | the repository token, isolated from the triage store |
+| `breaking-change-sandbox-template.yaml` | the analysis sandbox: pi + git, no cluster identity, DNS and 443 only |
+| `breaking-change-warm-pool.yaml` | zero-replica pool for that template |
+| `breaking-change-agent-config.yaml` | ConfigMap: the review contract and the entrypoint that prints the report |
 
 ## Credentials
 
@@ -67,6 +75,9 @@ Three values live in OpenBao at `secret/alert-triage` and reach the pods through
 | `llm_api_key` | `OPENCODE_API_KEY` (pi's built-in `opencode-go` provider) |
 | `grafana_mcp_token` | `Authorization: Bearer …` for the Grafana MCP server |
 | `discord_webhook_url` | the verdict destination |
+
+The breaking-change sandbox reads only `llm_api_key`: it has no Grafana MCP token, no Discord
+URL and no repository token, and the workflow that starts it posts the report.
 
 **Use a dedicated OpenCode Go key, not the host pi's key.** The agent runs unattended and
 its spend should be attributable on its own: create the key in the OpenCode Console
@@ -227,6 +238,79 @@ EOF
 kubectl -n alert-triage logs -f sandbox/rightsize-manual-1
 ```
 
+## Breaking-change review
+
+Renovate bumps a dependency past a breaking change and the `breaking-change-gate` status
+goes red. The gate is a text match on the PR body, so it can only say "something here looks
+breaking" — and for the many dependencies whose release body only links to a changelog it
+has nothing to read at all. The sandbox answers the question that actually decides the
+merge: does this break *this* repository.
+
+```
+renovate-gate (ubuntu-latest) ──red──► breaking-change-analysis (homelab-runner)
+                                          │ kubectl create
+                                          ▼
+                              SandboxClaim breaking-<pr>-<sha>
+                                          │ cold start from
+                                          ▼
+                    SandboxTemplate breaking-change ─► Sandbox ─► Pod
+                                                                     │
+   pi -p ──curl──► api.github.com (PR body, changed files)           │
+         ──curl──► upstream releases / changelog / compare diff      │
+         ──grep──► /work/repo (shallow clone of main)                │
+                              │ writes /work/report.md              │
+                              ▼                                     ▼
+            workflow reads the pod log → PR comment            claim deleted
+```
+
+The workflow, not the agent, owns the write: the sandbox holds no GitHub token and no
+cluster identity, so the worst a prompt-injected changelog can do is produce a wrong
+report. The runner's identity (`arc-runner`) is limited to claims and pod logs in this
+namespace — `breaking-change-claim` in `rbac.yaml`. The report is one comment:
+
+```
+VERDICT: IMPACT | NO_IMPACT | UNKNOWN
+WHAT CHANGED: ...
+AFFECTS US: file:line, what breaks, the evidence
+WHAT TO DO: the key and its new value, or "approve and merge" and why
+```
+
+`NO_IMPACT` has to name what was searched and checked; a changelog it could not read forces
+`UNKNOWN` rather than a guess. A failed run posts a link to the workflow log instead, so a
+red gate never sits there unexplained.
+
+One claim per PR *and* head SHA: a rebase supersedes the run (the workflow's concurrency
+cancels it) and the new SHA gets its own claim, whose name also becomes the pod name. The
+claim is deleted when the job ends; the TTL is the backstop for a cancelled job.
+
+Running one by hand is the same claim, with the gate verdict spelled out:
+
+```sh
+kubectl -n alert-triage create -f - <<'EOF'
+apiVersion: extensions.agents.x-k8s.io/v1beta1
+kind: SandboxClaim
+metadata:
+  name: breaking-manual-1
+spec:
+  warmPoolRef:
+    name: breaking-change
+  lifecycle:
+    ttlSecondsAfterFinished: 600
+    shutdownPolicy: Delete
+  env:
+    - name: GITHUB_REPO
+      value: infrabytes/homelab-kubernetes
+    - name: PR_NUMBER
+      value: "455"
+    - name: GATE_REASON
+      value: major bump: hold for review
+    - name: UNVERIFIED_DEPS
+      value: tailscale-operator
+EOF
+
+kubectl -n alert-triage logs -f breaking-manual-1
+```
+
 ## Behaviour and guardrails
 
 - **Flap gate** — before any model call, `gate.mjs` reads this namespace's own Loki stream
@@ -246,9 +330,9 @@ kubectl -n alert-triage logs -f sandbox/rightsize-manual-1
 - **Name dedupe** — the claim is named `triage-<first 8 of the alert fingerprint>`, so a
   second notification while that claim still exists fails `AlreadyExists` and is only
   logged. This covers the minutes a run takes; the flap gate covers the hours after it.
-- **Concurrency** — `ResourceQuota` caps claims at 3 across both agents. A fourth simultaneous
-  alert is rejected (sensor log), never queued; the claim TTL (5 min after the pod finishes)
-  frees the slot.
+- **Concurrency** — `ResourceQuota` caps claims at 5 across all three agents. One beyond
+  that is rejected (sensor or workflow log), never queued; the claim TTL (5 min after the pod
+  finishes) frees the slot.
 - **Time** — `activeDeadlineSeconds: 1200` kills a stuck run; the pod then reports Failed
   and the claim is still collected by its TTL.
 - **Knobs** (env on `sandbox-template.yaml`): `TRIAGE_COOLDOWN` (2h) and
@@ -269,7 +353,8 @@ matcher to the `Triage` route — or silence it.
 ## Sizing
 
 New workload (2026-10-18): requests are initial estimates, re-measured two weeks after
-cutover per the repo sizing convention. Limits are memory-only (no CPU limits).
+cutover per the repo sizing convention. Limits are memory-only (no CPU limits). The
+breaking-change sandbox carries the same provisional estimate from 2026-10-25.
 
 ## Wiring gotchas (all hit on the first deploy)
 

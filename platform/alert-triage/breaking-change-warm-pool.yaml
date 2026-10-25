@@ -1,0 +1,10 @@
+# Supplies the template reference SandboxClaim requires while holding no idle pods.
+apiVersion: extensions.agents.x-k8s.io/v1beta1
+kind: SandboxWarmPool
+metadata:
+  name: breaking-change
+  namespace: alert-triage
+spec:
+  replicas: 0
+  sandboxTemplateRef:
+    name: breaking-change

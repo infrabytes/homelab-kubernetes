@@ -99,9 +99,9 @@
     },
     {
       "customType": "regex",
-      "description": "kubectl version pinned in the PR preview and tool-cache workflows (matches kubernetes_version in env.hcl)",
+      "description": "kubectl version pinned in the PR preview, gate and tool-cache workflows (matches kubernetes_version in env.hcl)",
       "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/(pr-preview|warm-tool-cache)\\.ya?ml$/"
+        "/^\\.github\\/workflows\\/(pr-preview|renovate-gate|warm-tool-cache)\\.ya?ml$/"
       ],
       "matchStrings": [
         "\\n\\s*version:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)"
@@ -345,9 +345,9 @@
     },
     {
       "customType": "regex",
-      "description": "pi release installed into both sandboxes; the agent models and flags follow it",
+      "description": "pi release installed into every sandbox; the agent models and flags follow it",
       "managerFilePatterns": [
-        "/^platform\\/alert-triage\\/(agent-config|memory-rightsize-agent-config)\\.ya?ml$/"
+        "/^platform\\/alert-triage\\/(agent-config|memory-rightsize-agent-config|breaking-change-agent-config)\\.ya?ml$/"
       ],
       "matchStrings": [
         "(?<depName>@earendil-works/pi-coding-agent)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"
@@ -445,6 +445,26 @@
       "overrideDatasource": "github-releases",
       "overrideDepName": "kubernetes-sigs/agent-sandbox",
       "overridePackageName": "kubernetes-sigs/agent-sandbox"
+    },
+    {
+      "description": "The chart index gives no source URL, so Renovate fetches no release notes and the gate has nothing to read. Upstream tags the chart v4.13.x, so the changelog lookup resolves.",
+      "matchDatasources": [
+        "helm"
+      ],
+      "matchPackageNames": [
+        "csi-driver-nfs"
+      ],
+      "sourceUrl": "https://github.com/kubernetes-csi/csi-driver-nfs"
+    },
+    {
+      "description": "An OCI chart artifact carries no source URL either, so its release notes are never fetched. Upstream tags it v0.8.x, matching the chart version.",
+      "matchDatasources": [
+        "helm"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/spegel-org/helm-charts/spegel"
+      ],
+      "sourceUrl": "https://github.com/spegel-org/spegel"
     },
     {
       "description": "Hold majors for review regardless of changelog content",

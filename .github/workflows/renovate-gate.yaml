@@ -22,109 +22,137 @@ jobs:
     permissions:
       statuses: write
       pull-requests: read
+    outputs:
+      state: ${{ steps.gate.outputs.state }}
+      pr_number: ${{ steps.gate.outputs.pr_number }}
+      head_sha: ${{ steps.gate.outputs.head_sha }}
+      head_repo: ${{ steps.gate.outputs.head_repo }}
+      reason: ${{ steps.gate.outputs.reason }}
+      unverified: ${{ steps.gate.outputs.unverified }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/scripts/renovate-gate.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Evaluate breaking-change gate
+        id: gate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/renovate-gate.py
+
+  breaking-change-analysis:
+    needs: breaking-change-gate
+    # continue-on-error keeps a failed analysis from flipping the workflow_run conclusion the merge path reads.
+    if: >-
+      needs.breaking-change-gate.outputs.state == 'failure' &&
+      needs.breaking-change-gate.outputs.head_repo == github.repository
+    runs-on: homelab-runner
+    continue-on-error: true
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      KUBECONFIG: ${{ github.workspace }}/.github/host-kubeconfig.yaml
+      PR_NUMBER: ${{ needs.breaking-change-gate.outputs.pr_number }}
+      # The claim name becomes the pod name; the SHA keeps a rebase from colliding with a live run.
+      CLAIM: breaking-${{ needs.breaking-change-gate.outputs.pr_number }}-${{ needs.breaking-change-gate.outputs.head_sha }}
+    steps:
+      # The runner pod has no ambient kubeconfig: the committed one is built from its own SA mount.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          sparse-checkout: .github/host-kubeconfig.yaml
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: Azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5.2.0
+        with:
+          version: 1.37.1 # keep in sync with kubernetes_version in infra/env.hcl
+
+      - name: Create the sandbox claim
+        env:
+          GATE_REASON: ${{ needs.breaking-change-gate.outputs.reason }}
+          UNVERIFIED: ${{ needs.breaking-change-gate.outputs.unverified }}
         run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import re
-          import sys
-          import urllib.error
-          import urllib.request
-
-          API = "https://api.github.com"
-          REPO = os.environ["GITHUB_REPOSITORY"]
-          HEADERS = {
-              "Authorization": "Bearer " + os.environ["GITHUB_TOKEN"],
-              "Accept": "application/vnd.github+json",
-              "User-Agent": "renovate-gate",
-          }
-
-          BREAKING_PATTERNS = [
-              (re.compile(r"\bbreaking[ -]?changes?\b", re.I), "breaking change mention"),
-              (re.compile(r"^-*\s*BREAKING[ -]?(CHANGE|CHANGES):", re.M), "BREAKING CHANGE trailer"),
-              (re.compile(r"^[a-z][a-z]*(\([^)]*\))?!:", re.M), "conventional-commit !:"),
-          ]
-          MAJOR_ROW = re.compile(r"\|\s*major\s*\|", re.I)
-          MAJOR_TITLE = re.compile(r"[(\[]major[)\]]$", re.I)
-
-
-          def api(path):
-              req = urllib.request.Request(API + path, headers=HEADERS)
-              with urllib.request.urlopen(req) as resp:
-                  return json.load(resp)
-
-
-          def post_status(sha, state, description, target_url):
-              body = json.dumps(
-                  {
-                      "state": state,
-                      "context": "breaking-change-gate",
-                      "description": description[:140],
-                      "target_url": target_url,
-                  }
-              ).encode()
-              req = urllib.request.Request(
-                  f"{API}/repos/{REPO}/statuses/{sha}",
-                  data=body,
-                  method="POST",
-                  headers=HEADERS,
-              )
-              with urllib.request.urlopen(req) as resp:
-                  return resp.status
-
-
-          with open(os.environ["GITHUB_EVENT_PATH"]) as fh:
-              event = json.load(fh)
-
-          pr_number = (
-              (event.get("pull_request") or {}).get("number")
-              or ((event.get("pull_request_review") or {}).get("pull_request") or {}).get("number")
-              or (event.get("inputs") or {}).get("pr_number")
-          )
-          if not pr_number:
-              sys.exit("no PR number in event")
-
-          pr = api(f"/repos/{REPO}/pulls/{pr_number}")
-          author = pr["user"]["login"]
-          head_sha = pr["head"]["sha"]
-          body = pr.get("body") or ""
-          title = pr.get("title") or ""
-          pr_url = pr["html_url"]
-
-          if author not in ("renovate[bot]", "infrabytes-renovate[bot]"):
-              state, desc = "success", "not a Renovate PR"
-          else:
-              reviews = api(f"/repos/{REPO}/pulls/{pr_number}/reviews")
-              latest = {}
-              for review in reviews:
-                  latest[review["user"]["login"]] = review
-              approved = any(
-                  review.get("state") == "APPROVED"
-                  and review.get("author_association") in {"OWNER", "MEMBER", "COLLABORATOR"}
-                  for review in latest.values()
-              )
-              if approved:
-                  state, desc = "success", "approved by write-access user"
-              elif MAJOR_ROW.search(body) or MAJOR_TITLE.search(title):
-                  state, desc = "failure", "major bump: hold for review"
-              else:
-                  hit = next((label for pattern, label in BREAKING_PATTERNS if pattern.search(body)), None)
-                  if hit:
-                      state, desc = "failure", f"breaking changes in release notes ({hit})"
-                  else:
-                      state, desc = "success", "clean routine update"
-
-          print(f"gate decision: {state} — {desc}")
-          try:
-              code = post_status(head_sha, state, desc, pr_url)
-              print(f"status posted: {code} on {head_sha}")
-          except urllib.error.HTTPError as exc:
-              if exc.code == 403:
-                  print("warning: status POST forbidden (fork PR); skipping", file=sys.stderr)
-                  sys.exit(0)
-              raise
+          set -eu
+          python3 - <<'PY' > /tmp/claim.json
+          import json, os
+          print(json.dumps({
+              "apiVersion": "extensions.agents.x-k8s.io/v1beta1",
+              "kind": "SandboxClaim",
+              "metadata": {
+                  "name": os.environ["CLAIM"],
+                  "labels": {"app.kubernetes.io/part-of": "breaking-change"},
+              },
+              "spec": {
+                  "warmPoolRef": {"name": "breaking-change"},
+                  "lifecycle": {"ttlSecondsAfterFinished": 300, "shutdownPolicy": "Delete"},
+                  "env": [
+                      {"name": "GITHUB_REPO", "value": os.environ["GITHUB_REPOSITORY"]},
+                      {"name": "PR_NUMBER", "value": os.environ["PR_NUMBER"]},
+                      {"name": "GATE_REASON", "value": os.environ.get("GATE_REASON", "")},
+                      {"name": "UNVERIFIED_DEPS", "value": os.environ.get("UNVERIFIED", "")},
+                  ],
+              },
+          }))
           PY
+          kubectl -n alert-triage apply -f /tmp/claim.json
+
+      - name: Wait for the analysis
+        run: |
+          set -eu
+          for _ in $(seq 1 110); do
+            phase="$(kubectl -n alert-triage get pod "$CLAIM" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+            case "$phase" in
+              Succeeded|Failed) echo "sandbox $CLAIM: $phase"; exit 0 ;;
+            esac
+            sleep 10
+          done
+          echo "sandbox $CLAIM did not finish within 18 minutes" >&2
+          exit 1
+
+      - name: Post the verdict as a PR comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GATE_REASON: ${{ needs.breaking-change-gate.outputs.reason }}
+        run: |
+          set -eu
+          kubectl -n alert-triage logs "$CLAIM" > /tmp/sandbox.log 2>&1 || true
+          python3 - <<'PY'
+          import json, os, re, urllib.request
+
+          log = open("/tmp/sandbox.log", errors="replace").read()
+          found = re.search(
+              r"=== breaking-change report ===\n(.*?)\n=== end breaking-change report ===",
+              log,
+              re.DOTALL,
+          )
+          if found:
+              text = (
+                  f"**Breaking-change analysis** (gate: {os.environ['GATE_REASON']})\n\n"
+                  f"{found.group(1).strip()}\n\n"
+                  "_A read-only analysis of the upstream release notes against this repository. "
+                  "The gate still needs an approving review._"
+              )
+          else:
+              run = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+              text = f"**Breaking-change analysis failed** — the agent produced no verdict. Logs: {run}"
+          req = urllib.request.Request(
+              f"{os.environ['GITHUB_API_URL']}/repos/{os.environ['GITHUB_REPOSITORY']}/issues/{os.environ['PR_NUMBER']}/comments",
+              data=json.dumps({"body": text[:60000]}).encode(),
+              method="POST",
+              headers={
+                  "Authorization": "Bearer " + os.environ["GITHUB_TOKEN"],
+                  "Accept": "application/vnd.github+json",
+              },
+          )
+          with urllib.request.urlopen(req) as resp:
+              print(f"comment posted: {resp.status}")
+          PY
+
+      - name: Remove the claim
+        if: always()
+        run: kubectl -n alert-triage delete sandboxclaim "$CLAIM" --ignore-not-found

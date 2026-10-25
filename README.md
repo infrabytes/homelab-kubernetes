@@ -216,14 +216,28 @@ apply-before-merge preserved), so Renovate never merges an infra PR.
 
 Both automation paths are gated by the same two required checks on `main`:
 `pre-commit` and `breaking-change-gate`. The gate
-(`.github/workflows/renovate-gate.yaml`) is red for any Renovate PR
+(`.github/workflows/renovate-gate.yaml`, decision in
+`.github/scripts/renovate-gate.py`) is red for any Renovate PR
 (`renovate[bot]` from the old hosted app, `infrabytes-renovate[bot]` from the
-self-hosted workflow below)
-that bumps a major version or whose release notes carry breaking-change
-markers (`BREAKING CHANGE:` trailers, conventional `!:` commits, "breaking
-change" mentions); a write-access approval turns it green and automation
-resumes. Non-infra breaking PRs then need one manual merge click; infra PRs
-flow apply → merge via Atlantis automatically.
+self-hosted workflow below) that bumps a major version, whose release notes
+carry breaking-change markers (`BREAKING CHANGE:` trailers, conventional `!:`
+commits, "breaking change" mentions), or whose release notes do not say what
+changed — which is most OCI charts and registry images, whose body only links
+to a changelog elsewhere. That last case holds a minor or major bump and
+ignores a patch one, so a routine patch documented by a bare link still
+merges. A write-access approval turns the gate green and automation resumes.
+Non-infra breaking PRs then need one manual merge click; infra PRs flow apply →
+merge via Atlantis automatically.
+
+A red gate also starts a sandboxed analysis of the bump
+(`platform/alert-triage/breaking-change-agent-config.yaml`): the agent reads
+the release notes (following a link-only body to the real changelog), greps
+this repository for the setting, Helm value or API the change touches, and
+posts one PR comment with `VERDICT: IMPACT | NO_IMPACT | UNKNOWN`, what
+changed, whether this repository is exposed, and the concrete action. It never
+writes: the verdict is input for the approving human, and the gate stays red
+until someone reviews. `.github/scripts/renovate-gate.py` is what decides the
+status; `check-renovate-gate.py` pins its four verdict branches.
 
 Infra PRs get their apply comment on their own:
 `.github/workflows/renovate-atlantis-apply.yaml` runs
