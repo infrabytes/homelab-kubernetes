@@ -45,8 +45,9 @@ jobs:
             base="${{ github.event.pull_request.base.sha }}"
             # Full run when the base sha is unavailable or the diff touches
             # hook config (a changed-file run would otherwise lint nothing).
+            # Every hook script counts: a hook's files: pattern never selects it.
             config_files='\.pre-commit-config\.yaml|\.yamllint\.yaml|\.secrets\.baseline|infra/cluster/\.tflint\.hcl'
-            hook_scripts='\.github/scripts/(check-argocd-apps|terragrunt-validate|check-sops-encryption)\.(py|sh)'
+            hook_scripts='\.github/scripts/.*'
             if git cat-file -e "$base^{commit}" 2>/dev/null \
                && ! git diff --name-only "$base" HEAD | grep -qxE "$config_files|$hook_scripts" \
                ; then
