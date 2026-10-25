@@ -224,7 +224,9 @@ commits, "breaking change" mentions), or whose release notes do not say what
 changed — which is most OCI charts and registry images, whose body only links
 to a changelog elsewhere. That last case holds a minor or major bump and
 ignores a patch one, so a routine patch documented by a bare link still
-merges. A write-access approval turns the gate green and automation resumes.
+merges. A write-access approval turns the gate green and automation resumes, but
+only an approval of the current head commit: a rebase or a new release starts the
+gate red again.
 Non-infra breaking PRs then need one manual merge click; infra PRs flow apply →
 merge via Atlantis automatically.
 

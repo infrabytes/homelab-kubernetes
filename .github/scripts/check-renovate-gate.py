@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """check-renovate-gate.py - fixtures for the breaking-change gate classification.
 
-The gate decides whether a Renovate PR automerges, so its parser and its four verdict
-branches are worth pinning: a body shape it misreads either lets a breaking change through
-or holds every routine bump. Runs without network and without a GitHub token.
+The gate decides whether a Renovate PR automerges, so its parser, its four verdict
+branches and its approval rule are worth pinning: a body shape it misreads either lets a
+breaking change through or holds every routine bump. Runs without network and without a
+GitHub token.
 """
 
 import importlib.util
@@ -154,6 +155,30 @@ def main():
     else:
         failures += 1
         print(f"FAIL unverified list: {unverified}")
+
+    sha, older = "a" * 40, "b" * 40
+
+    def review(state, commit_id=sha, login="alice", association="MEMBER"):
+        return {
+            "state": state,
+            "commit_id": commit_id,
+            "author_association": association,
+            "user": {"login": login},
+        }
+
+    approvals = [
+        ("approval of the head approves", [review("APPROVED")], sha, True),
+        ("approval of an older commit does not", [review("APPROVED", older)], sha, False),
+        ("a read-only approval does not", [review("APPROVED", association="CONTRIBUTOR")], sha, False),
+        ("a later comment cancels the approval", [review("APPROVED"), review("COMMENTED")], sha, False),
+        ("a missing head sha approves nothing", [review("APPROVED")], None, False),
+    ]
+    for name, reviews, head, expected in approvals:
+        if gate.approval(reviews, head) == expected:
+            print(f"ok   {name}")
+        else:
+            failures += 1
+            print(f"FAIL {name}")
 
     return 1 if failures else 0
 
