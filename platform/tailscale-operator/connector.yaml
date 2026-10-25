@@ -1,5 +1,4 @@
-# Advertises only the gateway VIP (where dex.icaninto.space resolves) so remote
-# browsers complete OIDC logins; the LAN subnet is not advertised (README.md).
+# Gateway VIP only, never the LAN subnet, so tailnet devices reach the LAN-only vhosts.
 apiVersion: tailscale.com/v1alpha1
 kind: Connector
 metadata:

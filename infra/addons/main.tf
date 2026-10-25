@@ -224,66 +224,6 @@ resource "terraform_data" "openbao_root_token" {
   input = var.openbao_root_token
 }
 
-resource "kubernetes_namespace_v1" "dex" {
-  metadata { name = "dex" }
-}
-
-# Standalone Dex config (config.yaml), rendered from SOPS vars and consumed by
-# the dex chart (platform/dex) via configSecret.name=dex-config.
-# GitHub connector restricted to github_oidc_org; static clients: OpenBao (UI +
-# CLI callback), Grafana and Headlamp (LAN + tailnet hostnames).
-resource "kubernetes_secret_v1" "dex_config" {
-  metadata {
-    name      = "dex-config"
-    namespace = kubernetes_namespace_v1.dex.metadata[0].name
-  }
-  data = {
-    "config.yaml" = <<-EOT
-      issuer: https://dex.icaninto.space
-      storage:
-        type: memory
-      web:
-        # Keep quoted: dex >=2.46 fails on unquoted YAML numbers at config load.
-        http: "5556"
-      connectors:
-        - type: github
-          id: github
-          name: GitHub
-          config:
-            clientID: ${var.dex_github_client_id}
-            clientSecret: ${var.dex_github_client_secret}
-            # Must match the OAuth app's registered callback URL; Dex rejects
-            # callbacks that don't match.
-            redirectURI: https://dex.icaninto.space/callback
-            orgs:
-              - name: ${var.github_oidc_org}
-      staticClients:
-        - id: openbao
-          name: OpenBao
-          secret: ${var.openbao_oidc_client_secret}
-          redirectURIs:
-            - https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback
-            - http://localhost:8250/oidc/callback
-        - id: grafana
-          name: Grafana
-          secret: ${var.grafana_oauth_client_secret}
-          redirectURIs:
-            - https://grafana.icaninto.space/login/generic_oauth
-        - id: headlamp
-          name: Headlamp
-          secret: ${var.headlamp_oidc_client_secret}
-          redirectURIs:
-            # Headlamp derives the callback from the request host, so both
-            # public hostnames must be registered.
-            - https://headlamp.icaninto.space/oidc-callback
-            - https://headlamp.taile70903.ts.net/oidc-callback
-      oauth2:
-        skipApprovalScreen: true
-      enablePasswordDB: false
-    EOT
-  }
-}
-
 # OIDC client credentials for the OpenBao oidc auth method (Authentik provider
 # "openbao"). Injected into the OpenBao pods by the chart's
 # server.extraSecretEnvironmentVars (OIDC_CLIENT_ID/OIDC_CLIENT_SECRET).
@@ -367,7 +307,7 @@ resource "kubernetes_secret_v1" "alert_triage_webhook" {
   }
 }
 
-# Terraform owns the observability namespace (like openbao/dex): on a cold bootstrap this unit
+# Terraform owns the observability namespace (like openbao): on a cold bootstrap this unit
 # runs before ArgoCD exists, so an ArgoCD-owned namespace would fail the apply.
 # Keep the import block: without it a re-apply fails on the already-existing namespace.
 import {

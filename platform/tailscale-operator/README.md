@@ -41,9 +41,9 @@ annotations, no manual `tailscale serve`.
 
 `connector.yaml` declares a `Connector` (`lan-subnet-router`, hostname
 `homelab-subnet-router`, tag `tag:k8s`) advertising **only the Cilium gateway
-VIP `192.168.0.200/32`** — never the LAN subnet. Remote browsers reach the Dex
-issuer there (`dex.icaninto.space` is a public DNS-only record pointing at that
-IP), which Headlamp's OIDC login needs. Everything else on the LAN stays
+VIP `192.168.0.200/32`** — never the LAN subnet. Remote browsers reach the
+gateway's LAN-only vhosts there; the Authentik issuer itself does not need the
+route, its public record goes through SWAG. Everything else on the LAN stays
 unreachable; the gateway's own HTTPS vhosts are, gated by the ACL grants below.
 The operator reconciles a proxy StatefulSet (`ts-lan-subnet-router-*`).
 
@@ -60,7 +60,7 @@ Verify from a tailnet device:
 
 ```sh
 ping 192.168.0.200                 # the gateway L2 IP
-curl -sI https://dex.icaninto.space
+curl -sI https://bao.icaninto.space
 ```
 
 ## kubectl from the tailnet

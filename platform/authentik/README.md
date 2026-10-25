@@ -1,8 +1,8 @@
 # authentik: identity provider for the cluster
 
 Local-account IdP (no external OAuth source): users, groups, TOTP enforcement and the
-password-reset flow are Blueprints committed in this folder. It is the target for every SSO
-consumer the cluster moves off Dex onto — see the migration table at the end.
+password-reset flow are Blueprints committed in this folder. It serves every SSO consumer in the
+cluster — see the consumer table at the end.
 
 - Chart app: `application.yaml` (`oci://ghcr.io/goauthentik/helm-charts/authentik`, version pinned
   there, Renovate-tracked through the `argocd` manager). 2 `server` replicas behind the gateway plus
@@ -37,7 +37,7 @@ LAN path: a router-local DNS override sends the hostname to 192.168.0.200, so LA
 to the gateway directly, with no hairpin through SWAG; the nodes use the same resolver. Remote
 tailnet devices take the public path; the issuer no longer rides the `lan-subnet-router` Connector.
 Consumer pods that call the issuer pin the VIP with `hostAliases`, as `observability` and `headlamp`
-already do for Dex, so their discovery and token requests stay on the LAN instead of following the
+already do, so their discovery and token requests stay on the LAN instead of following the
 public record out through WAN and back.
 
 Both routes carry `external-dns.kubernetes.io/controller: "manual-dns"` (external-dns v0.22+ ignores
@@ -141,9 +141,9 @@ kubectl exec -n openbao openbao-0 -- sh -c "
 "
 ```
 
-Those four are not new credentials: Grafana, Headlamp and OpenBao already log in to Dex with the
-same secrets, and the ArgoCD one is written into `argocd-secret` as `oidc.clientSecret` by
-`infra/addons`. Nothing rotates at cutover. A later rotation is two writes — the SOPS value and
+Those four are not new credentials: Grafana, Headlamp and OpenBao log in with the same client
+secrets their providers always had, and the ArgoCD one is written into `argocd-secret` as
+`oidc.clientSecret` by `infra/addons`. Nothing rotates at cutover. A later rotation is two writes — the SOPS value and
 `bao kv patch` — because Terraform renders the consumer's copy from that same SOPS key, and a
 half-write is a login failure.
 
@@ -257,13 +257,12 @@ Then sign in at https://authentik.icaninto.space as `akadmin`, check Admin → B
 four files applied, reset `bbayrakt`'s password through "Forgot password?", and confirm the login
 demands a TOTP device.
 
-## Migration target (later PRs)
+## Consumers
 
 | Consumer | authentik mechanism |
 |---|---|
-| ArgoCD | OIDC (`oidc.config`) replacing the embedded Dex, groups claim for RBAC (client ready, not switched) |
-| Grafana | `auth.generic_oauth` → authentik; tailnet path keeps `auth.proxy` (client ready, not switched) |
-| Headlamp | OIDC + Talos `KubeAuthenticationConfig` issuer swap, `rbac.yaml` identities (client ready, not switched) |
-| OpenBao | `auth/oidc` config in the chart `postStart` + the tenant `sso-<tenant>` roles (client ready, not switched) |
+| ArgoCD | OIDC (`oidc.config`), groups claim for RBAC; the chart's embedded Dex stays disabled (upstream JWKS-rewrite bug, see `infra/addons/README.md`) |
+| Grafana | `auth.generic_oauth` → authentik; tailnet path keeps `auth.proxy` |
+| Headlamp | OIDC + Talos `KubeAuthenticationConfig` JWT authenticator on this issuer, `rbac.yaml` identities |
+| OpenBao | `auth/oidc` config in the chart `postStart` + the tenant `sso-<tenant>` roles |
 | Longhorn, Hubble UI, SeaweedFS, Atlantis, vmui | proxy provider + `forward_auth` on the embedded outpost |
-| Dex, dex-tailnet, ArgoCD embedded Dex | deleted once every row above is migrated |

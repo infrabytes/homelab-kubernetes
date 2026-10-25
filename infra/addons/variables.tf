@@ -45,12 +45,6 @@ variable "authentik_argocd_client_secret" {
   sensitive   = true
 }
 
-variable "github_oidc_org" {
-  description = "GitHub org whose members may log in to the standalone Dex GitHub connector (platform/dex)."
-  type        = string
-  default     = ""
-}
-
 variable "argocd_rbac" {
   description = "ArgoCD RBAC (argocd-rbac-cm): policy.default, OIDC scopes, and policy.csv lines. Configured in env.hcl; users, roles, and project scopes are plain CSV policy lines."
   type = object({
@@ -96,42 +90,29 @@ variable "openbao_root_token" {
   sensitive   = true
 }
 
-variable "dex_github_client_id" {
-  description = "GitHub OAuth app (\"Dex (homelab)\") Client ID for the standalone Dex GitHub connector (OpenBao SSO). Public by design, not a secret."
-  type        = string
-  default     = ""
-}
-
-variable "dex_github_client_secret" {
-  description = "GitHub OAuth app (\"Dex (homelab)\") Client Secret, written into the dex-config Secret (config.yaml, GitHub connector)."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 variable "openbao_oidc_client_secret" {
-  description = "Dex static-client secret for the OpenBao oidc auth method, written into dex-config (staticClients.openbao.secret) and the openbao-oidc Secret (OIDC_CLIENT_SECRET env for the openbao chart)."
+  description = "Authentik OIDC client secret for the OpenBao oidc auth method (provider \"openbao\"), written into the openbao-oidc Secret (OIDC_CLIENT_SECRET env for the openbao chart)."
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "headlamp_oidc_client_secret" {
-  description = "Dex static-client secret for Headlamp's native OIDC login (client id \"headlamp\"), written into dex-config (staticClients.headlamp.secret) and the headlamp-oidc Secret the chart reads via envFrom."
+  description = "Authentik OIDC client secret for Headlamp's native OIDC login (provider \"headlamp\"), written into the headlamp-oidc Secret the chart reads via envFrom."
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "grafana_admin_password" {
-  description = "Local Grafana admin password (break-glass login; day-to-day access is Dex/OAuth). Written into the grafana-admin-credentials Secret consumed by the Grafana CR."
+  description = "Local Grafana admin password (break-glass login; day-to-day access is Authentik SSO). Written into the grafana-admin-credentials Secret consumed by the Grafana CR."
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "grafana_oauth_client_secret" {
-  description = "Dex static-client secret for Grafana's generic_oauth login (client id \"grafana\"). Written into the grafana-oauth-credentials Secret and the dex-config Secret."
+  description = "Authentik OIDC client secret for Grafana's generic_oauth login (provider \"grafana\"). Written into the grafana-oauth-credentials Secret."
   type        = string
   default     = ""
   sensitive   = true
