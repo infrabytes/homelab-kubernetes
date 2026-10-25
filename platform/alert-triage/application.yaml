@@ -1,0 +1,30 @@
+# Alert intake, sensors and sandboxed agents; the argo-events controller is the separate `argo-events` application.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alert-triage
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/infrabytes/homelab-kubernetes
+    targetRevision: main
+    path: platform/alert-triage
+    directory:
+      recurse: true
+      exclude: "application*.yaml"
+  destination:
+    namespace: alert-triage
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        maxDuration: 5m
+        factor: 2

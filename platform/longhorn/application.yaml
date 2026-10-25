@@ -5,75 +5,81 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: https://charts.longhorn.io
-    chart: longhorn
-    targetRevision: 1.13.0
-    helm:
-      releaseName: longhorn
-      values: |
-        preUpgradeChecker:
-          jobEnabled: false
-        longhornUI:
-          replicas: 1
-        csi:
-          # 2 replicas each: with 1, the attacher/provisioner PDBs (minAvailable 1)
-          # allow zero disruptions forever, so node drains hang on those pods.
-          attacherReplicaCount: 2
-          provisionerReplicaCount: 2
-          resizerReplicaCount: 2
-          snapshotterReplicaCount: 2
-        defaultSettings:
-          defaultDataPath: /var/mnt/longhorn
-          # Only applies at disk creation; the three existing disks carry their own spec.disks[].storageReserved.
-          storageReservedPercentageForDefaultDisk: "10"
-          # Nodes are rebooted, not removed, during upgrades: the default
-          # block-if-contains-last-replica held an instance-manager PDB for 27
-          # minutes after every volume had detached, which no 5-minute provider
-          # drain can outwait. This still blocks while a replica is running,
-          # then lets the eviction through; the replica data stays on the disk
-          # of the node that comes back.
-          nodeDrainPolicy: allow-if-replica-is-stopped
-          createDefaultDiskLabeledNodes: true
-          storageMinimalAvailablePercentage: "10"
-          # Replicas are only placed at creation/rebuild time; best-effort lets Longhorn correct the 2026-09-13 skew itself.
-          replicaAutoBalance: best-effort
-          # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): the chart applies this to
-          # the runtime-created csi-plugin DaemonSet containers (longhorn-csi-plugin,
-          # node-driver-registrar, longhorn-liveness-probe).
-          systemManagedCSIComponentsResourceLimits: '{"longhorn-csi-plugin": {"requests": {"cpu": "10m", "memory": "64Mi"}, "limits": {"memory": "96Mi"}}, "node-driver-registrar": {"requests": {"cpu": "10m", "memory": "32Mi"}, "limits": {"memory": "48Mi"}}, "longhorn-liveness-probe": {"requests": {"cpu": "10m", "memory": "32Mi"}, "limits": {"memory": "48Mi"}}}'
-        longhornManager:
-          # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
-          # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
-          resources:
-            requests:
-              cpu: 40m
-              memory: 256Mi
-            limits:
-              memory: 384Mi
-        longhornGlobalManager:
-          # New component (2026-10-04): initial estimate; re-measure after two weeks.
-          # Memory follows the cluster-wide Pod informer cache, not the node count.
-          resources:
-            requests:
-              cpu: 10m
-              memory: 128Mi
-            limits:
-              memory: 256Mi
-        persistence:
-          defaultClass: true
-          defaultClassReplicaCount: 2
-        metrics:
-          serviceMonitor:
+  sources:
+    - repoURL: https://charts.longhorn.io
+      chart: longhorn
+      targetRevision: 1.13.0
+      helm:
+        releaseName: longhorn
+        values: |
+          preUpgradeChecker:
+            jobEnabled: false
+          longhornUI:
+            replicas: 1
+          csi:
+            # 2 replicas each: with 1, the attacher/provisioner PDBs (minAvailable 1)
+            # allow zero disruptions forever, so node drains hang on those pods.
+            attacherReplicaCount: 2
+            provisionerReplicaCount: 2
+            resizerReplicaCount: 2
+            snapshotterReplicaCount: 2
+          defaultSettings:
+            defaultDataPath: /var/mnt/longhorn
+            # Only applies at disk creation; the three existing disks carry their own spec.disks[].storageReserved.
+            storageReservedPercentageForDefaultDisk: "10"
+            # Nodes are rebooted, not removed, during upgrades: the default
+            # block-if-contains-last-replica held an instance-manager PDB for 27
+            # minutes after every volume had detached, which no 5-minute provider
+            # drain can outwait. This still blocks while a replica is running,
+            # then lets the eviction through; the replica data stays on the disk
+            # of the node that comes back.
+            nodeDrainPolicy: allow-if-replica-is-stopped
+            createDefaultDiskLabeledNodes: true
+            storageMinimalAvailablePercentage: "10"
+            # Replicas are only placed at creation/rebuild time; best-effort lets Longhorn correct the 2026-09-13 skew itself.
+            replicaAutoBalance: best-effort
+            # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): the chart applies this to
+            # the runtime-created csi-plugin DaemonSet containers (longhorn-csi-plugin,
+            # node-driver-registrar, longhorn-liveness-probe).
+            systemManagedCSIComponentsResourceLimits: '{"longhorn-csi-plugin": {"requests": {"cpu": "10m", "memory": "64Mi"}, "limits": {"memory": "96Mi"}}, "node-driver-registrar": {"requests": {"cpu": "10m", "memory": "32Mi"}, "limits": {"memory": "48Mi"}}, "longhorn-liveness-probe": {"requests": {"cpu": "10m", "memory": "32Mi"}, "limits": {"memory": "48Mi"}}}'
+          longhornManager:
+            # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
+            # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
+            resources:
+              requests:
+                cpu: 40m
+                memory: 256Mi
+              limits:
+                memory: 384Mi
+          longhornGlobalManager:
+            # New component (2026-10-04): initial estimate; re-measure after two weeks.
+            # Memory follows the cluster-wide Pod informer cache, not the node count.
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 256Mi
+          persistence:
+            defaultClass: true
+            defaultClassReplicaCount: 2
+          metrics:
+            serviceMonitor:
+              enabled: true
+          httproute:
             enabled: true
-        httproute:
-          enabled: true
-          parentRefs:
-            - name: homelab
-              namespace: gateway
-              sectionName: longhorn-https
-          hostnames:
-            - longhorn.icaninto.space
+            parentRefs:
+              - name: homelab
+                namespace: gateway
+                sectionName: longhorn-https
+            hostnames:
+              - longhorn.icaninto.space
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/longhorn
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
   destination:
     namespace: longhorn-system
     server: https://kubernetes.default.svc

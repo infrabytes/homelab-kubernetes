@@ -25,12 +25,15 @@ ApplicationSet dirs may carry more than ApplicationSets: `argocd/appsets/pdeu/`
 they are plain objects applied in the same operation by the generated
 `appset-pdeu` Application.
 
-The `platform` Application applies the whole `platform/` tree recursively: each
-component folder holds its Helm chart `Application` next to its companion
-manifests (namespace, ESO resources, routes, network policies), and the chart
-`Application` carries the component's name (`platform/cert-manager/application.yaml`
-→ Application `cert-manager`). One component therefore shows up as one app, and
-a new `platform/<name>/` folder needs no registration anywhere.
+The `platform` Application is an app-of-apps: `directory.include:
+"*/application*.yaml"` restricts it to the per-component Application manifests.
+Each of those carries the Helm chart as its first source and the component
+folder as its second (`path: platform/<name>`, `directory.exclude:
+"application*.yaml"`), so the release and its companion manifests (namespace,
+ESO resources, routes, network policies) are one app; the Application carries
+the component's name (`platform/cert-manager/application.yaml` → Application
+`cert-manager`). One component therefore shows up as one app, and a new
+`platform/<name>/application.yaml` needs no registration anywhere.
 
 The argocd provider connects to the in-cluster server (ClusterIP) via
 port-forwarding, deriving the cluster connection from the kubeconfig the

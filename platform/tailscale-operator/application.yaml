@@ -6,30 +6,36 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: https://pkgs.tailscale.com/helmcharts
-    chart: tailscale-operator
-    targetRevision: 1.104.2
-    helm:
-      releaseName: tailscale-operator
-      values: |
-        apiServerProxyConfig:
-          mode: "true"
-        # ESO creates operator-oauth; chart reads it at /oauth (1.102.3 fixed the pre-created-secret bug).
-        oauth: {}
-        # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
-        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
-        # Top-level `resources` is not a chart value; proxies are sized via ProxyClass.
-        operatorConfig:
-          # Re-derived 2026-09-10..09-15 (Grafana Cloud, ~5d): p95 82.4Mi, peak 88.5Mi (82% of baseline limit).
-          resources:
-            requests:
-              cpu: 10m
-              memory: 96Mi
-            limits:
-              memory: 144Mi
-          podAnnotations:
-            reloader.stakater.com/auto: "true"
+  sources:
+    - repoURL: https://pkgs.tailscale.com/helmcharts
+      chart: tailscale-operator
+      targetRevision: 1.104.2
+      helm:
+        releaseName: tailscale-operator
+        values: |
+          apiServerProxyConfig:
+            mode: "true"
+          # ESO creates operator-oauth; chart reads it at /oauth (1.102.3 fixed the pre-created-secret bug).
+          oauth: {}
+          # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
+          # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
+          # Top-level `resources` is not a chart value; proxies are sized via ProxyClass.
+          operatorConfig:
+            # Re-derived 2026-09-10..09-15 (Grafana Cloud, ~5d): p95 82.4Mi, peak 88.5Mi (82% of baseline limit).
+            resources:
+              requests:
+                cpu: 10m
+                memory: 96Mi
+              limits:
+                memory: 144Mi
+            podAnnotations:
+              reloader.stakater.com/auto: "true"
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/tailscale-operator
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
   destination:
     namespace: tailscale
     server: https://kubernetes.default.svc

@@ -132,7 +132,13 @@ def poststart_script(raw: str, errors: list) -> str:
     rel = OPENBAO_APP.relative_to(ROOT)
     try:
         app = yaml.safe_load(raw)
-        values = yaml.safe_load(app["spec"]["source"]["helm"]["values"])
+        spec = app["spec"]
+        sources = spec.get("sources") or [spec["source"]]
+        values = next(
+            yaml.safe_load(source["helm"]["values"])
+            for source in sources
+            if (source.get("helm") or {}).get("values")
+        )
         command = values["server"]["postStart"]
         return command[command.index("-c") + 1]
     except Exception as err:  # noqa: BLE001

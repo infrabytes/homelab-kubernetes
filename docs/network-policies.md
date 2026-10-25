@@ -67,7 +67,7 @@ gateway traffic working; see the cert-manager and external-secrets policies.
 | Namespace | Chart values | Supplements here |
 | --- | --- | --- |
 | `dex` | dex `networkPolicy`: ingress ports, DNS + 443 egress | `dex-default-deny-ingress.yaml` |
-| `dex-tailnet` | dex `networkPolicy` (adds the https listener) | `dex-tailnet-default-deny-ingress.yaml` |
+| `dex-tailnet` | dex `networkPolicy` (adds the https listener) | `tailnet/default-deny-ingress.yaml`, `tailnet/ingress.yaml` |
 | `cert-manager` | controller, webhook and cainjector `networkPolicy` | `cert-manager-default-deny-ingress.yaml` |
 | `external-secrets` | controller, webhook and cert-controller `networkPolicy`: DNS, OpenBao 8200 | `external-secrets-allow-apiserver-egress.yaml`, `external-secrets-default-deny-ingress.yaml` |
 | `openbao` | `server.networkPolicy`: DNS, raft 8201, both Dex backends | `openbao-allow-apiserver-egress.yaml`, `openbao-allow-gateway-ingress.yaml`, `openbao-default-deny-ingress.yaml` |

@@ -5,26 +5,32 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: oci://ghcr.io/spegel-org/helm-charts/spegel
-    targetRevision: 0.8.0
-    path: .
-    helm:
-      releaseName: spegel
-      values: |
-        spegel:
-          containerdRegistryConfigPath: /etc/cri/conf.d/hosts
-        # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
-        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
-        # Overrides the chart default (128Mi request = limit).
-        resources:
-          requests:
-            cpu: 20m
-            memory: 64Mi
-          limits:
-            memory: 96Mi
-        serviceMonitor:
-          enabled: true
+  sources:
+    - repoURL: oci://ghcr.io/spegel-org/helm-charts/spegel
+      targetRevision: 0.8.0
+      path: .
+      helm:
+        releaseName: spegel
+        values: |
+          spegel:
+            containerdRegistryConfigPath: /etc/cri/conf.d/hosts
+          # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
+          # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
+          # Overrides the chart default (128Mi request = limit).
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 96Mi
+          serviceMonitor:
+            enabled: true
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/spegel
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
   destination:
     namespace: spegel
     server: https://kubernetes.default.svc
