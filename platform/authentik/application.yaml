@@ -64,13 +64,13 @@ spec:
             capabilities:
               drop: ["ALL"]
             runAsNonRoot: true
-          # Initial estimate (2026-10-25), no usage history; re-measure after two weeks.
+          # 47m (2026-10-25 01:20..02:07, workload newer than 14d): mem p95 507Mi, peak 512Mi -> 512Mi/768Mi.
           resources:
             requests:
               cpu: 50m
-              memory: 256Mi
-            limits:
               memory: 512Mi
+            limits:
+              memory: 768Mi
           metrics:
             enabled: true
             serviceMonitor:
