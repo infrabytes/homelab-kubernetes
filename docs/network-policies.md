@@ -35,8 +35,8 @@ network policy itself:
   (`openbao-allow-gateway-ingress.yaml`);
 - for a request going *through* the Gateway, the client's egress policy is
   enforced against the HTTPRoute's backend pod and pod port, so rules aimed at
-  the VIP or the node are inert. What keeps the LAN Dex reachable is the dex pod
-  on 5556, declared in the chart values;
+  the VIP or the node are inert. What keeps the Authentik UI reachable is the
+  authentik server pod on 9000 (`authentik-allow-gateway-ingress.yaml`);
 - a pod that *calls out* through the Gateway (Headlamp, OpenBao fetching the
   Authentik issuer) is authorized against the backend pod's identity, and only
   a Cilium rule matches that: a plain NetworkPolicy on the backend pods, a
@@ -73,7 +73,6 @@ gateway traffic working; see the cert-manager and external-secrets policies.
 
 | Namespace | Chart values | Supplements here |
 | --- | --- | --- |
-| `dex` | dex `networkPolicy`: ingress ports, DNS + 443 egress | `dex-default-deny-ingress.yaml` |
 | `cert-manager` | controller, webhook and cainjector `networkPolicy` | `cert-manager-default-deny-ingress.yaml` |
 | `external-secrets` | controller, webhook and cert-controller `networkPolicy`: DNS, OpenBao 8200 | `external-secrets-allow-apiserver-egress.yaml`, `external-secrets-default-deny-ingress.yaml` |
 | `openbao` | `server.networkPolicy`: DNS, raft 8201 | `openbao-allow-apiserver-egress.yaml`, `openbao-allow-authentik-egress.yaml` (Cilium: the identity rule to the Authentik server pods on 9000, without which the Gateway denies the issuer with 403), `openbao-allow-gateway-ingress.yaml`, `openbao-default-deny-ingress.yaml` |
@@ -91,8 +90,6 @@ Known gaps inside covered namespaces:
 - `alert-triage`'s EventBus has no egress policy (NATS needs none) and the
   controller pod has no egress restriction yet; only the EventSource and Sensor
   are locked down, because their edges were known up front rather than audited.
-- The dex chart hardcodes its ingress port list, so its ingress cannot be
-  source-restricted through values.
 - Ingress stays source-unrestricted on declared ports by design; tightening
   it needs `fromEntities` for API-server and Gateway traffic and is a later
   phase.

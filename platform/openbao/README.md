@@ -266,9 +266,9 @@ tailnet and internet. One auth mount serves both entry points:
 - `auth/oidc`: roles `sso-admin`/`sso-user` plus the tenant `sso-<tenant>`
   roles, each registering the LAN, the tailnet and the CLI redirect URI.
 
-The two mounts of the Dex era (`auth/oidc`, `auth/oidc-tailnet`) existed because
-each Dex issuer served one hostname; the postStart hook disables the stale
-`oidc-tailnet` mount so its roles go with it.
+The retired `oidc-tailnet` mount existed because the former provider served one
+hostname per issuer; Authentik serves LAN, tailnet and internet from one issuer,
+so the postStart hook disables the stale mount and its roles go with it.
 
 ### Roles
 

@@ -189,21 +189,16 @@ locals {
     openbao_seal_key   = local.secrets.openbao_seal_key
     openbao_root_token = local.secrets.openbao_root_token
 
-    # Standalone Dex (OpenBao SSO, platform/dex): dedicated GitHub
-    # OAuth app ("Dex (homelab)") and the Dex static-client secret for the
-    # OpenBao oidc auth method. Render the dex-config (config.yaml) and
-    # openbao-oidc Secrets. The connector org restriction is github_oidc_org.
-    dex_github_client_id       = local.secrets.dex_github_client_id
-    dex_github_client_secret   = local.secrets.dex_github_client_secret
+    # OpenBao oidc auth method (Authentik provider "openbao"): the client secret
+    # rendered into the openbao-oidc Secret.
     openbao_oidc_client_secret = local.secrets.openbao_oidc_client_secret
-    github_oidc_org            = "infrabytes"
 
-    # Headlamp OIDC client (platform/headlamp): Dex static client "headlamp"
+    # Headlamp OIDC client (platform/headlamp): Authentik provider "headlamp"
     # and the headlamp-oidc Secret the chart consumes via envFrom.
     headlamp_oidc_client_secret = local.secrets.headlamp_oidc_client_secret
 
     # Local Grafana (observability namespace): break-glass admin password, the
-    # Dex generic_oauth client secret, and the Discord webhook the notification
+    # Authentik generic_oauth client secret, and the Discord webhook the notification
     # policy posts to. try() keeps the units valid until the webhook lands in SOPS.
     grafana_admin_password      = local.secrets.grafana_admin_password
     grafana_oauth_client_secret = local.secrets.grafana_oauth_client_secret

@@ -285,13 +285,14 @@ boots with (no separate ingress/load-balancer components):
 > [`../argocd-config/README.md`](../argocd-config/README.md) (ApplicationSets for
 > `platform/` + `apps/`).
 
-## OIDC logins trust Dex (`KubeAuthenticationConfig`)
+## OIDC logins trust Authentik (`KubeAuthenticationConfig`)
 
 Logins to [Headlamp](../../platform/headlamp/README.md) carry the user's own
-identity because the API server accepts Dex ID tokens: the controlplane patch
-list in `modules/talos-cluster/main.tf` adds a `KubeAuthenticationConfig`
-document with a JWT authenticator for issuer `https://dex.icaninto.space`
-(audience `headlamp`, username claim `preferred_username` prefixed `oidc:`).
+identity because the API server accepts Authentik ID tokens: the controlplane
+patch list in `modules/talos-cluster/main.tf` adds a `KubeAuthenticationConfig`
+document with a JWT authenticator for issuer
+`https://authentik.icaninto.space/application/o/headlamp/` (audience `headlamp`,
+username claim `preferred_username` prefixed `oidc:`).
 
 - **Why not the `--oidc-*` flags?** Talos 1.14 rejects them on the
   kube-apiserver ("use KubeAuthenticationConfig"); the generated config already
@@ -299,10 +300,10 @@ document with a JWT authenticator for issuer `https://dex.icaninto.space`
 - **Merge gotcha:** Talos replaces the document's whole `configuration` blob,
   so the patch restates the generated `anonymous` health-endpoint allowlist —
   leaving it out would change which paths answer unauthenticated.
-- **Dex down ≠ cluster down.** The API server fetches the issuer's discovery
-  document asynchronously and keeps retrying in the background; while Dex is
-  down only new Headlamp logins fail (kubectl, ArgoCD and running workloads are
-  unaffected).
+- **IdP down ≠ cluster down.** The API server fetches the issuer's discovery
+  document asynchronously and keeps retrying in the background; while Authentik
+  is down only new Headlamp logins fail (kubectl, ArgoCD and running workloads
+  are unaffected).
 - **Validate before applying** (no cluster needed): build the patch from the
   module's `yamlencode({...})` document and run
 
