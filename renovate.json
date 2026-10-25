@@ -417,6 +417,12 @@
       "groupSlug": "apps"
     },
     {
+      "description": "The folder sources of the platform Applications point at this repo: a git-tags dep with targetRevision main that can never update, so it would only sit in the dashboard as invalid-value",
+      "matchDatasources": ["git-tags"],
+      "matchPackageNames": ["https://github.com/infrabytes/homelab-kubernetes"],
+      "enabled": false
+    },
+    {
       "description": "The Cilium chart is pinned twice (cilium_chart_version in infra/env.hcl and the hubble-ui app); the UI must match the deployed chart, so bump both in one branch.",
       "matchDatasources": [
         "helm"
