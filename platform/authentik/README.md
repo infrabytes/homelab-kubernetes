@@ -87,6 +87,12 @@ BOOTSTRAP_TOKEN=$(openssl rand -hex 24)
 BOOTSTRAP_PASSWORD=$(openssl rand -base64 24)
 S3_ACCESS_KEY=$(kubectl -n observability get secret grafana-pg-backup-s3 -o jsonpath='{.data.ACCESS_KEY_ID}' | base64 -d)
 S3_SECRET_KEY=$(kubectl -n observability get secret grafana-pg-backup-s3 -o jsonpath='{.data.SECRET_ACCESS_KEY}' | base64 -d)
+# The four OIDC client secrets the consumers already use; Authentik must hold the same values,
+# so they are copied from SOPS rather than generated.
+OIDC_ARGOCD_SECRET=$(sops -d --extract '["authentik_argocd_client_secret"]' infra/secrets.sops.yaml)
+OIDC_GRAFANA_SECRET=$(sops -d --extract '["grafana_oauth_client_secret"]' infra/secrets.sops.yaml)
+OIDC_HEADLAMP_SECRET=$(sops -d --extract '["headlamp_oidc_client_secret"]' infra/secrets.sops.yaml)
+OIDC_OPENBAO_SECRET=$(sops -d --extract '["openbao_oidc_client_secret"]' infra/secrets.sops.yaml)
 
 kubectl exec -n openbao openbao-0 -- sh -c "
   export BAO_ADDR=http://127.0.0.1:8200
@@ -106,7 +112,11 @@ kubectl exec -n openbao openbao-0 -- sh -c "
     s3_access_key=$S3_ACCESS_KEY \
     s3_secret_key=$S3_SECRET_KEY \
     bbayrakt_email=$BBAYRAKT_EMAIL \
-    dhaustein_email=$DHAUSTEIN_EMAIL
+    dhaustein_email=$DHAUSTEIN_EMAIL \
+    oidc_argocd_client_secret=$OIDC_ARGOCD_SECRET \
+    oidc_grafana_client_secret=$OIDC_GRAFANA_SECRET \
+    oidc_headlamp_client_secret=$OIDC_HEADLAMP_SECRET \
+    oidc_openbao_client_secret=$OIDC_OPENBAO_SECRET
   bao kv metadata get secret/authentik
 "
 
@@ -115,11 +125,34 @@ printf 'akadmin (%s)\n  password: %s\n  token:    %s\n' \
   "$BOOTSTRAP_EMAIL" "$BOOTSTRAP_PASSWORD" "$BOOTSTRAP_TOKEN"
 ```
 
+On an existing install only the four OIDC keys are missing: patch them, because `kv put` would
+replace the whole version and drop every other key (the pods then fail to start):
+
+```sh
+kubectl exec -n openbao openbao-0 -- sh -c "
+  export BAO_ADDR=http://127.0.0.1:8200
+  bao login -method=kubernetes role=openbao-admin \
+    jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token >/dev/null
+  bao kv patch secret/authentik \
+    oidc_argocd_client_secret=$OIDC_ARGOCD_SECRET \
+    oidc_grafana_client_secret=$OIDC_GRAFANA_SECRET \
+    oidc_headlamp_client_secret=$OIDC_HEADLAMP_SECRET \
+    oidc_openbao_client_secret=$OIDC_OPENBAO_SECRET
+"
+```
+
+Those four are not new credentials: Grafana, Headlamp and OpenBao already log in to Dex with the
+same secrets, and the ArgoCD one is written into `argocd-secret` as `oidc.clientSecret` by
+`infra/addons`. Nothing rotates at cutover. A later rotation is two writes — the SOPS value and
+`bao kv patch` — because Terraform renders the consumer's copy from that same SOPS key, and a
+half-write is a login failure.
+
 The `eso-authentik` role the store logs in with is written by the OpenBao chart's `postStart`, so it
 only exists once this change is applied and the OpenBao StatefulSet has rolled. Seeding earlier is
 harmless. `external-secrets.yaml` then templates the values into `authentik-secret` (the
-`AUTHENTIK_*` keys and the two `BLUEPRINT_EMAIL_*` ones) and `authentik-pg-backup-s3`; until both
-sync the pods sit in `CreateContainerConfigError`, and ESO keeps retrying.
+`AUTHENTIK_*` keys, the two `BLUEPRINT_EMAIL_*` ones and the four `BLUEPRINT_OIDC_*_SECRET` ones)
+and `authentik-pg-backup-s3`; until both sync the pods sit in `CreateContainerConfigError`, and ESO
+keeps retrying.
 
 ## Base URL
 
@@ -142,7 +175,7 @@ kubectl -n authentik exec deploy/authentik-worker -- sh -c 'ak test_email "$BLUE
 
 ## Blueprints (config-as-code)
 
-`blueprints/blueprints.yaml` holds three files, mounted into the worker by the chart:
+`blueprints/blueprints.yaml` holds four files, mounted into the worker by the chart:
 
 - `users.yaml` — the two local accounts. Usernames match the GitHub logins the cluster's RBAC
   already names (`bbayrakt`, `dhaustein`), so ArgoCD rules, Headlamp identities and OpenBao claims
@@ -153,6 +186,15 @@ kubectl -n authentik exec deploy/authentik-worker -- sh -c 'ak test_email "$BLUE
 - `recovery.yaml` — the recovery flow (identification → email token → set password → login) and the
   `recovery_flow` link on the login screen's identification stage, which is what makes
   "Forgot password?" appear.
+- `applications.yaml` — the four OIDC clients, one per consumer: ArgoCD, Grafana, Headlamp and
+  OpenBao. Each provider's client id is also its application slug, which is what puts it at
+  `https://authentik.icaninto.space/application/o/<slug>/`. The secrets come from `!Env`
+  (`BLUEPRINT_OIDC_*`), so they are filled by ESO from `secret/authentik` and the blueprint file
+  never holds one. The authorization/invalidation flows, the `authentik Self-signed Certificate`
+  signing key and the shipped `openid`/`email`/`profile` mappings are looked up by slug/name, so
+  the shipped blueprints own them; a `groups` scope mapping is added because ArgoCD and OpenBao
+  ask for that scope and none of the shipped mappings carries the name. No policy bindings: both
+  local accounts may use all four clients.
 
 Blueprints are re-read by the worker (mounted volume) and re-applied on change; deleting a file here
 does not delete the objects it created. The files own the fields they list — `name`, `email` and
@@ -211,16 +253,16 @@ curl -I https://authentik.icaninto.space/-/health/ready/ # from outside and from
 ```
 
 Then sign in at https://authentik.icaninto.space as `akadmin`, check Admin → Blueprints shows the
-three files applied, reset `bbayrakt`'s password through "Forgot password?", and confirm the login
+four files applied, reset `bbayrakt`'s password through "Forgot password?", and confirm the login
 demands a TOTP device.
 
 ## Migration target (later PRs)
 
 | Consumer | authentik mechanism |
 |---|---|
-| ArgoCD | OIDC (`oidc.config`) replacing the embedded Dex, groups claim for RBAC |
-| Grafana | `auth.generic_oauth` → authentik; tailnet path keeps `auth.proxy` |
-| Headlamp | OIDC + Talos `KubeAuthenticationConfig` issuer swap, `rbac.yaml` identities |
-| OpenBao | `auth/oidc` config in the chart `postStart` + the tenant `sso-<tenant>` roles |
+| ArgoCD | OIDC (`oidc.config`) replacing the embedded Dex, groups claim for RBAC (client ready, not switched) |
+| Grafana | `auth.generic_oauth` → authentik; tailnet path keeps `auth.proxy` (client ready, not switched) |
+| Headlamp | OIDC + Talos `KubeAuthenticationConfig` issuer swap, `rbac.yaml` identities (client ready, not switched) |
+| OpenBao | `auth/oidc` config in the chart `postStart` + the tenant `sso-<tenant>` roles (client ready, not switched) |
 | Longhorn, Hubble UI, SeaweedFS, Atlantis, vmui | proxy provider + `forward_auth` on the embedded outpost |
 | Dex, dex-tailnet, ArgoCD embedded Dex | deleted once every row above is migrated |
