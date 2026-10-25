@@ -76,8 +76,6 @@ spec:
     - repoURL: https://github.com/infrabytes/homelab-kubernetes
       targetRevision: main
       path: platform/dex/tailnet
-      directory:
-        recurse: false
   destination:
     namespace: dex-tailnet
     server: https://kubernetes.default.svc
