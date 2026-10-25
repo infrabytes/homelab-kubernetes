@@ -400,7 +400,7 @@ data:
     # pi is only installed when a run actually happens; the gate path uses the image's node.
     if ! command -v pi >/dev/null 2>&1; then
       echo "triage: installing pi"
-      npm install -g --prefix /opt/pi "@earendil-works/pi-coding-agent@1.3.0" >/tmp/npm.log 2>&1 ||
+      npm install -g --prefix /opt/pi "@earendil-works/pi-coding-agent@1.4.0" >/tmp/npm.log 2>&1 ||
         { tail -n 20 /tmp/npm.log >&2; fail "pi install failed"; }
     fi
 
