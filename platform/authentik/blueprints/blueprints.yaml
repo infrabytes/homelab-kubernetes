@@ -95,18 +95,6 @@ data:
           placeholder: Password
           order: 0
           placeholder_expression: false
-      - model: authentik_stages_prompt.prompt
-        id: recovery-field-password-repeat
-        identifiers:
-          name: default-recovery-field-password-repeat
-        attrs:
-          field_key: password_repeat
-          label: Password (repeat)
-          type: password
-          required: true
-          placeholder: Password (repeat)
-          order: 1
-          placeholder_expression: false
       - model: authentik_stages_prompt.promptstage
         id: recovery-prompt
         identifiers:
@@ -114,7 +102,6 @@ data:
         attrs:
           fields:
             - !KeyOf recovery-field-password
-            - !KeyOf recovery-field-password-repeat
       - model: authentik_stages_user_write.userwritestage
         id: recovery-user-write
         identifiers:

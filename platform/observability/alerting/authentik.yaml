@@ -35,7 +35,8 @@ spec:
               type: prometheus
               uid: victoriametrics
             # ServiceMonitor jobs are authentik/authentik-server and authentik/authentik-worker.
-            expr: 'up{job=~"authentik/authentik-.*"} == bool 0'
+            # absent() keeps a renamed/dropped target from going silent (noDataState is OK).
+            expr: 'up{job=~"authentik/authentik-.*"} == bool 0 or absent(up{job=~"authentik/authentik-.*"})'
             instant: true
             intervalMs: 1000
             maxDataPoints: 43200

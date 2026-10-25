@@ -76,8 +76,10 @@ kubectl -n authentik exec deploy/authentik-worker -- ak test_email bbayrakt@infr
   "Forgot password?" appear.
 
 Blueprints are re-read by the worker (mounted volume) and re-applied on change; deleting a file here
-does not delete the objects it created. Reloader rolls the worker when the ConfigMap changes, so a
-committed edit applies on the next sync without a manual restart.
+does not delete the objects it created. The files own the fields they list — `name`, `email` and
+`groups` on a user are reset on every apply, so add group membership here, not in the admin UI.
+Reloader rolls the worker when the ConfigMap changes, so a committed edit applies on the next sync
+without a manual restart.
 
 ## Accounts
 
@@ -86,9 +88,17 @@ committed edit applies on the next sync without a manual restart.
   password on first login — the bootstrap password is long-lived otherwise.
 - Everyone else sets a password through the recovery flow, then enrols TOTP at the next login.
 - User emails default to `<login>@infrabytes.dev` in `users.yaml`; correct them there if they differ.
+- **A password reset signs the user in without TOTP.** The recovery flow ends in a login, so mailbox
+  access alone is enough to get a session; TOTP is checked on the next normal login. That is
+  deliberate: it is also the way back in when the MFA stage edit breaks the login flow (which would
+  lock out `akadmin` too). Closing it means adding an authenticator-validate stage to the recovery
+  flow and losing that fallback.
 
 ## Operations
 
+- **The recovery form asks for the password once.** A repeat field would need a validation policy to
+  mean anything (`user_write` only reads `password`), and a broken policy here would block the only
+  way back into a locked-out flow.
 - **`secret_key` is permanent.** Changing it invalidates every session and encrypted value;
   rotate it only with the plan to re-run the recovery flow for everyone.
 - **Rotating the SMTP token** is a `bao kv put secret/authentik smtp_password=<new>`; ESO picks it
