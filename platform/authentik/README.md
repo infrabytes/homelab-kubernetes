@@ -28,37 +28,57 @@ consumer the cluster moves off Dex onto — see the migration table at the end.
 
 ## Seeding (one-time, after OpenBao is up)
 
-ESO's OpenBao provider is read-only, so the values are written into OpenBao by hand first.
-Generate them with `openssl rand -base64 48` (or `pwgen -s 50 1`):
+ESO's OpenBao provider is read-only, so the values are written into OpenBao by hand first. The block
+below asks for the four values only you have, generates the rest, and copies the SeaweedFS key
+pair from the Secret the Grafana database backs up with. The emails stay in OpenBao, so no personal
+address is in this repo.
 
 ```sh
-kubectl exec -n openbao openbao-0 -- sh -c '
+read -rp 'akadmin email: ' BOOTSTRAP_EMAIL
+read -rsp 'Proton SMTP token: ' SMTP_TOKEN; echo
+read -rp 'bbayrakt email: ' BBAYRAKT_EMAIL
+read -rp 'dhaustein email: ' DHAUSTEIN_EMAIL
+
+SECRET_KEY=$(openssl rand -base64 48)   # never change it after the first start
+BOOTSTRAP_TOKEN=$(openssl rand -hex 24)
+BOOTSTRAP_PASSWORD=$(openssl rand -base64 24)         # akadmin break-glass, save it
+S3_ACCESS_KEY=$(kubectl -n observability get secret grafana-pg-backup-s3 -o jsonpath='{.data.ACCESS_KEY_ID}' | base64 -d)
+S3_SECRET_KEY=$(kubectl -n observability get secret grafana-pg-backup-s3 -o jsonpath='{.data.SECRET_ACCESS_KEY}' | base64 -d)
+
+kubectl exec -n openbao openbao-0 -- sh -c "
   export BAO_ADDR=http://127.0.0.1:8200
-  bao login -method=kubernetes role=openbao-admin jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token
+  bao login -method=kubernetes role=openbao-admin \
+    jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token >/dev/null
   bao kv put secret/authentik \
-    secret_key=<50+ chars, never change it after the first start> \
-    bootstrap_password=<akadmin break-glass password> \
-    bootstrap_token=<akadmin API token> \
-    bootstrap_email=bbayrakt@infrabytes.dev \
-    smtp_password=<Proton SMTP token> \
-    s3_access_key=<SeaweedFS key> \
-    s3_secret_key=<SeaweedFS secret>
-'
+    secret_key=$SECRET_KEY \
+    bootstrap_password=$BOOTSTRAP_PASSWORD \
+    bootstrap_token=$BOOTSTRAP_TOKEN \
+    bootstrap_email=$BOOTSTRAP_EMAIL \
+    smtp_password=$SMTP_TOKEN \
+    s3_access_key=$S3_ACCESS_KEY \
+    s3_secret_key=$S3_SECRET_KEY \
+    bbayrakt_email=$BBAYRAKT_EMAIL \
+    dhaustein_email=$DHAUSTEIN_EMAIL
+  bao kv metadata get secret/authentik
+"
 ```
 
-`external-secrets.yaml` templates those into `authentik-secret` (`AUTHENTIK_*`) and
-`authentik-pg-backup-s3`. Until both sync the pods sit in `CreateContainerConfigError`; ESO retries,
-so seeding after the first reconcile is fine.
+The `eso-authentik` role the store logs in with is written by the OpenBao chart's `postStart`, so it
+only exists once this change is applied and the OpenBao StatefulSet has rolled. Seeding earlier is
+harmless. `external-secrets.yaml` then templates the values into `authentik-secret` (the
+`AUTHENTIK_*` keys and the two `BLUEPRINT_EMAIL_*` ones) and `authentik-pg-backup-s3`; until both
+sync the pods sit in `CreateContainerConfigError`, and ESO keeps retrying.
 
 ## Mail (Proton Mail SMTP submission)
 
 `global.env` in `application.yaml` points authentik at `smtp.protonmail.ch:587` (STARTTLS) with
 `authentik@infrabytes.dev`; the password is the SMTP token in OpenBao. Generate a token in Proton
 Mail under Settings → All settings → IMAP/SMTP → SMTP tokens for that custom-domain address (the
-address must be active for the domain). Test it from the worker:
+address must be active for the domain). Test it from the worker, which already carries the address
+as an env var:
 
 ```sh
-kubectl -n authentik exec deploy/authentik-worker -- ak test_email bbayrakt@infrabytes.dev
+kubectl -n authentik exec deploy/authentik-worker -- sh -c 'ak test_email "$BLUEPRINT_EMAIL_BBAYRAKT"'
 ```
 
 ## Blueprints (config-as-code)
@@ -87,7 +107,9 @@ without a manual restart.
   `AUTHENTIK_BOOTSTRAP_*`; those are read only on first start against an empty database). Change its
   password on first login — the bootstrap password is long-lived otherwise.
 - Everyone else sets a password through the recovery flow, then enrols TOTP at the next login.
-- User emails default to `<login>@infrabytes.dev` in `users.yaml`; correct them there if they differ.
+- Emails are not in git: `users.yaml` reads them with `!Env BLUEPRINT_EMAIL_*`, filled from
+  `secret/authentik` (`bbayrakt_email`, `dhaustein_email`) by ESO. Change an address there and roll
+  the worker.
 - **A password reset signs the user in without TOTP.** The recovery flow ends in a login, so mailbox
   access alone is enough to get a session; TOTP is checked on the next normal login. That is
   deliberate: it is also the way back in when the MFA stage edit breaks the login flow (which would

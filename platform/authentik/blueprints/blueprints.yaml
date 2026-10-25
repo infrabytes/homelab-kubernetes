@@ -11,12 +11,13 @@ data:
       name: Homelab users
     entries:
       # Local accounts only; usernames match the GitHub logins the cluster RBAC already names. No passwords (recovery flow).
+      # Emails come from OpenBao via !Env (ESO fills BLUEPRINT_EMAIL_*) so personal addresses stay out of this repo.
       - model: authentik_core.user
         identifiers:
           username: bbayrakt
         attrs:
           name: bbayrakt
-          email: bbayrakt@infrabytes.dev
+          email: !Env BLUEPRINT_EMAIL_BBAYRAKT
           is_active: true
           groups:
             - !Find [authentik_core.group, [name, authentik Admins]]
@@ -25,7 +26,7 @@ data:
           username: dhaustein
         attrs:
           name: dhaustein
-          email: dhaustein@infrabytes.dev
+          email: !Env BLUEPRINT_EMAIL_DHAUSTEIN
           is_active: true
   mfa.yaml: |-
     version: 1
