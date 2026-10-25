@@ -149,9 +149,6 @@ spec:
                   oidc_client_secret="$OIDC_CLIENT_SECRET" \
                   default_role=sso-user
 
-                # Only the single Authentik issuer mount is used; the retired tailnet mount's roles die with it.
-                bao auth disable oidc-tailnet 2>/dev/null || true
-
                 # bound_claims is a map — no CLI flag, so roles are JSON documents (OpenBao docs).
                 bao write auth/oidc/role/sso-admin - <<'EOF'
                 {
