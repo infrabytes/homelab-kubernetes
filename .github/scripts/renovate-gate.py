@@ -103,6 +103,25 @@ def decide(body, title, approved):
     return "success", "clean routine update", unverified
 
 
+def approval(reviews, head_sha):
+    """Whether a write-access user's newest review approves this head commit.
+
+    A review is pinned to the commit it was submitted against, so an approval of an
+    earlier head (a rebase, or the next Renovate release) says nothing about this one.
+    """
+    if not head_sha:
+        return False
+    latest = {}
+    for review in reviews:
+        latest[review["user"]["login"]] = review
+    return any(
+        review.get("state") == "APPROVED"
+        and review.get("author_association") in {"OWNER", "MEMBER", "COLLABORATOR"}
+        and review.get("commit_id") == head_sha
+        for review in latest.values()
+    )
+
+
 def post_status(sha, state, description, target_url):
     body = json.dumps(
         {
@@ -143,15 +162,8 @@ def main():
     if pr["user"]["login"] not in RENOVATE_ACTORS:
         state, desc, unverified = "success", "not a Renovate PR", []
     else:
-        reviews = api(f"/repos/{repo}/pulls/{pr_number}/reviews")
-        latest = {}
-        for review in reviews:
-            latest[review["user"]["login"]] = review
-        approved = any(
-            review.get("state") == "APPROVED"
-            and review.get("author_association") in {"OWNER", "MEMBER", "COLLABORATOR"}
-            for review in latest.values()
-        )
+        reviews = api(f"/repos/{repo}/pulls/{pr_number}/reviews?per_page=100")
+        approved = approval(reviews, head_sha)
         state, desc, unverified = decide(pr.get("body") or "", pr.get("title") or "", approved)
 
     print(f"gate decision: {state} — {desc}")
