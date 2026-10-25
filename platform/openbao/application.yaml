@@ -102,15 +102,11 @@ spec:
               - name: openbao-seal
                 mountPath: /openbao/seal
                 readOnly: true
-            # hostAliases bypasses LAN DNS rebinding and routes the tailnet Dex via its in-cluster HTTPS listener.
+            # Pins the issuer to the gateway VIP; the public record hairpins through WAN and SWAG.
             hostAliases:
               - ip: 192.168.0.200
                 hostnames:
-                  - dex.icaninto.space
-              - ip: 10.111.254.10
-                hostnames:
-                  - dex.taile70903.ts.net
-            # OIDC client credentials for the oidc auth method (Dex static client "openbao").
+                  - authentik.icaninto.space
             extraSecretEnvironmentVars:
               - envName: OIDC_CLIENT_ID
                 secretName: openbao-oidc
@@ -118,10 +114,6 @@ spec:
               - envName: OIDC_CLIENT_SECRET
                 secretName: openbao-oidc
                 secretKey: client-secret
-              # Private CA for the tailnet Dex HTTPS listener (in-cluster discovery fetch).
-              - envName: OIDC_TAILNET_CA_PEM
-                secretName: openbao-oidc-tailnet-ca
-                secretKey: ca.crt
             # Reloader roll on the seal/OIDC Secrets; updateStrategyType is RollingUpdate, so raft keeps quorum.
             annotations:
               reloader.stakater.com/auto: "true"
@@ -151,10 +143,13 @@ spec:
                 bao auth tune -listing-visibility=unauth oidc/ >/dev/null 2>&1 || true
 
                 bao write auth/oidc/config \
-                  oidc_discovery_url=https://dex.icaninto.space \
+                  oidc_discovery_url=https://authentik.icaninto.space/application/o/openbao/ \
                   oidc_client_id="$OIDC_CLIENT_ID" \
                   oidc_client_secret="$OIDC_CLIENT_SECRET" \
                   default_role=sso-user
+
+                # The tailnet mount's Dex is gone; its roles die with the mount.
+                bao auth disable oidc-tailnet 2>/dev/null || true
 
                 # bound_claims is a map — no CLI flag, so roles are JSON documents (OpenBao docs).
                 bao write auth/oidc/role/sso-admin - <<'EOF'
@@ -163,6 +158,7 @@ spec:
                   "oidc_scopes": ["profile", "groups"],
                   "allowed_redirect_uris": [
                     "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
+                    "https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback",
                     "http://localhost:8250/oidc/callback"
                   ],
                   "bound_claims": { "preferred_username": "bbayrakt" },
@@ -176,42 +172,7 @@ spec:
                   "oidc_scopes": ["profile", "groups"],
                   "allowed_redirect_uris": [
                     "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
-                    "http://localhost:8250/oidc/callback"
-                  ],
-                  "ttl": "1h"
-                }
-                EOF
-
-                # Tailnet OIDC mount (separate issuer — a single Dex cannot serve both LAN and tailnet).
-                bao auth enable -path=oidc-tailnet oidc 2>/dev/null || true
-                bao auth tune -listing-visibility=unauth oidc-tailnet/ >/dev/null 2>&1 || true
-
-                bao write auth/oidc-tailnet/config \
-                  oidc_discovery_url=https://dex.taile70903.ts.net \
-                  oidc_discovery_ca_pem="$OIDC_TAILNET_CA_PEM" \
-                  oidc_client_id="$OIDC_CLIENT_ID" \
-                  oidc_client_secret="$OIDC_CLIENT_SECRET" \
-                  default_role=sso-user
-
-                bao write auth/oidc-tailnet/role/sso-admin - <<'EOF'
-                {
-                  "user_claim": "preferred_username",
-                  "oidc_scopes": ["profile", "groups"],
-                  "allowed_redirect_uris": [
-                    "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
-                    "http://localhost:8250/oidc/callback"
-                  ],
-                  "bound_claims": { "preferred_username": "bbayrakt" },
-                  "token_policies": ["openbao-admin"],
-                  "ttl": "1h"
-                }
-                EOF
-                bao write auth/oidc-tailnet/role/sso-user - <<'EOF'
-                {
-                  "user_claim": "preferred_username",
-                  "oidc_scopes": ["profile", "groups"],
-                  "allowed_redirect_uris": [
-                    "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
+                    "https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback",
                     "http://localhost:8250/oidc/callback"
                   ],
                   "ttl": "1h"
@@ -278,19 +239,7 @@ spec:
                   "oidc_scopes": ["profile", "groups"],
                   "allowed_redirect_uris": [
                     "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
-                    "http://localhost:8250/oidc/callback"
-                  ],
-                  "bound_claims": { "preferred_username": [$claims] },
-                  "token_policies": ["$t-tenant"],
-                  "ttl": "1h"
-                }
-                EOF
-                    bao write "auth/oidc-tailnet/role/sso-$t" - <<EOF
-                {
-                  "user_claim": "preferred_username",
-                  "oidc_scopes": ["profile", "groups"],
-                  "allowed_redirect_uris": [
-                    "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
+                    "https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback",
                     "http://localhost:8250/oidc/callback"
                   ],
                   "bound_claims": { "preferred_username": [$claims] },
@@ -300,7 +249,6 @@ spec:
                 EOF
                   else
                     bao delete "auth/oidc/role/sso-$t" >/dev/null 2>&1 || true
-                    bao delete "auth/oidc-tailnet/role/sso-$t" >/dev/null 2>&1 || true
                   fi
                 done
 
@@ -403,8 +351,7 @@ spec:
                 memory: 192Mi
               limits:
                 memory: 288Mi
-            # Audited egress: DNS, raft peers, and the Dex backends behind the LAN and tailnet routes.
-            # Envoy enforces this pod's egress against the HTTPRoute backend (pod + pod port), not the Gateway address.
+            # DNS and raft here; the issuer is the Gateway hop (openbao-allow-authentik-egress.yaml).
             networkPolicy:
               enabled: true
               egress:
@@ -424,24 +371,6 @@ spec:
                           app.kubernetes.io/instance: openbao
                   ports:
                     - port: 8201
-                      protocol: TCP
-                - to:
-                    - namespaceSelector:
-                        matchLabels:
-                          kubernetes.io/metadata.name: dex
-                      podSelector:
-                        matchLabels:
-                          app.kubernetes.io/name: dex
-                          app.kubernetes.io/instance: dex
-                  ports:
-                    - port: 5556
-                      protocol: TCP
-                - to:
-                    - namespaceSelector:
-                        matchLabels:
-                          kubernetes.io/metadata.name: dex-tailnet
-                  ports:
-                    - port: https
                       protocol: TCP
           serverTelemetry:
             grafanaDashboard:

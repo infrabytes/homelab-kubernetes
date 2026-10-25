@@ -36,7 +36,10 @@ network policy itself:
 - for a request going *through* the Gateway, the client's egress policy is
   enforced against the HTTPRoute's backend pod and pod port, so rules aimed at
   the VIP or the node are inert. What keeps the LAN Dex reachable is the dex pod
-  on 5556, declared in the chart values.
+  on 5556, declared in the chart values;
+- a pod that *calls out* through the Gateway (OpenBao fetching the Authentik
+  issuer) is enforced against the envoy itself, so it needs
+  `toEntities: [ingress]` on 443 (`openbao-allow-authentik-egress.yaml`).
 
 **Kubelet probes need no allow.** Cilium adds an automatic
 `Allow Ingress reserved:host ANY` entry to every endpoint, so a default-deny
@@ -67,10 +70,9 @@ gateway traffic working; see the cert-manager and external-secrets policies.
 | Namespace | Chart values | Supplements here |
 | --- | --- | --- |
 | `dex` | dex `networkPolicy`: ingress ports, DNS + 443 egress | `dex-default-deny-ingress.yaml` |
-| `dex-tailnet` | dex `networkPolicy` (adds the https listener) | `tailnet/default-deny-ingress.yaml`, `tailnet/ingress.yaml` |
 | `cert-manager` | controller, webhook and cainjector `networkPolicy` | `cert-manager-default-deny-ingress.yaml` |
 | `external-secrets` | controller, webhook and cert-controller `networkPolicy`: DNS, OpenBao 8200 | `external-secrets-allow-apiserver-egress.yaml`, `external-secrets-default-deny-ingress.yaml` |
-| `openbao` | `server.networkPolicy`: DNS, raft 8201, both Dex backends | `openbao-allow-apiserver-egress.yaml`, `openbao-allow-gateway-ingress.yaml`, `openbao-default-deny-ingress.yaml` |
+| `openbao` | `server.networkPolicy`: DNS, raft 8201 | `openbao-allow-apiserver-egress.yaml`, `openbao-allow-authentik-egress.yaml`, `openbao-allow-gateway-ingress.yaml`, `openbao-default-deny-ingress.yaml` |
 | `headlamp` | — (the chart has no `networkPolicy` values) | `headlamp-default-deny-ingress.yaml`, `headlamp-allow-gateway-ingress.yaml`, `headlamp-allow-tailnet-ingress.yaml`, `headlamp-allow-egress.yaml` (DNS + the dex backend), `headlamp-allow-apiserver-egress.yaml` |
 | `hubble-observer` | `ciliumNetworkPolicy`: relay egress, cf2cnp ingress with the `ingress` entity | `hubble-observer-allow-relay-egress.yaml`, `hubble-observer-allow-dns-egress.yaml`, `hubble-observer-default-deny-ingress.yaml` |
 | `vcluster` | `policies.networkPolicy`: chart defaults plus the metrics-server control-plane egress on 443/10250 | `vcluster-allow-host-dns-egress.yaml`, `vcluster-default-deny-ingress.yaml` |

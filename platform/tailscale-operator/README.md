@@ -33,14 +33,9 @@ annotations, no manual `tailscale serve`.
 - `openbao.<tailnet>.ts.net` — OpenBao UI/API
   (`platform/openbao/openbao-tailnet-ingress.yaml` → `openbao-active:8200`,
   plain HTTP backend; TLS terminates at the proxy).
-- `dex.<tailnet>.ts.net` — second Dex instance for remote SSO
-  (`platform/dex/tailnet/ingress.yaml` → `dex-tailnet:5556`).
 - `tailscale-operator.<tailnet>.ts.net` — API server proxy for kubectl.
 - `headlamp.<tailnet>.ts.net` — Headlamp dashboard
   (`platform/headlamp/tailnet-ingress.yaml` → `headlamp:80`).
-
-In-cluster consumers reach the tailnet Dex through its own HTTPS listener
-(the Terraform-generated cert in `dex-tailnet-tls`); see the openbao README.
 
 ## Gateway reachability (subnet router)
 

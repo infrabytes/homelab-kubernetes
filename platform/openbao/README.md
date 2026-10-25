@@ -117,7 +117,7 @@ the zrootorg kubeconform hook).
 
 The ESO policies and roles, the tenant mounts, and the tenant policies/roles
 are written by the chart's `server.postStart` hook on every pod start (the
-same mechanism as the OIDC mounts below) — no manual `bao policy write`
+same mechanism as the OIDC mount below) — no manual `bao policy write`
 bootstrap for ESO and no root token: the hook logs in with Kubernetes auth as
 the pod's own SA (`openbao-admin` role from the one-time Bootstrap above).
 
@@ -168,9 +168,10 @@ optionally its **GitHub login** (for OpenBao SSO):
 
 The two identities differ when a person did not sign into Tailscale with
 GitHub (`name@github` is a Tailscale convention, not ours): RBAC uses
-`identity`, while the OpenBao OIDC roles bind the Dex GitHub login
-(`preferred_username`). A member without `user` gets RBAC but no OpenBao SSO
-(the Dex here only has a GitHub connector). All members of a tenant share
+`identity`, while the OpenBao OIDC roles bind the Authentik username
+(`preferred_username`, the same string as the GitHub login). A member without
+`user` gets RBAC but no OpenBao SSO (they have no Authentik account). All
+members of a tenant share
 that tenant's access — namespace admin, cluster-wide read, full control of its
 secret mount; there is no per-member separation.
 
@@ -186,9 +187,9 @@ secret mount; there is no per-member separation.
   kv-v2 mount `<tenant>/` and write the `<tenant>-tenant` policy (full control
   of that mount), the `eso-<tenant>` policy (read `<tenant>/data/*`), the
   Kubernetes-auth role `eso-<tenant>` bound to `<tenant>-eso` in the tenant
-  namespace, and `sso-<tenant>` on both `auth/oidc` and `auth/oidc-tailnet`
-  with `bound_claims.preferred_username` set to the tenant's GitHub logins.
-  A tenant whose members have no GitHub login has its `sso-<tenant>` roles
+  namespace, and `sso-<tenant>` on `auth/oidc` with
+  `bound_claims.preferred_username` set to the tenant's GitHub logins.
+  A tenant whose members have no GitHub login has its `sso-<tenant>` role
   deleted, so the marker stays the single source of truth.
 
 The two lists must stay identical; the `tenant-config-check` pre-commit hook
@@ -206,10 +207,9 @@ tenant path whose existing mount is not kv-v2.
    then merge. On a from-scratch cluster the tenant Application can fail until
    its namespace exists (the tenant repo creates it) — re-sync it once it
    does.
-2. The tenant logs in (LAN: `bao login -method=oidc role=sso-<tenant>`;
-   tailnet: `bao login -method=oidc -path=oidc-tailnet role=sso-<tenant>`, or
-   the OpenBao UI) and writes secrets into its own mount:
-   `bao kv put <tenant>/<name> key=value`.
+2. The tenant logs in (`bao login -method=oidc role=sso-<tenant>`, from the
+   LAN or a tailnet host, or through the OpenBao UI) and writes secrets into
+   its own mount: `bao kv put <tenant>/<name> key=value`.
 3. ESO syncs them with an ExternalSecret in the tenant namespace:
    `secretStoreRef: {name: openbao-<tenant>, kind: SecretStore}`,
    `remoteRef.key: <name>` (relative to `<tenant>/`). The ExternalSecret
@@ -256,24 +256,27 @@ kubectl exec -n openbao openbao-0 -- sh -c '
 ```
 ```
 
-## GitHub SSO (Dex → OpenBao oidc auth)
+## SSO (Authentik → OpenBao oidc auth)
 
-Logins via GitHub are served by standalone Dex instances
-([`platform/dex`](../dex/README.md)), restricted to the
-`infrabytes` org. OpenBao has two OIDC auth mounts:
+Logins are served by Authentik ([`platform/authentik`](../authentik/README.md)),
+which hosts the `openbao` OIDC provider; the issuer
+`https://authentik.icaninto.space/application/o/openbao/` is the same for LAN,
+tailnet and internet. One auth mount serves both entry points:
 
-- `auth/oidc` (LAN): discovery URL `https://dex.icaninto.space`, roles
-  `sso-admin`/`sso-user` with LAN redirect URIs.
-- `auth/oidc-tailnet` (tailnet): discovery URL `https://dex.<tailnet>.ts.net`,
-  roles `sso-admin`/`sso-user` with tailnet redirect URIs. Same static client
-  credentials (`OIDC_CLIENT_ID`/`OIDC_CLIENT_SECRET`).
+- `auth/oidc`: roles `sso-admin`/`sso-user` plus the tenant `sso-<tenant>`
+  roles, each registering the LAN, the tailnet and the CLI redirect URI.
 
-### LAN roles (`auth/oidc`)
+The two mounts of the Dex era (`auth/oidc`, `auth/oidc-tailnet`) existed because
+each Dex issuer served one hostname; the postStart hook disables the stale
+`oidc-tailnet` mount so its roles go with it.
+
+### Roles
 
 - `sso-admin`: bbayrakt (bound claim `preferred_username`) →
   root-equivalent `openbao-admin` policy.
-- `sso-user`: any other org member → `default` policy only (their own
-  cubbyhole; org membership is enforced by the Dex GitHub connector).
+- `sso-user`: any other Authentik account → `default` policy only (their own
+  cubbyhole; every account exists only because it was created in Authentik,
+  there is no self-signup).
 - `auth/oidc/config.default_role = sso-user`, so the UI login is safe by
   default; bbayrakt selects the `sso-admin` role in the UI login form.
 
@@ -292,25 +295,22 @@ not exist, so first boot stays quiet; once the roles exist, a config failure
 fails the hook and the container restarts (visible crash loop, repairs on
 the next start).
 
-The pods reach both Dex instances via `hostAliases`: `dex.icaninto.space` → `192.168.0.200`
-(the gateway L2 IP, DNS rebinding protection workaround) and `dex.<tailnet>.ts.net`
-→ `10.111.254.10` (the tailnet Dex Service, whose 443 port is the Dex HTTPS
-listener — the tailscale proxy's 443 is only on the unroutable 100.x interface,
-so in-cluster discovery needs this local listener). The listener's private CA
-is injected as `OIDC_TAILNET_CA_PEM` and passed to `oidc_discovery_ca_pem`;
-the cert is generated by the [addons unit](../../../infra/addons/README.md)
-(`tls` provider, `dex-tailnet-tls` Secret in `dex-tailnet`).
+The pods pin the issuer to the gateway VIP with `hostAliases`
+(`authentik.icaninto.space` → `192.168.0.200`): the public record would send
+their discovery, JWKS and token requests out through WAN to SWAG and back.
+The Gateway's envoy is host-network with the Cilium `ingress` identity, so
+this pod's egress allow-list needs `openbao-allow-authentik-egress.yaml`
+(no pod selector can match it).
 
 ### Logging in
 
 - Web UI: https://bao.icaninto.space/ui → sign in with method `oidc` →
-  GitHub. bbayrakt: enter role `sso-admin`.
+  Authentik. bbayrakt: enter role `sso-admin`.
 - CLI (LAN host): `bao login -method=oidc` (default role `sso-user`; as
   bbayrakt: `bao login -method=oidc role=sso-admin`; a tenant:
   `role=sso-<tenant>`).
-- Tailnet: https://openbao.<tailnet>.ts.net/ui → sign in with method
-  `oidc-tailnet` → GitHub (through the tailnet Dex). bbayrakt: enter role
-  `sso-admin`; a tenant: `sso-<tenant>` (CLI: `-path=oidc-tailnet`).
+- Tailnet: https://openbao.<tailnet>.ts.net/ui → the same method `oidc` and
+  roles; the tailnet hostname's callback is registered on the same roles.
 
 ### Applying changes
 

@@ -1,11 +1,10 @@
-# dex: standalone Dex OIDC provider (OpenBao SSO)
+# dex: standalone Dex OIDC provider
 
-A dedicated Dex instance that authenticates OpenBao logins via GitHub SSO
-(`bao login -method=oidc` and the OpenBao UI). It is **independent** from the
-Dex embedded in ArgoCD, runs in its own `dex` namespace, and is LAN-only at
-https://dex.icaninto.space. A second Dex instance for the tailnet
-(Application `dex-tailnet`, namespace `dex-tailnet`) serves remote SSO at
-https://dex.<tailnet>.ts.net with its own GitHub OAuth app.
+A dedicated Dex instance that serves the consumers still on Dex (Grafana,
+Headlamp) with GitHub SSO. It is **independent** from the Dex embedded in
+ArgoCD, runs in its own `dex` namespace, and is LAN-only at
+https://dex.icaninto.space. Its `openbao` static client is a leftover: OpenBao
+logs in through Authentik ([`platform/openbao`](../openbao/README.md)).
 
 ## What it is
 
@@ -65,18 +64,17 @@ The connector uses a dedicated OAuth app (separate from ArgoCD's):
 
 ## Adding future clients / connectors
 
-Edit the `dex-config` (LAN) / `dex-tailnet-config` Secret source (the addons
-unit in `infra/addons/main.tf`): add a `staticClients` entry (new client
+Edit the `dex-config` Secret source (the addons unit in
+`infra/addons/main.tf`): add a `staticClients` entry (new client
 id/secret + redirect URIs) or a connector, back it with a SOPS key, then
 `terragrunt apply` in `infra/addons`.
 
 Dex reads its config at container start, and the chart's checksum annotation
-only covers its own rendered Secret (both releases use
-`configSecret.create: false`, so an external Secret change triggers no roll).
-Delete the pod to pick up a config change:
+only covers its own rendered Secret (`configSecret.create: false`, so an
+external Secret change triggers no roll):
 
 ```sh
-kubectl delete pod -n dex-tailnet -l app.kubernetes.io/name=dex   # or -n dex for the LAN instance
+kubectl delete pod -n dex -l app.kubernetes.io/name=dex
 ```
 
 ## Verify
