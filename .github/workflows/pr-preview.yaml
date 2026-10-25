@@ -115,6 +115,7 @@ jobs:
       # --force-conflicts: the vcluster syncer owns the helm.sh/chart label on the instance Services, so a chart bump SSA-apply conflicts forever without it.
       - name: Ensure ArgoCD in vcluster
         run: |
+          converged=0
           for attempt in 1 2 3; do
             if helm upgrade --install argocd-preview argo-cd \
                 --repo https://argoproj.github.io/argo-helm \
@@ -124,11 +125,16 @@ jobs:
                 --values target-branch/.github/argocd-preview-values.yaml \
                 --force-conflicts \
                 --wait --timeout 10m; then
+              converged=1
               break
             fi
             echo "helm upgrade attempt $attempt failed, retrying in 30s"
             sleep 30
           done
+          if [ "$converged" -ne 1 ]; then
+            echo "helm upgrade failed on all 3 attempts; the preview Argo CD did not converge"
+            exit 1
+          fi
           kubectl -n argocd-preview rollout status deployment -l app.kubernetes.io/component=server --timeout=5m
 
       # ArgoCD's repo-server clones the private repo with this token; the
