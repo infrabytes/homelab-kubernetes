@@ -47,8 +47,9 @@ def api(path):
 
 
 def notes_prose(block):
-    """Characters of prose in a release-notes block, ignoring markup and URLs."""
-    text = re.sub(r"<[^>]+>", "", block)
+    """Characters of prose in a release-notes block, ignoring markup, URLs and the dep label."""
+    text = re.sub(r"<summary>.*?</summary>", "", block, flags=re.DOTALL)
+    text = re.sub(r"<[^>]+>", "", text)
     text = re.sub(r"https?://\S+", "", text)
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"&[#\w]+;", "", text)

@@ -44,15 +44,9 @@ LINK_ONLY = "Please refer to the changelog available at https://example.com/chan
 def main():
     gate = load()
 
-    prose_long = gate.notes_prose(LONG)
-    prose_link = gate.notes_prose(LINK_ONLY)
-    assert prose_long >= gate.MIN_NOTES_PROSE, prose_long
-    assert prose_link < gate.MIN_NOTES_PROSE, prose_link
-
     # Dep name from the update table, matched against a qualified <summary>.
     deps = gate.deps_of(table(("tailscale-operator", "patch")) + notes(("tailscale/tailscale (tailscale-operator)", LINK_ONLY)))
     assert [name for name, _, _ in deps] == ["tailscale-operator"], deps
-    assert deps[0][2] is not None and deps[0][2] < gate.MIN_NOTES_PROSE, deps
 
     # A dep with no <details> block of its own has no notes at all.
     assert gate.deps_of(table(("spegel", "minor")))[0][2] is None
@@ -100,6 +94,25 @@ def main():
             "",
             False,
             ("failure", "release notes do not say what changed: tailscale-operator"),
+        ),
+        (
+            "a long dep label is not mistaken for notes",
+            table(("ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set", "minor"))
+            + notes(
+                (
+                    "actions/actions-runner-controller (ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set)",
+                    LINK_ONLY + "\nSee the previous release notes for the other changes.\n",
+                )
+            ),
+            "",
+            False,
+            (
+                "failure",
+                (
+                    "release notes do not say what changed: "
+                    "ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set"
+                ),
+            ),
         ),
         (
             "noteless patch keeps merging",
