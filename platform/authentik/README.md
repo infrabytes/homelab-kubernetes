@@ -15,9 +15,8 @@ consumer the cluster moves off Dex onto — see the migration table at the end.
   The Postgres app-user password is not in OpenBao — CNPG generates it in `authentik-pg-app`.
 - Exposure: one issuer, https://authentik.icaninto.space, for LAN, tailnet and internet. `route.yaml`
   serves it on the `authentik-https` gateway listener with the `authentik-tls` cert-manager DNS-01
-  certificate, and `redirect.yaml` sends plain HTTP there. `route.yaml` carries the external-dns
-  opt-out, so the record is made by hand; see [Exposure](#exposure) for both paths and the host-side
-  steps.
+  certificate, and `redirect.yaml` sends plain HTTP there. Both routes carry the external-dns opt-out,
+  so the record is made by hand; see [Exposure](#exposure) for both paths and the host-side steps.
 - Network policies: `authentik-allow-gateway-ingress.yaml` (gateway → 9000),
   `authentik-allow-metrics.yaml` (Alloy → 9300) and `authentik-allow-egress.yaml` (DNS, the
   in-namespace Postgres, the SMTP relay on the submission ports, the API server for the outpost
@@ -37,30 +36,32 @@ The gateway terminates TLS; the Service port in `route.yaml` is 80 and maps to c
 LAN path: a router-local DNS override sends the hostname to 192.168.0.200, so LAN clients speak TLS
 to the gateway directly, with no hairpin through SWAG; the nodes use the same resolver. Remote
 tailnet devices take the public path; the issuer no longer rides the `lan-subnet-router` Connector.
-Consumer pods that call the issuer pin the VIP with `hostAliases` as they migrate, so their requests
-stay on the LAN.
+Consumer pods that call the issuer pin the VIP with `hostAliases`, as `observability` and `headlamp`
+already do for Dex, so their discovery and token requests stay on the LAN instead of following the
+public record out through WAN and back.
 
-`external-dns.alpha.kubernetes.io/controller: "manual-dns"` on the route is what keeps the two
-records apart: external-dns with policy=sync would otherwise publish the cluster's RFC1918 gateway IP
-as the record and fight the hand-made one. It deletes the A/TXT records it owns on the first sync
-after the opt-out lands, so the Cloudflare A record goes in once they are gone. Put the router
-override in place first: LAN clients resolve through it, and until it exists the merge leaves them
-without the name. cert-manager is not affected: DNS-01 issues `authentik-tls` from a TXT challenge,
-not from the A record.
+Both routes carry `external-dns.alpha.kubernetes.io/controller: "manual-dns"`, because the
+annotation is per object and external-dns unions hostnames across routes: one unannotated route
+still publishes this hostname. Without the opt-out, external-dns with policy=sync publishes the
+cluster's RFC1918 gateway IP and fights the hand-made record. It deletes the A/TXT records it owns
+on the first sync after the opt-out lands, so the Cloudflare A record goes in once they are gone.
+Put the router override in place first: LAN clients resolve through it, and until it exists the
+merge leaves them without the name. cert-manager is not affected: DNS-01 issues `authentik-tls`
+from a TXT challenge, not from the A record.
 
 Host-side steps, none of them in this repo:
 
+- The router-local DNS override above, first.
 - SWAG `proxy-confs/authentik.subdomain.conf`: `proxy_pass https://192.168.0.200`, the original `Host`
   header, SNI set to the hostname, and the websocket upgrade headers. The upstream must be HTTPS: on
   plain HTTP `redirect.yaml` answers 301 to itself and the browser loops.
 - A SWAG certificate covering `authentik.icaninto.space`.
-- The router-local DNS override above.
 - The Cloudflare A record, created by hand after external-dns has dropped its own.
 
-Hardening for the public leg: TOTP is already mandatory (`mfa.yaml`) and no signup or enrolment flow
-is bound to the login, so an anonymous visitor can only guess passwords. Add SWAG `limit_req` to the
-proxy conf, and optionally 403 `/if/admin/` and `/admin/` there; the LAN path keeps full admin
-through the VIP.
+Hardening for the public leg: TOTP is mandatory at login (`mfa.yaml`) and no signup or enrolment
+flow is bound, so an anonymous visitor has only credentials to attack, and the recovery flow still
+issues a session without TOTP (see Accounts). Add SWAG `limit_req` to the proxy conf, and
+optionally 403 `/if/admin/` and `/admin/` there; the LAN path keeps full admin through the VIP.
 
 ## Seeding (one-time, after OpenBao is up)
 
@@ -196,7 +197,6 @@ without a manual restart.
 ```sh
 kubectl -n authentik get externalsecret,secretstore     # SecretSynced / Valid
 kubectl -n authentik get pods                          # 2/2 server, 1/1 worker, cluster Healthy
-curl -sS https://authentik.icaninto.space/-/health/ready/
 curl -v --resolve authentik.icaninto.space:443:192.168.0.200 \
   https://authentik.icaninto.space/-/health/ready/     # gateway listener, DNS bypassed
 ```
