@@ -47,7 +47,7 @@ adopt_and_link() {
       rm -f "$link"
     else
       mv "$link" "$canonical"
-      chmod 666 "$canonical" 2>/dev/null || true
+      chmod 600 "$canonical" 2>/dev/null || true
     fi
   fi
 
@@ -71,7 +71,7 @@ download_one() {
 
   case "$code" in
     200)
-      chmod 666 "$tmp"
+      chmod 600 "$tmp"
       mv "$tmp" "${credentials_dir}/${name}"
       ;;
     404)
@@ -121,7 +121,7 @@ sync_main() {
     echo "sync-artifacts: cannot create ${credentials_dir}" >&2
     return 1
   fi
-  chmod 777 "$credentials_dir" 2>/dev/null || true
+  chmod 700 "$credentials_dir" 2>/dev/null || true
   mkdir -p "$artifacts_dir"
 
   local name
