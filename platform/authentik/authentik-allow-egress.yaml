@@ -34,6 +34,11 @@ spec:
         - ports:
             - port: "587"
               protocol: TCP
+            # Implicit TLS and the other common submission ports, so a relay change does not need a policy edit.
+            - port: "465"
+              protocol: TCP
+            - port: "2525"
+              protocol: TCP
     - toEntities:
         - kube-apiserver
       toPorts:

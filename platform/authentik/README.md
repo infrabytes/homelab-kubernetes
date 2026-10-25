@@ -19,7 +19,8 @@ consumer the cluster moves off Dex onto — see the migration table at the end.
   one issuer for LAN and remote clients.
 - Network policies: `authentik-allow-gateway-ingress.yaml` (gateway → 9000),
   `authentik-allow-metrics.yaml` (Alloy → 9300) and `authentik-allow-egress.yaml` (DNS, the
-  in-namespace Postgres, the SMTP relay on 587, the API server for the outpost controller). The chart
+  in-namespace Postgres, the SMTP relay on the submission ports, the API server for the outpost
+  controller). The chart
   ships none, so these are hand-written; they select the authentik pods, not the namespace, so the
   CNPG instance keeps its own traffic.
 - Observability: ServiceMonitors for server and worker; dashboard in
@@ -136,14 +137,16 @@ without a manual restart.
   way back into a locked-out flow.
 - **`secret_key` is permanent.** Changing it invalidates every session and encrypted value;
   rotate it only with the plan to re-run the recovery flow for everyone.
-- **Rotating the SMTP token** is a `bao kv put secret/authentik smtp_password=<new>`; ESO picks it
-  up within the hour and reloader then rolls the pods.
+- **Rotating the SMTP token** is a `bao kv patch secret/authentik smtp_password=<new>`; ESO picks it
+  up within the hour and reloader then rolls the pods. `kv put` would replace the whole version and
+  drop the other keys, which takes the pods down.
 - **Sizing** is a first estimate (2026-10-25, no history) for server, worker and the database;
   re-derive from the alerting history after two weeks.
 - **Outposts:** the embedded outpost runs inside the `server` pod, so forward-auth works with no
-  extra workload. Managed outposts would be Deployments created by the server — for that the
-  chart's ServiceAccount and cluster RBAC (kept enabled) must stay. Forward-auth also needs the
-  apps' hostnames to route `/outpost.goauthentik.io` to authentik.
+  extra workload. Managed outposts would be Deployments created by the server, which needs the
+  chart's ServiceAccount and remote-cluster ClusterRole — both off while `serviceAccount.create:`
+  is `false`, so switch it on in the commit that adds the first proxy provider. Forward-auth also
+  needs the apps' hostnames to route `/outpost.goauthentik.io` to authentik.
 
 ## Verify
 

@@ -10,6 +10,12 @@ data:
     metadata:
       name: Homelab users
     entries:
+      # The group below comes from the shipped bootstrap blueprint, so that one has to apply first.
+      - model: authentik_blueprints.metaapplyblueprint
+        attrs:
+          identifiers:
+            name: authentik Bootstrap
+          required: true
       # Local accounts only; usernames match the GitHub logins the cluster RBAC already names. No passwords (recovery flow).
       # Emails come from OpenBao via !Env (ESO fills BLUEPRINT_EMAIL_*) so personal addresses stay out of this repo.
       - model: authentik_core.user
