@@ -1,6 +1,7 @@
 all:
   vars:
-    silence_duration_seconds: 14400
+    # Outlives proxmox-node-updates.service's TimeoutStartSec=4h, so the last host's reboot stays silenced.
+    silence_duration_seconds: 18000
     grafana_url: https://grafana.icaninto.space
   children:
     pve:

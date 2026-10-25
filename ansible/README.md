@@ -13,7 +13,7 @@ be retired separately.
 
 1. **Alert silences** (once per run, before the first host): creates a
    `grafana_folder=Talos` Alertmanager silence for `silence_duration_seconds`
-   (default 4h, matching the systemd `TimeoutStartSec`) on both Grafana
+   (default 5h, outliving the systemd `TimeoutStartSec=4h`) on both Grafana
    instances — Cloud (the watchdog rules) and the in-cluster Grafana
    (`grafana_url`), where the cluster-health rules (`Node is down`,
    `Longhorn manager down`, ...) notify Discord — so neither pages while a
@@ -48,7 +48,7 @@ be retired separately.
    dead-man). The silence is lifted after the last host; on a failed or
    aborted run the rescue lifts it first and pushes a `result=failed` line,
    so the failed-run alert fires instead of being muted. The silence also
-   self-expires after 4h as a backstop (e.g. a `--limit` canary that ends
+   self-expires after 5h as a backstop (e.g. a `--limit` canary that ends
    without reaching the last-host cleanup). The results are visualised in the
    "PVE Host Maintenance" dashboard (Talos folder in Grafana Cloud, managed by
    `infra/grafana-cloud-config/dashboards/proxmox-maintenance.json`): run
