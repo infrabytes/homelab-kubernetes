@@ -51,6 +51,13 @@ variable "argocd_webhook_secret" {
   sensitive   = true
 }
 
+variable "authentik_argocd_client_secret" {
+  description = "Authentik OIDC client secret for ArgoCD (client id \"argocd\"). Written into argocd-secret as oidc.clientSecret; argocd-cm's oidc.config names it once ArgoCD moves off Dex. One of the four mirrored into secret/authentik as oidc_argocd_client_secret."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "github_oidc_org" {
   description = "GitHub org whose members are allowed to log in to ArgoCD (Dex GitHub connector orgs restriction)."
   type        = string

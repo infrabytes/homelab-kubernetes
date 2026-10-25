@@ -173,6 +173,10 @@ locals {
     # ArgoCD rejects events whose X-Hub-Signature-256 does not match.
     # Generate with: openssl rand -hex 32
     argocd_webhook_secret = try(local.secrets.argocd_webhook_secret, "")
+    # Authentik OIDC client secret for ArgoCD (client id "argocd"), one of the four
+    # mirrored into secret/authentik as oidc_argocd_client_secret. argocd-secret
+    # takes it as oidc.clientSecret; oidc.config names it at the cutover.
+    authentik_argocd_client_secret = local.secrets.authentik_argocd_client_secret
 
     # Grafana Cloud Loki credentials, kept for the cluster-heartbeat CronJob
     # (platform/observability/heartbeat-cronjob.yaml) — the only consumer left in

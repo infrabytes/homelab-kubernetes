@@ -131,16 +131,20 @@ resource "helm_release" "argo_cd" {
           # Stable hash from state
           argocdServerAdminPassword      = terraform_data.argocd_admin_password_bcrypt.output
           argocdServerAdminPasswordMtime = "2026-08-08T00:00:00Z"
-          # Both secrets are optional (empty while bootstrapping): the dex
+          # The Dex secrets are optional (empty while bootstrapping): the dex
           # client secret enables SSO, the webhook secret makes the API server
-          # verify GitHub webhook signatures (X-Hub-Signature-256).
+          # verify GitHub webhook signatures (X-Hub-Signature-256). The Authentik
+          # OIDC secret is unconditional: oidc.config reads it at the cutover.
           extra = merge(
             var.github_oidc_client_secret != "" ? {
               "dex.github.clientSecret" = var.github_oidc_client_secret
             } : {},
             var.argocd_webhook_secret != "" ? {
               "webhook.github.secret" = var.argocd_webhook_secret
-            } : {}
+            } : {},
+            {
+              "oidc.clientSecret" = var.authentik_argocd_client_secret
+            }
           )
         }
         # RBAC comes from env.hcl (`addons.argocd_rbac`): policy.default,
