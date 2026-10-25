@@ -39,11 +39,16 @@ data:
     metadata:
       name: Require TOTP
     entries:
-      # Stage lives in the shipped default flow: apply that blueprint first so the identifiers exist.
+      # Both identifiers come from shipped blueprints; blueprint order across files is undefined.
       - model: authentik_blueprints.metaapplyblueprint
         attrs:
           identifiers:
             name: Default - Authentication flow
+          required: true
+      - model: authentik_blueprints.metaapplyblueprint
+        attrs:
+          identifiers:
+            name: Default - TOTP MFA setup flow
           required: true
       # Enforce TOTP: no enrolled device -> inject the shipped TOTP setup stage instead of skipping.
       - model: authentik_stages_authenticator_validate.authenticatorvalidatestage
@@ -60,6 +65,12 @@ data:
     metadata:
       name: Password reset
     entries:
+      # The identification stage edited at the end belongs to the shipped default flow.
+      - model: authentik_blueprints.metaapplyblueprint
+        attrs:
+          identifiers:
+            name: Default - Authentication flow
+          required: true
       - model: authentik_flows.flow
         id: recovery-flow
         identifiers:
@@ -149,4 +160,8 @@ data:
         identifiers:
           name: default-authentication-identification
         attrs:
+          # Restated because the serializer rejects an entry with no user fields and no sources.
+          user_fields:
+            - email
+            - username
           recovery_flow: !KeyOf recovery-flow

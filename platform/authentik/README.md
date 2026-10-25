@@ -82,6 +82,12 @@ harmless. `external-secrets.yaml` then templates the values into `authentik-secr
 `AUTHENTIK_*` keys and the two `BLUEPRINT_EMAIL_*` ones) and `authentik-pg-backup-s3`; until both
 sync the pods sit in `CreateContainerConfigError`, and ESO keeps retrying.
 
+## Base URL
+
+`AUTHENTIK_WEB__BASE_URL` in `application.yaml` sets the Base URL system setting on first start. It is
+required: authentik refuses to start after the initial setup without it, and every reset link and
+future OIDC issuer is built from it.
+
 ## Mail (password reset)
 
 The relay is not named here, on purpose: host, port, username, From address and password all come
