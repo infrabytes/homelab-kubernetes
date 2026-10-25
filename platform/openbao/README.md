@@ -298,9 +298,9 @@ the next start).
 The pods pin the issuer to the gateway VIP with `hostAliases`
 (`authentik.icaninto.space` → `192.168.0.200`): the public record would send
 their discovery, JWKS and token requests out through WAN to SWAG and back.
-The Gateway's envoy is host-network with the Cilium `ingress` identity, so
-this pod's egress allow-list needs `openbao-allow-authentik-egress.yaml`
-(no pod selector can match it).
+The Gateway authorizes such a request against the Authentik backend's identity,
+so this pod's egress allow-list needs `openbao-allow-authentik-egress.yaml`
+(the `ingress` entity, the VIP and a plain NetworkPolicy all get envoy's 403).
 
 ### Logging in
 
