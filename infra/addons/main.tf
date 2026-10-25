@@ -126,7 +126,7 @@ resource "helm_release" "argo_cd" {
               issuer: https://authentik.icaninto.space/application/o/argocd/
               clientID: argocd
               clientSecret: $oidc.clientSecret
-              requestedScopes: ["openid", "profile", "email", "groups"]
+              requestedScopes: ["openid", "profile", "email"]
               enablePKCEAuthentication: true
             EOT
           },
