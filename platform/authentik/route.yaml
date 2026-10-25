@@ -3,10 +3,12 @@ kind: HTTPRoute
 metadata:
   name: authentik
   namespace: authentik
+  annotations:
+    # external-dns skips foreign controller values; the record is hand-made (SWAG target), so policy=sync must stop republishing the RFC1918 VIP.
+    external-dns.alpha.kubernetes.io/controller: "manual-dns"
 spec:
   parentRefs:
-    # LAN-address issuer for LAN and tailnet alike: the DNS-only Cloudflare record points at the
-    # gateway VIP, which the lan-subnet-router Connector advertises to tailnet devices.
+    # One issuer for LAN, tailnet and internet: SWAG forwards the public leg here with Host and SNI, LAN clients dial the VIP directly.
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: homelab
