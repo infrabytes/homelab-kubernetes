@@ -16,7 +16,12 @@ The comment body is deliberately the bare single line `atlantis apply`:
 Atlantis ignores a comment whose body has a second non-empty line
 (multiLineRegex), so a hidden dedupe marker cannot be smuggled in. Duplicate
 suppression therefore compares the bot's own apply comments against the head
-commit's committer date.
+commit's committer date. Exactly one retry is allowed on a head SHA whose
+newest `atlantis/apply` status is a failure (stale plan, S3 outage): that status
+is also what makes the SHA's combined status red, so the retry is the one case
+allowed past the combined-status gate, and only while no other context is red.
+Two prior comments block instead, or each retry would re-post and fire another
+status event forever.
 
 Usage:
     renovate-atlantis-apply.py              # decide and act (needs GITHUB_TOKEN)
@@ -40,6 +45,7 @@ BOT_LOGIN = "github-actions[bot]"
 INFRA_PREFIX = "infra/"
 APPLY_COMMENT = "atlantis apply"
 PLAN_CONTEXT = "atlantis/plan"
+APPLY_CONTEXT = "atlantis/apply"
 GATE_CONTEXT = "breaking-change-gate"
 GREEN_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
 
@@ -59,16 +65,23 @@ def newest_status(statuses: list[dict], context: str) -> dict | None:
     return max(matches, key=lambda status: status.get("created_at") or "")
 
 
-def has_apply_comment(comments: list[dict], since: str) -> bool:
+def apply_comment_count(comments: list[dict], since: str) -> int:
     threshold = parse_ts(since)
+    count = 0
     for comment in comments:
         if (comment.get("user") or {}).get("login") != BOT_LOGIN:
             continue
         if (comment.get("body") or "").strip() != APPLY_COMMENT:
             continue
         if parse_ts(comment["created_at"]) >= threshold:
-            return True
-    return False
+            count += 1
+    return count
+
+
+def red_status_contexts(statuses: list[dict]) -> set[str]:
+    """Newest status per context, reduced to the contexts that are not success."""
+    contexts = {status.get("context") for status in statuses}
+    return {context for context in contexts if newest_status(statuses, context).get("state") != "success"}
 
 
 def own_check_run(check_run: dict, run_id: str) -> bool:
@@ -110,7 +123,12 @@ def evaluate(
         if check_run.get("conclusion") not in GREEN_CONCLUSIONS:
             return False, f"check run {check_run.get('name')} is {check_run.get('conclusion')}"
 
-    if combined_state != "success":
+    apply_comments = apply_comment_count(comments, head_committer_date)
+    apply_status = newest_status(statuses, APPLY_CONTEXT)
+    retry = apply_comments == 1 and apply_status is not None and apply_status.get("state") == "failure"
+
+    # Atlantis posts the failed apply as an atlantis/apply status, so that failure is what reddens the SHA.
+    if combined_state != "success" and not (retry and red_status_contexts(statuses) == {APPLY_CONTEXT}):
         return False, f"combined commit status is {combined_state}"
 
     plan = newest_status(statuses, PLAN_CONTEXT)
@@ -126,7 +144,9 @@ def evaluate(
     if gate.get("state") != "success":
         return False, f"{GATE_CONTEXT} is {gate.get('state')}"
 
-    if has_apply_comment(comments, head_committer_date):
+    if apply_comments:
+        if retry:
+            return True, f"retrying after a failed {APPLY_CONTEXT} on {run_sha}"
         return False, f"apply already requested on {run_sha}"
 
     return True, f"green: posting {APPLY_COMMENT!r} on {run_sha}"
@@ -277,6 +297,15 @@ def fixture(**overrides) -> dict:
     return base
 
 
+def green_statuses(apply_state: str) -> list[dict]:
+    """Plan and gate green plus one Atlantis apply state, as Atlantis posts them."""
+    return [
+        {"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"},
+        {"context": GATE_CONTEXT, "state": "success", "created_at": "2026-09-16T10:31:00Z"},
+        {"context": APPLY_CONTEXT, "state": apply_state, "created_at": "2026-09-16T11:05:00Z"},
+    ]
+
+
 SELF_TEST_CASES = [
     ("happy path", fixture(), True, "posting"),
     ("closed pr", fixture(pr={"state": "closed", "user": {"login": RENOVATE_LOGIN}, "head": {"sha": FIXTURE_SHA}}), False, "pr is closed"),
@@ -377,6 +406,61 @@ SELF_TEST_CASES = [
     (
         "prior apply comment on this sha",
         fixture(comments=[{"user": {"login": BOT_LOGIN}, "body": f" {APPLY_COMMENT}\n", "created_at": "2026-09-16T11:00:00Z"}]),
+        False,
+        "apply already requested",
+    ),
+    (
+        "retry after a failed atlantis/apply",
+        fixture(
+            statuses=green_statuses("failure"),
+            combined_state="failure",
+            comments=[{"user": {"login": BOT_LOGIN}, "body": APPLY_COMMENT, "created_at": "2026-09-16T11:00:00Z"}],
+        ),
+        True,
+        f"retrying after a failed {APPLY_CONTEXT}",
+    ),
+    (
+        "no second retry after a failed atlantis/apply",
+        fixture(
+            statuses=green_statuses("failure"),
+            combined_state="failure",
+            comments=[
+                {"user": {"login": BOT_LOGIN}, "body": APPLY_COMMENT, "created_at": "2026-09-16T11:00:00Z"},
+                {"user": {"login": BOT_LOGIN}, "body": APPLY_COMMENT, "created_at": "2026-09-16T11:05:00Z"},
+            ],
+        ),
+        False,
+        "combined commit status is failure",
+    ),
+    (
+        "another red context blocks the retry",
+        fixture(
+            statuses=[
+                *green_statuses("failure"),
+                {"context": "renovate/artifacts", "state": "failure", "created_at": "2026-09-16T11:06:00Z"},
+            ],
+            combined_state="failure",
+            comments=[{"user": {"login": BOT_LOGIN}, "body": APPLY_COMMENT, "created_at": "2026-09-16T11:00:00Z"}],
+        ),
+        False,
+        "combined commit status is failure",
+    ),
+    (
+        "pending atlantis/apply after a comment blocks",
+        fixture(
+            statuses=green_statuses("pending"),
+            combined_state="pending",
+            comments=[{"user": {"login": BOT_LOGIN}, "body": APPLY_COMMENT, "created_at": "2026-09-16T11:00:00Z"}],
+        ),
+        False,
+        "combined commit status is pending",
+    ),
+    (
+        "successful atlantis/apply after a comment blocks",
+        fixture(
+            statuses=green_statuses("success"),
+            comments=[{"user": {"login": BOT_LOGIN}, "body": APPLY_COMMENT, "created_at": "2026-09-16T11:00:00Z"}],
+        ),
         False,
         "apply already requested",
     ),
