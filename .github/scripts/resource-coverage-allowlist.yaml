@@ -40,7 +40,7 @@ allow:
   - namespace: openbao
     workload: openbao-server-test
     container: openbao-server-test
-    reason: "openbao 0.29.4 helm-test Pod; no resources value"
+    reason: "openbao 0.30.4 helm-test Pod; no resources value"
   - namespace: spegel
     workload: spegel-cleanup
     container: cleanup
