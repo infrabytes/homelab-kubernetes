@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: "0 5 * * *"
   workflow_dispatch:
+  # The run that updates a branch leaves it waiting on CI; nothing else would merge it until the next scheduled tick.
+  workflow_run:
+    workflows: [pre-commit, renovate-gate]
+    types: [completed]
   issues:
     types: [edited]
   pull_request:
@@ -24,6 +28,8 @@ jobs:
     # Ticking a dashboard or PR checkbox starts a run; the bots' own rewrites of those bodies must not, or every run would loop.
     if: >-
       github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+        startsWith(github.event.workflow_run.head_branch, 'renovate/')) ||
       (github.actor != 'infrabytes-renovate[bot]' && github.actor != 'renovate[bot]' &&
         ((github.event_name == 'issues' && github.event.issue.title == 'Dependency Dashboard') ||
          (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'renovate/'))))

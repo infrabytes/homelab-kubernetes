@@ -281,9 +281,21 @@ every run and an App token's writes do fire workflow events. Renovate only
 manages dashboards it authored itself (the issue query is filtered by author),
 so the self-hosted bot creates its own dashboard rather than adopting the
 Mend-hosted one.
+
+The `workflow_run` trigger is what actually merges: a run that creates or
+rebases a branch leaves that PR waiting on CI, and only a later run merges it.
+`pre-commit`/`renovate-gate` completions on `renovate/*` branches start that
+later run, which is why automerge lands a minute or two after CI instead of at
+the next scheduled tick. GitHub's scheduler is no help here: this repo's
+`0 5` cron (and `warm-tool-cache`'s `03:23`) fire around 08:15-08:45 UTC, so
+the daily run is a backstop for discovering new releases, not the merge path.
+
 `prHourlyLimit: 0` in `renovate.json` compensates for the daily schedule: the
 default of 2 would cap creation at ~2 PRs per day, while `prConcurrentLimit`
-(10) still bounds open PRs.
+(10) still bounds open PRs. The `renovate` group rule turns
+`minimumReleaseAge` off: only the pre-commit hook reports a release timestamp,
+so the 3-day gate would hold the validator back while the image (no timestamp)
+ran ahead, leaving the engine and its validator on different versions.
 
 One-time setup (App creation is web-UI only; repository permissions
 `Contents`, `Issues`, `Pull requests`, `Commit statuses` and `Checks` at
