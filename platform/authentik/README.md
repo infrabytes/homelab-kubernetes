@@ -43,8 +43,10 @@ stay on the LAN.
 `external-dns.alpha.kubernetes.io/controller: "manual-dns"` on the route is what keeps the two
 records apart: external-dns with policy=sync would otherwise publish the cluster's RFC1918 gateway IP
 as the record and fight the hand-made one. It deletes the A/TXT records it owns on the first sync
-after the opt-out lands, so add the Cloudflare A record once they are gone. cert-manager is not
-affected: DNS-01 issues `authentik-tls` from a TXT challenge, not from the A record.
+after the opt-out lands, so the Cloudflare A record goes in once they are gone. Put the router
+override in place first: LAN clients resolve through it, and until it exists the merge leaves them
+without the name. cert-manager is not affected: DNS-01 issues `authentik-tls` from a TXT challenge,
+not from the A record.
 
 Host-side steps, none of them in this repo:
 
