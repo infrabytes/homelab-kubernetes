@@ -32,7 +32,7 @@ spec:
             datasource:
               type: prometheus
               uid: victoriametrics
-            expr: '(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1) and on (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[1h]) > 0)'
+            expr: '(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1) and on (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[15m]) > 0)'
             instant: true
             intervalMs: 1000
             maxDataPoints: 43200
