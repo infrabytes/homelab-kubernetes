@@ -312,7 +312,7 @@ resource "kubernetes_secret_v1" "headlamp_oidc" {
   data = {
     OIDC_CLIENT_ID     = "headlamp"
     OIDC_CLIENT_SECRET = var.headlamp_oidc_client_secret
-    OIDC_ISSUER_URL    = "https://dex.icaninto.space"
+    OIDC_ISSUER_URL    = "https://authentik.icaninto.space/application/o/headlamp/"
     OIDC_SCOPES        = "openid,profile,email"
   }
 }

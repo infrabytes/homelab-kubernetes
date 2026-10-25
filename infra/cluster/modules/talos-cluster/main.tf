@@ -190,7 +190,7 @@ locals {
             jwt = [
               {
                 issuer = {
-                  url       = "https://dex.icaninto.space"
+                  url       = "https://authentik.icaninto.space/application/o/headlamp/"
                   audiences = ["headlamp"]
                 }
                 claimMappings = {

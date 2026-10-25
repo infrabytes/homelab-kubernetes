@@ -1,4 +1,4 @@
-# Headlamp dashboard, native OIDC login against the LAN Dex. User access lives
+# Headlamp dashboard, native OIDC login against Authentik. User access lives
 # in rbac.yaml, client credentials in the addons-owned headlamp-oidc Secret.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -37,11 +37,11 @@ spec:
             runAsNonRoot: true
             runAsUser: 100
             runAsGroup: 101
-          # Pin the issuer to the gateway L2 IP, bypassing LAN DNS rebinding (as the openbao chart does).
+          # Issuer via the gateway VIP; the public record would route through WAN and SWAG.
           hostAliases:
             - ip: 192.168.0.200
               hostnames:
-                - dex.icaninto.space
+                - authentik.icaninto.space
           # First pass (2026-10-18), no usage history yet; re-measure after 2026-11-01.
           resources:
             requests:
