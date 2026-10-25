@@ -22,7 +22,8 @@ Three checks run per file:
   resource-coverage-allowlist.yaml.
 
 A fourth check covers folder Applications, whose second source is the folder
-itself: a directory source must not apply Application manifests (its own or a
+itself: an Application manifest under platform/ must be named application*.yaml,
+and a directory source must not apply Application manifests (its own or a
 sibling's), otherwise the same Application object has two owners.
 
 Usage: check-argocd-apps.py <application.yaml>...
@@ -133,7 +134,8 @@ def _glob_match_selfcheck() -> None:
 
 _glob_match_selfcheck()
 
-APPLICATION_MANIFEST = re.compile(r"(?m)^kind:\s*Application\s*$")
+APPLICATION_MANIFEST = re.compile(r'(?m)^kind:\s*"?Application"?\s*$')
+PLATFORM_APPLICATION_NAME = re.compile(r"application.*\.ya?ml")
 
 
 def folder_sources(doc):
@@ -357,6 +359,12 @@ def check_file(path: Path) -> int:
     for doc in docs:
         if not isinstance(doc, dict) or doc.get("kind") != "Application":
             continue
+        if "platform" in path.parts and not PLATFORM_APPLICATION_NAME.fullmatch(path.name):
+            log(
+                f"FAIL {path}: Application manifests under platform/ must be named application*.yaml,\n"
+                f"  otherwise the folder sources cannot exclude them and two Applications own one object."
+            )
+            return 1
         if check_folder_source(doc, path):
             return 1
         for app, source, dest_ns, kind in helm_sources(doc):
