@@ -178,6 +178,20 @@ test("an open pull request for the workload suppresses the run", async () => {
   assert.equal(existsSync(box.key), false);
 });
 
+test("an open pull request for a longer workload name does not suppress the run", async () => {
+  const box = sandbox();
+  const loki = await lokiWith([]);
+  const api = await serve([
+    { head: { ref: "rightsize/web-web-extra-20261020" }, html_url: "https://github.com/acme/repo/pull/8" },
+  ]);
+  const run = await runGate(box, { lokiUrl: loki.url, apiUrl: api.url });
+  loki.server.close();
+  api.server.close();
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /rightsize-event workload=web\/Deployment\/web/);
+});
+
 test("an unresolvable pod fails loudly instead of guessing a workload", async () => {
   const box = sandbox({ withKubectl: false });
   const run = await runGate(box, { lokiUrl: "http://127.0.0.1:1", apiUrl: "http://127.0.0.1:1" });
