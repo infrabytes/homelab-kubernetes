@@ -276,12 +276,14 @@ WHAT TO DO: the key and its new value, or "approve and merge" and why
 ```
 
 `NO_IMPACT` has to name what was searched and checked; a changelog it could not read forces
-`UNKNOWN` rather than a guess. A failed run posts a link to the workflow log instead, so a
-red gate never sits there unexplained.
+`UNKNOWN` rather than a guess. Any failure posts a link to the workflow log instead, including
+a claim that could not be created or a run that outlived its six-minute wait, so a red gate
+never sits there unexplained.
 
 One claim per PR *and* head SHA: a rebase supersedes the run (the workflow's concurrency
-cancels it) and the new SHA gets its own claim, whose name also becomes the pod name. The
-claim is deleted when the job ends; the TTL is the backstop for a cancelled job.
+cancels it) and the new SHA gets its own claim, whose name also becomes the pod name. A
+review event keeps the SHA, so it starts no new analysis. The claim is deleted when the job
+ends; the TTL is the backstop for a cancelled job.
 
 Running one by hand is the same claim, with the gate verdict spelled out:
 

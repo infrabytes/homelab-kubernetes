@@ -31,7 +31,8 @@ spec:
         app.kubernetes.io/part-of: alert-triage
     spec:
       automountServiceAccountToken: false
-      # 20 min bounds a stuck run: past that the pod reports Failed and the claim TTL collects it.
+      # Backstop when the workflow is gone (cancelled job): 20 min, past which the pod reports
+      # Failed and the claim TTL collects it. A live workflow stops waiting after six minutes.
       activeDeadlineSeconds: 1200
       restartPolicy: Never
       securityContext:

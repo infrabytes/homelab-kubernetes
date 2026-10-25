@@ -45,12 +45,14 @@ jobs:
   breaking-change-analysis:
     needs: breaking-change-gate
     # continue-on-error keeps a failed analysis from flipping the workflow_run conclusion the merge path reads.
+    # A review event keeps the same head SHA, so re-analysing it would only repeat the last comment.
     if: >-
       needs.breaking-change-gate.outputs.state == 'failure' &&
-      needs.breaking-change-gate.outputs.head_repo == github.repository
+      needs.breaking-change-gate.outputs.head_repo == github.repository &&
+      github.event_name != 'pull_request_review'
     runs-on: homelab-runner
     continue-on-error: true
-    timeout-minutes: 25
+    timeout-minutes: 12
     permissions:
       contents: read
       pull-requests: write
@@ -104,17 +106,19 @@ jobs:
       - name: Wait for the analysis
         run: |
           set -eu
-          for _ in $(seq 1 110); do
+          for _ in $(seq 1 36); do
             phase="$(kubectl -n alert-triage get pod "$CLAIM" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
             case "$phase" in
               Succeeded|Failed) echo "sandbox $CLAIM: $phase"; exit 0 ;;
             esac
             sleep 10
           done
-          echo "sandbox $CLAIM did not finish within 18 minutes" >&2
+          echo "sandbox $CLAIM did not finish within 6 minutes" >&2
           exit 1
 
+      # success() || failure() also covers a step above that failed, which is when this needs to explain itself.
       - name: Post the verdict as a PR comment
+        if: success() || failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GATE_REASON: ${{ needs.breaking-change-gate.outputs.reason }}
@@ -139,7 +143,10 @@ jobs:
               )
           else:
               run = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-              text = f"**Breaking-change analysis failed** — the agent produced no verdict. Logs: {run}"
+              text = (
+                  f"**Breaking-change analysis failed** (gate: {os.environ['GATE_REASON']}) — "
+                  f"the agent produced no verdict. Logs: {run}"
+              )
           req = urllib.request.Request(
               f"{os.environ['GITHUB_API_URL']}/repos/{os.environ['GITHUB_REPOSITORY']}/issues/{os.environ['PR_NUMBER']}/comments",
               data=json.dumps({"body": text[:60000]}).encode(),
