@@ -40,11 +40,12 @@ Consumer pods that call the issuer pin the VIP with `hostAliases`, as `observabi
 already do for Dex, so their discovery and token requests stay on the LAN instead of following the
 public record out through WAN and back.
 
-Both routes carry `external-dns.alpha.kubernetes.io/controller: "manual-dns"`, because the
-annotation is per object and external-dns unions hostnames across routes: one unannotated route
-still publishes this hostname. Without the opt-out, external-dns with policy=sync publishes the
-cluster's RFC1918 gateway IP and fights the hand-made record. It deletes the A/TXT records it owns
-on the first sync after the opt-out lands, so the Cloudflare A record goes in once they are gone.
+Both routes carry `external-dns.kubernetes.io/controller: "manual-dns"` (external-dns v0.22+ ignores
+the legacy `external-dns.alpha.kubernetes.io` prefix), because the annotation is per object and
+external-dns unions hostnames across routes: one unannotated route still publishes this hostname.
+Without the opt-out, external-dns with policy=sync publishes the cluster's RFC1918 gateway IP and
+fights the hand-made record. It deletes the A/TXT records it owns on the first sync after the
+opt-out lands, so the Cloudflare A record goes in once they are gone.
 Put the router override in place first: LAN clients resolve through it, and until it exists the
 merge leaves them without the name. cert-manager is not affected: DNS-01 issues `authentik-tls`
 from a TXT challenge, not from the A record.

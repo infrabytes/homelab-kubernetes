@@ -4,15 +4,14 @@ metadata:
   name: argocd
   namespace: argocd
   annotations:
-    # external-dns ignores any route carrying a controller annotation with a
-    # value other than "dns-controller" (the documented, gateway-source-
-    # implemented mechanism; there is no "exclude" annotation in external-dns).
+    # A controller value other than "dns-controller" opts the object out of
+    # external-dns; the prefix moved to external-dns.kubernetes.io/ in v0.22,
+    # which ignores the legacy external-dns.alpha.kubernetes.io key.
     # Served publicly via the edge SWAG hostnames (Cloudflare record points at
-    # the SWAG target; LAN clients use a router-local override to the gateway
-    # L2 IP). external-dns must not keep republishing this record as the
-    # cluster's RFC1918 gateway IP; with policy=sync it deletes its owned
-    # A/TXT records on the next sync after this annotation lands.
-    external-dns.alpha.kubernetes.io/controller: "manual-dns"
+    # the SWAG target; LAN clients use a router-local override to the gateway L2
+    # IP), so external-dns must not republish this record as the cluster's
+    # RFC1918 gateway IP.
+    external-dns.kubernetes.io/controller: "manual-dns"
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io

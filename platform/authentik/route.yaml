@@ -4,8 +4,8 @@ metadata:
   name: authentik
   namespace: authentik
   annotations:
-    # external-dns skips foreign controller values; the record is hand-made (SWAG target), so policy=sync must stop republishing the RFC1918 VIP.
-    external-dns.alpha.kubernetes.io/controller: "manual-dns"
+    # Current prefix: external-dns v0.22+ ignores the legacy external-dns.alpha.kubernetes.io key, so this one is what opts the route out. The record is hand-made (SWAG target), so policy=sync must stop republishing the RFC1918 VIP.
+    external-dns.kubernetes.io/controller: "manual-dns"
 spec:
   parentRefs:
     # One issuer for LAN, tailnet and internet: SWAG forwards the public leg here with Host and SNI, LAN clients dial the VIP directly.
