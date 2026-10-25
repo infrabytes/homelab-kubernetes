@@ -60,8 +60,8 @@ subjects:
 ```
 
 Current bindings: `oidc:bbayrakt` → `cluster-admin`, `oidc:dhaustein` →
-`cluster-viewer`. The bindings are per user; Authentik also emits a `groups`
-claim (custom scope mapping), so a group binding can replace them later. Push
+`cluster-viewer`. The bindings are per user; the shipped Authentik `profile`
+mapping emits a `groups` claim, so a group binding can replace them later. Push
 the change — ArgoCD applies it; no login is needed to verify with
 `kubectl auth can-i get pods --as=oidc:<login>`.
 
