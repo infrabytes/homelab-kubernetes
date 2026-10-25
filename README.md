@@ -246,16 +246,18 @@ Infra PRs get their apply comment on their own:
 `renovate-gate` workflow completes and whenever a commit status changes on the
 repository — the status trigger is what picks a PR up when Atlantis posts its
 `atlantis/plan` status, which is usually the last gate to turn green. The
-script comments `atlantis apply` on the head SHA — at most once per SHA — and
-only when every commit status and check run on that SHA is green
-(`breaking-change-gate` included) and Atlantis has posted a successful
-`atlantis/plan` status for that same SHA. A *missing* `breaking-change-gate`
-status also blocks the apply: the gate workflow exits 0 without posting one
-when its status POST is rejected, and absence must not read as green.
-The comment is authored by
-`github-actions[bot]` with the workflow's `GITHUB_TOKEN`, adds no secret, and a
-rebase or new push is evaluated afresh. Held major/breaking PRs stay
-uncommented until an approval re-runs `renovate-gate` green.
+script comments `atlantis apply` on the head SHA, once, and only when every
+commit status and check run on that SHA is green (`breaking-change-gate`
+included) and Atlantis has posted a successful `atlantis/plan` status for that
+same SHA. A failed `atlantis/apply` earns one retry, allowed past the red
+combined status while its own failure is the only non-green context and the
+bot has commented once already — two comments is the ceiling, so a permanently
+failing apply cannot loop. A *missing* `breaking-change-gate` status also
+blocks the apply: the gate workflow exits 0 without posting one when its
+status POST is rejected, and absence must not read as green. The comment is
+authored by `github-actions[bot]` with the workflow's `GITHUB_TOKEN`, adds no
+secret, and a rebase or new push is evaluated afresh. Held major/breaking PRs
+stay uncommented until an approval re-runs `renovate-gate` green.
 
 One-time admin setup (idempotent, re-runnable):
 

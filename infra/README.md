@@ -111,8 +111,9 @@ Every plan after that is workspace-independent.
 
 `.github/scripts/test-artifact-sync.sh` asserts the hook wiring, that the
 script's key set matches the `local_sensitive_file` filenames and its
-`CREDENTIALS_DIR` matches `env.hcl`, and does a live PUT/GET + adoption/
-symlink round-trip under a disposable test prefix (skips without the age key).
+`CREDENTIALS_DIR` matches `env.hcl` on every run, then does a live PUT/GET +
+adoption/symlink round-trip under a disposable test prefix when the age key is
+available.
 
 ## Typical workflows
 
