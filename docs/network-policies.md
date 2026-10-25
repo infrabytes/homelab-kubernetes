@@ -41,8 +41,8 @@ network policy itself:
   Authentik issuer) is authorized against the backend pod's identity, and only
   a Cilium rule matches that: a plain NetworkPolicy on the backend pods, a
   `toCIDR` on the VIP and `toEntities: [ingress]` are each denied with envoy's
-  403 `Access denied` (`headlamp-allow-authentik-egress.yaml`; OpenBao's
-  `toEntities: [ingress]` rule still needs the same fix).
+  403 `Access denied` (`headlamp-allow-authentik-egress.yaml`,
+  `openbao-allow-authentik-egress.yaml`).
 
 **Kubelet probes need no allow.** Cilium adds an automatic
 `Allow Ingress reserved:host ANY` entry to every endpoint, so a default-deny
@@ -65,8 +65,9 @@ gateway traffic working; see the cert-manager and external-secrets policies.
   express the rule.
 - Reach for a CiliumNetworkPolicy only when the rule needs
   `toEntities`/`fromEntities` (`kube-apiserver`, `host`, `remote-node`,
-  `ingress`); namespace and pod selectors with ports belong in a plain
-  NetworkPolicy.
+  `ingress`), or when its peer is reached through the Gateway (a pod selector
+  there only matches as a Cilium identity rule); other namespace and pod
+  selectors with ports belong in a plain NetworkPolicy.
 
 ## Covered namespaces (phase 1)
 
@@ -75,7 +76,7 @@ gateway traffic working; see the cert-manager and external-secrets policies.
 | `dex` | dex `networkPolicy`: ingress ports, DNS + 443 egress | `dex-default-deny-ingress.yaml` |
 | `cert-manager` | controller, webhook and cainjector `networkPolicy` | `cert-manager-default-deny-ingress.yaml` |
 | `external-secrets` | controller, webhook and cert-controller `networkPolicy`: DNS, OpenBao 8200 | `external-secrets-allow-apiserver-egress.yaml`, `external-secrets-default-deny-ingress.yaml` |
-| `openbao` | `server.networkPolicy`: DNS, raft 8201 | `openbao-allow-apiserver-egress.yaml`, `openbao-allow-authentik-egress.yaml`, `openbao-allow-gateway-ingress.yaml`, `openbao-default-deny-ingress.yaml` |
+| `openbao` | `server.networkPolicy`: DNS, raft 8201 | `openbao-allow-apiserver-egress.yaml`, `openbao-allow-authentik-egress.yaml` (Cilium: the identity rule to the Authentik server pods on 9000, without which the Gateway denies the issuer with 403), `openbao-allow-gateway-ingress.yaml`, `openbao-default-deny-ingress.yaml` |
 | `headlamp` | — (the chart has no `networkPolicy` values) | `headlamp-default-deny-ingress.yaml`, `headlamp-allow-gateway-ingress.yaml`, `headlamp-allow-tailnet-ingress.yaml`, `headlamp-allow-egress.yaml` (DNS + the issuer's gateway VIP on 443), `headlamp-allow-authentik-egress.yaml` (Cilium: the identity rule to the Authentik server pods on 9000, without which the Gateway denies the issuer with 403), `headlamp-allow-apiserver-egress.yaml` |
 | `hubble-observer` | `ciliumNetworkPolicy`: relay egress, cf2cnp ingress with the `ingress` entity | `hubble-observer-allow-relay-egress.yaml`, `hubble-observer-allow-dns-egress.yaml`, `hubble-observer-default-deny-ingress.yaml` |
 | `vcluster` | `policies.networkPolicy`: chart defaults plus the metrics-server control-plane egress on 443/10250 | `vcluster-allow-host-dns-egress.yaml`, `vcluster-default-deny-ingress.yaml` |

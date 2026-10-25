@@ -1,5 +1,6 @@
 ---
-# The issuer sits behind the Cilium Gateway, whose envoy is host-network with the reserved `ingress` identity — no pod selector matches it.
+# The Gateway authorizes each request against the backend identity, so only an identity rule to the
+# Authentik server pods gets OpenBao's discovery request through (its former `ingress` rule 403ed).
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -11,9 +12,12 @@ spec:
       app.kubernetes.io/name: openbao
       app.kubernetes.io/instance: openbao
   egress:
-    - toEntities:
-        - ingress
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: authentik
+            k8s:app.kubernetes.io/name: authentik
+            k8s:app.kubernetes.io/component: server
       toPorts:
         - ports:
-            - port: "443"
+            - port: "9000"
               protocol: TCP
