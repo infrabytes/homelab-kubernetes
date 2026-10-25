@@ -5,89 +5,95 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: ghcr.io/onzack/helm-charts
-    chart: hubble-observer
-    targetRevision: 2.7.1
-    helm:
-      releaseName: hubble-observer
-      values: |
-        fullnameOverride: hubble-observer
+  sources:
+    - repoURL: ghcr.io/onzack/helm-charts
+      chart: hubble-observer
+      targetRevision: 2.7.1
+      helm:
+        releaseName: hubble-observer
+        values: |
+          fullnameOverride: hubble-observer
 
-        # Chart CR disabled: it resolves ${datasource} to the internal alert-state Loki (platform/observability/dashboards/flows-dashboard.yaml).
-        grafanaDashboard:
-          enabled: false
+          # Chart CR disabled: it resolves ${datasource} to the internal alert-state Loki (platform/observability/dashboards/flows-dashboard.yaml).
+          grafanaDashboard:
+            enabled: false
 
-        # Chart bug workaround: the liveness/readiness/startup probes query the relay
-        # by its bare name ("hubble-relay:80"), which only resolves inside the
-        # relay's own namespace. Alias it here via ExternalName so the probes work.
-        extraManifests:
-          - apiVersion: v1
-            kind: Service
-            metadata:
-              name: hubble-relay
-              namespace: hubble-observer
-            spec:
-              type: ExternalName
-              externalName: hubble-relay.kube-system.svc.cluster.local
+          # Chart bug workaround: the liveness/readiness/startup probes query the relay
+          # by its bare name ("hubble-relay:80"), which only resolves inside the
+          # relay's own namespace. Alias it here via ExternalName so the probes work.
+          extraManifests:
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: hubble-relay
+                namespace: hubble-observer
+              spec:
+                type: ExternalName
+                externalName: hubble-relay.kube-system.svc.cluster.local
 
-        # Main container: quay.io/cilium/hubble runs as root (no non-root USER in
-        # the image), so runAsNonRoot stays false; harden everything else that
-        # still works as root. The CLI needs no writable config for `observe`.
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
-          privileged: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: false
-          seccompProfile:
-            type: RuntimeDefault
-
-        # The chart's observer ships only DROPPED flows (--verdict DROPPED): still the
-        # right volume/noise trade-off now that the local Loki has no budget.
-        # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
-        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
-        resources:
-          requests:
-            cpu: 20m
-            memory: 32Mi
-          limits:
-            memory: 48Mi
-
-        cf2cnp:
-          enabled: true
+          # Main container: quay.io/cilium/hubble runs as root (no non-root USER in
+          # the image), so runAsNonRoot stays false; harden everything else that
+          # still works as root. The CLI needs no writable config for `observe`.
           securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: false
             seccompProfile:
               type: RuntimeDefault
-          httpRoute:
-            enabled: true
-            parentRefs:
-              - name: homelab
-                namespace: gateway
-                sectionName: cf2cnp-https
-            hostnames:
-              - cf2cnp.icaninto.space
-            paths:
-              - path: /
-                pathType: PathPrefix
+
+          # The chart's observer ships only DROPPED flows (--verdict DROPPED): still the
+          # right volume/noise trade-off now that the local Loki has no budget.
           # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
           # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
           resources:
             requests:
-              cpu: 10m
+              cpu: 20m
               memory: 32Mi
             limits:
               memory: 48Mi
-        ciliumNetworkPolicy:
-          enabled: true
+
           cf2cnp:
-            # The Gateway's envoy carries the reserved ingress identity; without it the cf2cnp route would be dropped.
-            ingressFromEntities:
-              - cluster
-              - world
-              - ingress
+            enabled: true
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+            httpRoute:
+              enabled: true
+              parentRefs:
+                - name: homelab
+                  namespace: gateway
+                  sectionName: cf2cnp-https
+              hostnames:
+                - cf2cnp.icaninto.space
+              paths:
+                - path: /
+                  pathType: PathPrefix
+            # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
+            # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 48Mi
+          ciliumNetworkPolicy:
+            enabled: true
+            cf2cnp:
+              # The Gateway's envoy carries the reserved ingress identity; without it the cf2cnp route would be dropped.
+              ingressFromEntities:
+                - cluster
+                - world
+                - ingress
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/hubble-observer
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
   destination:
     namespace: hubble-observer
     server: https://kubernetes.default.svc

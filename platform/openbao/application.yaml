@@ -13,443 +13,449 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: https://openbao.github.io/openbao-helm
-    chart: openbao
-    targetRevision: 0.30.4
-    helm:
-      releaseName: openbao
-      values: |
-        injector:
-          enabled: false
-        server:
-          # Overrides the chart's OnDelete default: rolls one pod at a time, Ready-gated, keeping raft quorum.
-          updateStrategyType: RollingUpdate
-          # The chart's required anti-affinity deadlocks node drains: an evicted
-          # replica can only return to its own (cordoned) node, so it never
-          # becomes Ready, the PDB drops to 0 allowed and the next node's drain
-          # times out. Preferred keeps the spread, still allows co-location.
-          affinity:
-            podAntiAffinity:
-              preferredDuringSchedulingIgnoredDuringExecution:
-                - weight: 100
-                  podAffinityTerm:
-                    topologyKey: kubernetes.io/hostname
-                    labelSelector:
-                      matchLabels:
-                        app.kubernetes.io/instance: openbao
-                        app.kubernetes.io/name: openbao
-                        component: server
-          authDelegator:
-            # Chart-rendered ClusterRoleBinding (openbao-server-binding →
-            # system:auth-delegator); enables k8s auth's TokenReview call.
-            enabled: true
-          ha:
-            enabled: true
-            replicas: 3
-            raft:
+  sources:
+    - repoURL: https://openbao.github.io/openbao-helm
+      chart: openbao
+      targetRevision: 0.30.4
+      helm:
+        releaseName: openbao
+        values: |
+          injector:
+            enabled: false
+          server:
+            # Overrides the chart's OnDelete default: rolls one pod at a time, Ready-gated, keeping raft quorum.
+            updateStrategyType: RollingUpdate
+            # The chart's required anti-affinity deadlocks node drains: an evicted
+            # replica can only return to its own (cordoned) node, so it never
+            # becomes Ready, the PDB drops to 0 allowed and the next node's drain
+            # times out. Preferred keeps the spread, still allows co-location.
+            affinity:
+              podAntiAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 100
+                    podAffinityTerm:
+                      topologyKey: kubernetes.io/hostname
+                      labelSelector:
+                        matchLabels:
+                          app.kubernetes.io/instance: openbao
+                          app.kubernetes.io/name: openbao
+                          component: server
+            authDelegator:
+              # Chart-rendered ClusterRoleBinding (openbao-server-binding →
+              # system:auth-delegator); enables k8s auth's TokenReview call.
               enabled: true
-              setNodeId: true
-              config: |
-                ui = true
+            ha:
+              enabled: true
+              replicas: 3
+              raft:
+                enabled: true
+                setNodeId: true
+                config: |
+                  ui = true
 
-                listener "tcp" {
-                  tls_disable = 1
-                  address = "[::]:8200"
-                  cluster_address = "[::]:8201"
-                  # Unauthenticated metrics for the ServiceMonitor (cluster-network only).
+                  listener "tcp" {
+                    tls_disable = 1
+                    address = "[::]:8200"
+                    cluster_address = "[::]:8201"
+                    # Unauthenticated metrics for the ServiceMonitor (cluster-network only).
+                    telemetry {
+                      unauthenticated_metrics_access = "true"
+                    }
+                  }
+
+                  storage "raft" {
+                    path = "/openbao/data"
+                    # Auto-join the raft cluster after openbao-0 is initialized.
+                    # API address (http, tls_disable=1): the cluster port 8201
+                    # rejects the bootstrap challenge with a TLS error.
+                    retry_join {
+                      leader_api_addr = "http://openbao-0.openbao-internal:8200"
+                    }
+                    retry_join {
+                      leader_api_addr = "http://openbao-1.openbao-internal:8200"
+                    }
+                    retry_join {
+                      leader_api_addr = "http://openbao-2.openbao-internal:8200"
+                    }
+                  }
+
+                  seal "static" {
+                    current_key_id = "openbao-seal-1"
+                    current_key = "file:///openbao/seal/current.key"
+                  }
+
+                  service_registration "kubernetes" {}
+
+                  # Retain > usage_gauge_period (10m), else the dashboard's usage gauges vanish between refreshes.
                   telemetry {
-                    unauthenticated_metrics_access = "true"
+                    prometheus_retention_time = "15m"
+                    disable_hostname = true
                   }
+            dataStorage:
+              size: 5Gi
+              storageClass: longhorn
+            volumes:
+              - name: openbao-seal
+                secret:
+                  secretName: openbao-seal
+            volumeMounts:
+              - name: openbao-seal
+                mountPath: /openbao/seal
+                readOnly: true
+            # hostAliases bypasses LAN DNS rebinding and routes the tailnet Dex via its in-cluster HTTPS listener.
+            hostAliases:
+              - ip: 192.168.0.200
+                hostnames:
+                  - dex.icaninto.space
+              - ip: 10.111.254.10
+                hostnames:
+                  - dex.taile70903.ts.net
+            # OIDC client credentials for the oidc auth method (Dex static client "openbao").
+            extraSecretEnvironmentVars:
+              - envName: OIDC_CLIENT_ID
+                secretName: openbao-oidc
+                secretKey: client-id
+              - envName: OIDC_CLIENT_SECRET
+                secretName: openbao-oidc
+                secretKey: client-secret
+              # Private CA for the tailnet Dex HTTPS listener (in-cluster discovery fetch).
+              - envName: OIDC_TAILNET_CA_PEM
+                secretName: openbao-oidc-tailnet-ca
+                secretKey: ca.crt
+            # Reloader roll on the seal/OIDC Secrets; updateStrategyType is RollingUpdate, so raft keeps quorum.
+            annotations:
+              reloader.stakater.com/auto: "true"
+            # Bootstraps the oidc auth method on every pod start as the pod's own SA
+            # (Kubernetes auth, no root token in the cluster); a failure crash-loops to surface misconfig.
+            postStart:
+              - /bin/sh
+              - -c
+              - |
+                set -e
+                export BAO_ADDR=http://127.0.0.1:8200
+
+                # Not initialized on first boot: exit 0 and retry at the next start.
+                i=0
+                until out=$(bao status 2>&1) && echo "$out" | grep -q '^Initialized .*true' && echo "$out" | grep -q '^Sealed .*false'; do
+                  i=$((i+1))
+                  [ "$i" -ge 30 ] && exit 0
+                  sleep 3
+                done
+
+                # Skip until the bootstrap role exists (README.md).
+                bao login -method=kubernetes role=openbao-admin jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token 2>/dev/null || exit 0
+
+                # The 3 replicas race on first enable — tolerate the loser.
+                bao auth enable oidc 2>/dev/null || true
+                # Tuned unauth: visible in the unauthenticated UI login dropdown (default is hidden).
+                bao auth tune -listing-visibility=unauth oidc/ >/dev/null 2>&1 || true
+
+                bao write auth/oidc/config \
+                  oidc_discovery_url=https://dex.icaninto.space \
+                  oidc_client_id="$OIDC_CLIENT_ID" \
+                  oidc_client_secret="$OIDC_CLIENT_SECRET" \
+                  default_role=sso-user
+
+                # bound_claims is a map — no CLI flag, so roles are JSON documents (OpenBao docs).
+                bao write auth/oidc/role/sso-admin - <<'EOF'
+                {
+                  "user_claim": "preferred_username",
+                  "oidc_scopes": ["profile", "groups"],
+                  "allowed_redirect_uris": [
+                    "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
+                    "http://localhost:8250/oidc/callback"
+                  ],
+                  "bound_claims": { "preferred_username": "bbayrakt" },
+                  "token_policies": ["openbao-admin"],
+                  "ttl": "1h"
                 }
-
-                storage "raft" {
-                  path = "/openbao/data"
-                  # Auto-join the raft cluster after openbao-0 is initialized.
-                  # API address (http, tls_disable=1): the cluster port 8201
-                  # rejects the bootstrap challenge with a TLS error.
-                  retry_join {
-                    leader_api_addr = "http://openbao-0.openbao-internal:8200"
-                  }
-                  retry_join {
-                    leader_api_addr = "http://openbao-1.openbao-internal:8200"
-                  }
-                  retry_join {
-                    leader_api_addr = "http://openbao-2.openbao-internal:8200"
-                  }
+                EOF
+                bao write auth/oidc/role/sso-user - <<'EOF'
+                {
+                  "user_claim": "preferred_username",
+                  "oidc_scopes": ["profile", "groups"],
+                  "allowed_redirect_uris": [
+                    "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
+                    "http://localhost:8250/oidc/callback"
+                  ],
+                  "ttl": "1h"
                 }
+                EOF
 
-                seal "static" {
-                  current_key_id = "openbao-seal-1"
-                  current_key = "file:///openbao/seal/current.key"
+                # Tailnet OIDC mount (separate issuer — a single Dex cannot serve both LAN and tailnet).
+                bao auth enable -path=oidc-tailnet oidc 2>/dev/null || true
+                bao auth tune -listing-visibility=unauth oidc-tailnet/ >/dev/null 2>&1 || true
+
+                bao write auth/oidc-tailnet/config \
+                  oidc_discovery_url=https://dex.taile70903.ts.net \
+                  oidc_discovery_ca_pem="$OIDC_TAILNET_CA_PEM" \
+                  oidc_client_id="$OIDC_CLIENT_ID" \
+                  oidc_client_secret="$OIDC_CLIENT_SECRET" \
+                  default_role=sso-user
+
+                bao write auth/oidc-tailnet/role/sso-admin - <<'EOF'
+                {
+                  "user_claim": "preferred_username",
+                  "oidc_scopes": ["profile", "groups"],
+                  "allowed_redirect_uris": [
+                    "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
+                    "http://localhost:8250/oidc/callback"
+                  ],
+                  "bound_claims": { "preferred_username": "bbayrakt" },
+                  "token_policies": ["openbao-admin"],
+                  "ttl": "1h"
                 }
-
-                service_registration "kubernetes" {}
-
-                # Retain > usage_gauge_period (10m), else the dashboard's usage gauges vanish between refreshes.
-                telemetry {
-                  prometheus_retention_time = "15m"
-                  disable_hostname = true
+                EOF
+                bao write auth/oidc-tailnet/role/sso-user - <<'EOF'
+                {
+                  "user_claim": "preferred_username",
+                  "oidc_scopes": ["profile", "groups"],
+                  "allowed_redirect_uris": [
+                    "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
+                    "http://localhost:8250/oidc/callback"
+                  ],
+                  "ttl": "1h"
                 }
-          dataStorage:
-            size: 5Gi
-            storageClass: longhorn
-          volumes:
-            - name: openbao-seal
-              secret:
-                secretName: openbao-seal
-          volumeMounts:
-            - name: openbao-seal
-              mountPath: /openbao/seal
-              readOnly: true
-          # hostAliases bypasses LAN DNS rebinding and routes the tailnet Dex via its in-cluster HTTPS listener.
-          hostAliases:
-            - ip: 192.168.0.200
-              hostnames:
-                - dex.icaninto.space
-            - ip: 10.111.254.10
-              hostnames:
-                - dex.taile70903.ts.net
-          # OIDC client credentials for the oidc auth method (Dex static client "openbao").
-          extraSecretEnvironmentVars:
-            - envName: OIDC_CLIENT_ID
-              secretName: openbao-oidc
-              secretKey: client-id
-            - envName: OIDC_CLIENT_SECRET
-              secretName: openbao-oidc
-              secretKey: client-secret
-            # Private CA for the tailnet Dex HTTPS listener (in-cluster discovery fetch).
-            - envName: OIDC_TAILNET_CA_PEM
-              secretName: openbao-oidc-tailnet-ca
-              secretKey: ca.crt
-          # Reloader roll on the seal/OIDC Secrets; updateStrategyType is RollingUpdate, so raft keeps quorum.
-          annotations:
-            reloader.stakater.com/auto: "true"
-          # Bootstraps the oidc auth method on every pod start as the pod's own SA
-          # (Kubernetes auth, no root token in the cluster); a failure crash-loops to surface misconfig.
-          postStart:
-            - /bin/sh
-            - -c
-            - |
-              set -e
-              export BAO_ADDR=http://127.0.0.1:8200
+                EOF
 
-              # Not initialized on first boot: exit 0 and retry at the next start.
-              i=0
-              until out=$(bao status 2>&1) && echo "$out" | grep -q '^Initialized .*true' && echo "$out" | grep -q '^Sealed .*false'; do
-                i=$((i+1))
-                [ "$i" -ge 30 ] && exit 0
-                sleep 3
-              done
+                # Tenant list (<tenant>:<namespace>[:<github-login>[|<login>]]): the logins mirror the members in argocd/tenants/tenants.json (tenant-config-check hook).
+                TENANTS="pdeu:pdeu:dhaustein"
+                for entry in $(printf '%s' "$TENANTS" | tr ',' ' '); do
+                  t=${entry%%:*}; rest=${entry#*:}; ns=${rest%%:*}
+                  case "$rest" in *:*) logins=${rest#*:} ;; *) logins="" ;; esac
+                  if opts=$(bao read -field=options "sys/mounts/$t" 2>/dev/null); then
+                    case "$opts" in
+                      *version:2*) ;;
+                      *) echo "tenant $t: existing mount is not kv-v2 ($opts)" >&2; exit 1 ;;
+                    esac
+                  else
+                    bao secrets enable -path="$t" kv-v2
+                  fi
+                  bao policy write "$t-tenant" - <<EOF
+                path "$t/data/*" {
+                  capabilities = ["create", "read", "update", "delete", "list"]
+                }
+                path "$t/metadata" {
+                  capabilities = ["list"]
+                }
+                path "$t/metadata/*" {
+                  capabilities = ["read", "list", "delete"]
+                }
+                path "$t/delete/*" {
+                  capabilities = ["update"]
+                }
+                path "$t/undelete/*" {
+                  capabilities = ["update"]
+                }
+                path "$t/destroy/*" {
+                  capabilities = ["update"]
+                }
+                path "sys/mounts/$t" {
+                  capabilities = ["read"]
+                }
+                EOF
+                  bao policy write "eso-$t" - <<EOF
+                path "$t/data/*" {
+                  capabilities = ["read", "list"]
+                }
+                path "$t/metadata/*" {
+                  capabilities = ["read", "list"]
+                }
+                path "sys/mounts/$t" {
+                  capabilities = ["read"]
+                }
+                EOF
+                  bao write "auth/kubernetes/role/eso-$t" \
+                    bound_service_account_names="$t-eso" \
+                    bound_service_account_namespaces="$ns" \
+                    policies="eso-$t" \
+                    ttl=1h
+                  if [ -n "$logins" ]; then
+                    claims=$(printf '%s' "$logins" | tr '|' ',' | sed 's/[^,]*/"&"/g')
+                    bao write "auth/oidc/role/sso-$t" - <<EOF
+                {
+                  "user_claim": "preferred_username",
+                  "oidc_scopes": ["profile", "groups"],
+                  "allowed_redirect_uris": [
+                    "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
+                    "http://localhost:8250/oidc/callback"
+                  ],
+                  "bound_claims": { "preferred_username": [$claims] },
+                  "token_policies": ["$t-tenant"],
+                  "ttl": "1h"
+                }
+                EOF
+                    bao write "auth/oidc-tailnet/role/sso-$t" - <<EOF
+                {
+                  "user_claim": "preferred_username",
+                  "oidc_scopes": ["profile", "groups"],
+                  "allowed_redirect_uris": [
+                    "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
+                    "http://localhost:8250/oidc/callback"
+                  ],
+                  "bound_claims": { "preferred_username": [$claims] },
+                  "token_policies": ["$t-tenant"],
+                  "ttl": "1h"
+                }
+                EOF
+                  else
+                    bao delete "auth/oidc/role/sso-$t" >/dev/null 2>&1 || true
+                    bao delete "auth/oidc-tailnet/role/sso-$t" >/dev/null 2>&1 || true
+                  fi
+                done
 
-              # Skip until the bootstrap role exists (README.md).
-              bao login -method=kubernetes role=openbao-admin jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token 2>/dev/null || exit 0
-
-              # The 3 replicas race on first enable — tolerate the loser.
-              bao auth enable oidc 2>/dev/null || true
-              # Tuned unauth: visible in the unauthenticated UI login dropdown (default is hidden).
-              bao auth tune -listing-visibility=unauth oidc/ >/dev/null 2>&1 || true
-
-              bao write auth/oidc/config \
-                oidc_discovery_url=https://dex.icaninto.space \
-                oidc_client_id="$OIDC_CLIENT_ID" \
-                oidc_client_secret="$OIDC_CLIENT_SECRET" \
-                default_role=sso-user
-
-              # bound_claims is a map — no CLI flag, so roles are JSON documents (OpenBao docs).
-              bao write auth/oidc/role/sso-admin - <<'EOF'
-              {
-                "user_claim": "preferred_username",
-                "oidc_scopes": ["profile", "groups"],
-                "allowed_redirect_uris": [
-                  "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
-                  "http://localhost:8250/oidc/callback"
-                ],
-                "bound_claims": { "preferred_username": "bbayrakt" },
-                "token_policies": ["openbao-admin"],
-                "ttl": "1h"
-              }
-              EOF
-              bao write auth/oidc/role/sso-user - <<'EOF'
-              {
-                "user_claim": "preferred_username",
-                "oidc_scopes": ["profile", "groups"],
-                "allowed_redirect_uris": [
-                  "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
-                  "http://localhost:8250/oidc/callback"
-                ],
-                "ttl": "1h"
-              }
-              EOF
-
-              # Tailnet OIDC mount (separate issuer — a single Dex cannot serve both LAN and tailnet).
-              bao auth enable -path=oidc-tailnet oidc 2>/dev/null || true
-              bao auth tune -listing-visibility=unauth oidc-tailnet/ >/dev/null 2>&1 || true
-
-              bao write auth/oidc-tailnet/config \
-                oidc_discovery_url=https://dex.taile70903.ts.net \
-                oidc_discovery_ca_pem="$OIDC_TAILNET_CA_PEM" \
-                oidc_client_id="$OIDC_CLIENT_ID" \
-                oidc_client_secret="$OIDC_CLIENT_SECRET" \
-                default_role=sso-user
-
-              bao write auth/oidc-tailnet/role/sso-admin - <<'EOF'
-              {
-                "user_claim": "preferred_username",
-                "oidc_scopes": ["profile", "groups"],
-                "allowed_redirect_uris": [
-                  "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
-                  "http://localhost:8250/oidc/callback"
-                ],
-                "bound_claims": { "preferred_username": "bbayrakt" },
-                "token_policies": ["openbao-admin"],
-                "ttl": "1h"
-              }
-              EOF
-              bao write auth/oidc-tailnet/role/sso-user - <<'EOF'
-              {
-                "user_claim": "preferred_username",
-                "oidc_scopes": ["profile", "groups"],
-                "allowed_redirect_uris": [
-                  "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
-                  "http://localhost:8250/oidc/callback"
-                ],
-                "ttl": "1h"
-              }
-              EOF
-
-              # Tenant list (<tenant>:<namespace>[:<github-login>[|<login>]]): the logins mirror the members in argocd/tenants/tenants.json (tenant-config-check hook).
-              TENANTS="pdeu:pdeu:dhaustein"
-              for entry in $(printf '%s' "$TENANTS" | tr ',' ' '); do
-                t=${entry%%:*}; rest=${entry#*:}; ns=${rest%%:*}
-                case "$rest" in *:*) logins=${rest#*:} ;; *) logins="" ;; esac
-                if opts=$(bao read -field=options "sys/mounts/$t" 2>/dev/null); then
-                  case "$opts" in
-                    *version:2*) ;;
-                    *) echo "tenant $t: existing mount is not kv-v2 ($opts)" >&2; exit 1 ;;
-                  esac
-                else
-                  bao secrets enable -path="$t" kv-v2
-                fi
-                bao policy write "$t-tenant" - <<EOF
-              path "$t/data/*" {
-                capabilities = ["create", "read", "update", "delete", "list"]
-              }
-              path "$t/metadata" {
-                capabilities = ["list"]
-              }
-              path "$t/metadata/*" {
-                capabilities = ["read", "list", "delete"]
-              }
-              path "$t/delete/*" {
-                capabilities = ["update"]
-              }
-              path "$t/undelete/*" {
-                capabilities = ["update"]
-              }
-              path "$t/destroy/*" {
-                capabilities = ["update"]
-              }
-              path "sys/mounts/$t" {
-                capabilities = ["read"]
-              }
-              EOF
-                bao policy write "eso-$t" - <<EOF
-              path "$t/data/*" {
-                capabilities = ["read", "list"]
-              }
-              path "$t/metadata/*" {
-                capabilities = ["read", "list"]
-              }
-              path "sys/mounts/$t" {
-                capabilities = ["read"]
-              }
-              EOF
-                bao write "auth/kubernetes/role/eso-$t" \
-                  bound_service_account_names="$t-eso" \
-                  bound_service_account_namespaces="$ns" \
-                  policies="eso-$t" \
+                bao policy write eso-arc-runners - <<'EOF'
+                path "secret/data/arc-runner-auth" {
+                  capabilities = ["read"]
+                }
+                path "sys/mounts/secret" {
+                  capabilities = ["read"]
+                }
+                EOF
+                bao write auth/kubernetes/role/eso-arc-runners \
+                  bound_service_account_names=arc-runners-eso \
+                  bound_service_account_namespaces=arc-runners \
+                  policies=eso-arc-runners \
                   ttl=1h
-                if [ -n "$logins" ]; then
-                  claims=$(printf '%s' "$logins" | tr '|' ',' | sed 's/[^,]*/"&"/g')
-                  bao write "auth/oidc/role/sso-$t" - <<EOF
-              {
-                "user_claim": "preferred_username",
-                "oidc_scopes": ["profile", "groups"],
-                "allowed_redirect_uris": [
-                  "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
-                  "http://localhost:8250/oidc/callback"
-                ],
-                "bound_claims": { "preferred_username": [$claims] },
-                "token_policies": ["$t-tenant"],
-                "ttl": "1h"
-              }
-              EOF
-                  bao write "auth/oidc-tailnet/role/sso-$t" - <<EOF
-              {
-                "user_claim": "preferred_username",
-                "oidc_scopes": ["profile", "groups"],
-                "allowed_redirect_uris": [
-                  "https://openbao.taile70903.ts.net/ui/vault/auth/oidc-tailnet/oidc/callback",
-                  "http://localhost:8250/oidc/callback"
-                ],
-                "bound_claims": { "preferred_username": [$claims] },
-                "token_policies": ["$t-tenant"],
-                "ttl": "1h"
-              }
-              EOF
-                else
-                  bao delete "auth/oidc/role/sso-$t" >/dev/null 2>&1 || true
-                  bao delete "auth/oidc-tailnet/role/sso-$t" >/dev/null 2>&1 || true
-                fi
-              done
-
-              bao policy write eso-arc-runners - <<'EOF'
-              path "secret/data/arc-runner-auth" {
-                capabilities = ["read"]
-              }
-              path "sys/mounts/secret" {
-                capabilities = ["read"]
-              }
-              EOF
-              bao write auth/kubernetes/role/eso-arc-runners \
-                bound_service_account_names=arc-runners-eso \
-                bound_service_account_namespaces=arc-runners \
-                policies=eso-arc-runners \
-                ttl=1h
-              bao policy write eso-tailscale - <<'EOF'
-              path "secret/data/tailscale-operator" {
-                capabilities = ["read"]
-              }
-              path "sys/mounts/secret" {
-                capabilities = ["read"]
-              }
-              EOF
-              bao write auth/kubernetes/role/eso-tailscale \
-                bound_service_account_names=tailscale-eso \
-                bound_service_account_namespaces=tailscale \
-                policies=eso-tailscale \
-                ttl=1h
-              bao policy write eso-demo - <<'EOF'
-              path "secret/data/demo" {
-                capabilities = ["read"]
-              }
-              path "sys/mounts/secret" {
-                capabilities = ["read"]
-              }
-              EOF
-              bao write auth/kubernetes/role/eso-demo \
-                bound_service_account_names=eso-demo \
-                bound_service_account_namespaces=external-secrets-demo \
-                policies=eso-demo \
-                ttl=1h
-              bao policy write eso-velero - <<'EOF'
-              path "secret/data/velero" {
-                capabilities = ["read"]
-              }
-              path "sys/mounts/secret" {
-                capabilities = ["read"]
-              }
-              EOF
-              bao write auth/kubernetes/role/eso-velero \
-                bound_service_account_names=velero-eso \
-                bound_service_account_namespaces=velero \
-                policies=eso-velero \
-                ttl=1h
-              bao policy write eso-alert-triage - <<'EOF'
-              path "secret/data/alert-triage" {
-                capabilities = ["read"]
-              }
-              path "sys/mounts/secret" {
-                capabilities = ["read"]
-              }
-              EOF
-              bao write auth/kubernetes/role/eso-alert-triage \
-                bound_service_account_names=alert-triage-eso \
-                bound_service_account_namespaces=alert-triage \
-                policies=eso-alert-triage \
-                ttl=1h
-              bao policy write eso-memory-rightsize - <<'EOF'
-              path "secret/data/memory-rightsize" {
-                capabilities = ["read"]
-              }
-              path "sys/mounts/secret" {
-                capabilities = ["read"]
-              }
-              EOF
-              bao write auth/kubernetes/role/eso-memory-rightsize \
-                bound_service_account_names=memory-rightsize-eso \
-                bound_service_account_namespaces=alert-triage \
-                policies=eso-memory-rightsize \
-                ttl=1h
-              bao policy write eso-authentik - <<'EOF'
-              path "secret/data/authentik" {
-                capabilities = ["read"]
-              }
-              path "sys/mounts/secret" {
-                capabilities = ["read"]
-              }
-              EOF
-              bao write auth/kubernetes/role/eso-authentik \
-                bound_service_account_names=authentik-eso \
-                bound_service_account_namespaces=authentik \
-                policies=eso-authentik \
-                ttl=1h
-          # 36d (2026-09-16..10-22, local VM): ws p95 172.5Mi → request 192Mi, limit 288Mi;
-          # cpu p95 160m. The old 192Mi limit pinned ws at 0.99 (RSS only 55Mi).
-          resources:
-            requests:
-              cpu: 160m
-              memory: 192Mi
-            limits:
-              memory: 288Mi
-          # Audited egress: DNS, raft peers, and the Dex backends behind the LAN and tailnet routes.
-          # Envoy enforces this pod's egress against the HTTPRoute backend (pod + pod port), not the Gateway address.
-          networkPolicy:
+                bao policy write eso-tailscale - <<'EOF'
+                path "secret/data/tailscale-operator" {
+                  capabilities = ["read"]
+                }
+                path "sys/mounts/secret" {
+                  capabilities = ["read"]
+                }
+                EOF
+                bao write auth/kubernetes/role/eso-tailscale \
+                  bound_service_account_names=tailscale-eso \
+                  bound_service_account_namespaces=tailscale \
+                  policies=eso-tailscale \
+                  ttl=1h
+                bao policy write eso-demo - <<'EOF'
+                path "secret/data/demo" {
+                  capabilities = ["read"]
+                }
+                path "sys/mounts/secret" {
+                  capabilities = ["read"]
+                }
+                EOF
+                bao write auth/kubernetes/role/eso-demo \
+                  bound_service_account_names=eso-demo \
+                  bound_service_account_namespaces=external-secrets-demo \
+                  policies=eso-demo \
+                  ttl=1h
+                bao policy write eso-velero - <<'EOF'
+                path "secret/data/velero" {
+                  capabilities = ["read"]
+                }
+                path "sys/mounts/secret" {
+                  capabilities = ["read"]
+                }
+                EOF
+                bao write auth/kubernetes/role/eso-velero \
+                  bound_service_account_names=velero-eso \
+                  bound_service_account_namespaces=velero \
+                  policies=eso-velero \
+                  ttl=1h
+                bao policy write eso-alert-triage - <<'EOF'
+                path "secret/data/alert-triage" {
+                  capabilities = ["read"]
+                }
+                path "sys/mounts/secret" {
+                  capabilities = ["read"]
+                }
+                EOF
+                bao write auth/kubernetes/role/eso-alert-triage \
+                  bound_service_account_names=alert-triage-eso \
+                  bound_service_account_namespaces=alert-triage \
+                  policies=eso-alert-triage \
+                  ttl=1h
+                bao policy write eso-memory-rightsize - <<'EOF'
+                path "secret/data/memory-rightsize" {
+                  capabilities = ["read"]
+                }
+                path "sys/mounts/secret" {
+                  capabilities = ["read"]
+                }
+                EOF
+                bao write auth/kubernetes/role/eso-memory-rightsize \
+                  bound_service_account_names=memory-rightsize-eso \
+                  bound_service_account_namespaces=alert-triage \
+                  policies=eso-memory-rightsize \
+                  ttl=1h
+                bao policy write eso-authentik - <<'EOF'
+                path "secret/data/authentik" {
+                  capabilities = ["read"]
+                }
+                path "sys/mounts/secret" {
+                  capabilities = ["read"]
+                }
+                EOF
+                bao write auth/kubernetes/role/eso-authentik \
+                  bound_service_account_names=authentik-eso \
+                  bound_service_account_namespaces=authentik \
+                  policies=eso-authentik \
+                  ttl=1h
+            # 36d (2026-09-16..10-22, local VM): ws p95 172.5Mi → request 192Mi, limit 288Mi;
+            # cpu p95 160m. The old 192Mi limit pinned ws at 0.99 (RSS only 55Mi).
+            resources:
+              requests:
+                cpu: 160m
+                memory: 192Mi
+              limits:
+                memory: 288Mi
+            # Audited egress: DNS, raft peers, and the Dex backends behind the LAN and tailnet routes.
+            # Envoy enforces this pod's egress against the HTTPRoute backend (pod + pod port), not the Gateway address.
+            networkPolicy:
+              enabled: true
+              egress:
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                  ports:
+                    - port: 53
+                      protocol: UDP
+                    - port: 53
+                      protocol: TCP
+                - to:
+                    - podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: openbao
+                          app.kubernetes.io/instance: openbao
+                  ports:
+                    - port: 8201
+                      protocol: TCP
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: dex
+                      podSelector:
+                        matchLabels:
+                          app.kubernetes.io/name: dex
+                          app.kubernetes.io/instance: dex
+                  ports:
+                    - port: 5556
+                      protocol: TCP
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: dex-tailnet
+                  ports:
+                    - port: https
+                      protocol: TCP
+          serverTelemetry:
+            grafanaDashboard:
+              enabled: true
+            serviceMonitor:
+              enabled: true
+          ui:
             enabled: true
-            egress:
-              - to:
-                  - namespaceSelector:
-                      matchLabels:
-                        kubernetes.io/metadata.name: kube-system
-                ports:
-                  - port: 53
-                    protocol: UDP
-                  - port: 53
-                    protocol: TCP
-              - to:
-                  - podSelector:
-                      matchLabels:
-                        app.kubernetes.io/name: openbao
-                        app.kubernetes.io/instance: openbao
-                ports:
-                  - port: 8201
-                    protocol: TCP
-              - to:
-                  - namespaceSelector:
-                      matchLabels:
-                        kubernetes.io/metadata.name: dex
-                    podSelector:
-                      matchLabels:
-                        app.kubernetes.io/name: dex
-                        app.kubernetes.io/instance: dex
-                ports:
-                  - port: 5556
-                    protocol: TCP
-              - to:
-                  - namespaceSelector:
-                      matchLabels:
-                        kubernetes.io/metadata.name: dex-tailnet
-                ports:
-                  - port: https
-                    protocol: TCP
-        serverTelemetry:
-          grafanaDashboard:
-            enabled: true
-          serviceMonitor:
-            enabled: true
-        ui:
-          enabled: true
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/openbao
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
   destination:
     namespace: openbao
     server: https://kubernetes.default.svc

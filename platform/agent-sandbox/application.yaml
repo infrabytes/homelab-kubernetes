@@ -6,29 +6,35 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: https://github.com/kubernetes-sigs/agent-sandbox
-    targetRevision: v1.0.7
-    path: helm
-    helm:
-      releaseName: agent-sandbox
-      values: |
-        image:
-          tag: v1.0.7
-        # namespace.yaml (parent app) owns the Namespace, so the chart must not render it.
-        namespace:
-          create: false
-        controller:
-          extensions: true
-        resources:
-          requests:
-            cpu: 10m
-            memory: 48Mi
-          limits:
-            memory: 64Mi
-        metrics:
-          serviceMonitor:
-            enabled: true
+  sources:
+    - repoURL: https://github.com/kubernetes-sigs/agent-sandbox
+      targetRevision: v1.0.7
+      path: helm
+      helm:
+        releaseName: agent-sandbox
+        values: |
+          image:
+            tag: v1.0.7
+          # namespace.yaml in this folder owns the Namespace, so the chart must not render it.
+          namespace:
+            create: false
+          controller:
+            extensions: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 48Mi
+            limits:
+              memory: 64Mi
+          metrics:
+            serviceMonitor:
+              enabled: true
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/agent-sandbox
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
   destination:
     namespace: agent-sandbox-system
     server: https://kubernetes.default.svc

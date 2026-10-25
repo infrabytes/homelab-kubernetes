@@ -5,56 +5,62 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: quay.io/jetstack/charts
-    chart: cert-manager
-    targetRevision: v1.21.3
-    helm:
-      releaseName: cert-manager
-      values: |
-        config:
-          gatewayAPI:
-            enabled: true
-        # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
-        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
-        resources:
-          requests:
-            cpu: 10m
-            memory: 96Mi
-          limits:
-            memory: 128Mi
-        # Audit: chart defaults cover the observed edges (80/443/53/6443 out; metrics/healthz/webhook in).
-        networkPolicy:
-          enabled: true
-        cainjector:
+  sources:
+    - repoURL: quay.io/jetstack/charts
+      chart: cert-manager
+      targetRevision: v1.21.3
+      helm:
+        releaseName: cert-manager
+        values: |
+          config:
+            gatewayAPI:
+              enabled: true
+          # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
+          # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
           resources:
             requests:
               cpu: 10m
+              memory: 96Mi
+            limits:
               memory: 128Mi
-            limits:
-              memory: 192Mi
+          # Audit: chart defaults cover the observed edges (80/443/53/6443 out; metrics/healthz/webhook in).
           networkPolicy:
             enabled: true
-        webhook:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              memory: 96Mi
-          networkPolicy:
-            enabled: true
-        # Hook Job with no retained metrics, so it mirrors the webhook sizing.
-        startupapicheck:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              memory: 96Mi
-      parameters:
-        - name: installCRDs
-          value: "true"
+          cainjector:
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 192Mi
+            networkPolicy:
+              enabled: true
+          webhook:
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 96Mi
+            networkPolicy:
+              enabled: true
+          # Hook Job with no retained metrics, so it mirrors the webhook sizing.
+          startupapicheck:
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 96Mi
+        parameters:
+          - name: installCRDs
+            value: "true"
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/cert-manager
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
   destination:
     namespace: cert-manager
     server: https://kubernetes.default.svc

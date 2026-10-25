@@ -7,69 +7,75 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: https://grafana-community.github.io/helm-charts
-    chart: grafana-mcp
-    targetRevision: 0.28.1
-    helm:
-      releaseName: grafana-mcp
-      values: |
-        grafana:
-          url: http://grafana-service.observability.svc.cluster.local:3000
-          apiKeySecret:
-            name: grafana-mcp-credentials
-            key: grafana-token
-
-        # Caller auth on /mcp (401 without Bearer <server-token>); /healthz stays open.
-        envValueFrom:
-          MCP_GRAFANA_SERVER_TOKEN:
-            secretKeyRef:
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: grafana-mcp
+      targetRevision: 0.28.1
+      helm:
+        releaseName: grafana-mcp
+        values: |
+          grafana:
+            url: http://grafana-service.observability.svc.cluster.local:3000
+            apiKeySecret:
               name: grafana-mcp-credentials
-              key: server-token
+              key: grafana-token
 
-        disableWrite: true
-        # Tool groups whose plugins/renderer are absent from this Grafana.
-        disabledCategories:
-          - oncall
-          - incident
-          - snapshot
-          - asserts
-          - rendering
+          # Caller auth on /mcp (401 without Bearer <server-token>); /healthz stays open.
+          envValueFrom:
+            MCP_GRAFANA_SERVER_TOKEN:
+              secretKeyRef:
+                name: grafana-mcp-credentials
+                key: server-token
 
-        extraArgs:
-          - -t
-          - streamable-http
-          - --address
-          - 0.0.0.0:8000
-          # Host validation defaults to loopback; the gateway forwards the public host.
-          # The alert-triage sandbox calls the Service directly, so its exact Host is
-          # allowlisted too (the middleware compares the header literally).
-          - --allowed-hosts
-          - grafana-mcp.icaninto.space,grafana-mcp.observability.svc.cluster.local:8000
-          - --disable-api
-          - --usage-stats=disabled
+          disableWrite: true
+          # Tool groups whose plugins/renderer are absent from this Grafana.
+          disabledCategories:
+            - oncall
+            - incident
+            - snapshot
+            - asserts
+            - rendering
 
-        # HTTP probes would 403 under Host validation (kubelet sends the pod IP).
-        readinessProbe:
-          tcpSocket:
-            port: 8000
-        livenessProbe:
-          tcpSocket:
-            port: 8000
+          extraArgs:
+            - -t
+            - streamable-http
+            - --address
+            - 0.0.0.0:8000
+            # Host validation defaults to loopback; the gateway forwards the public host.
+            # The alert-triage sandbox calls the Service directly, so its exact Host is
+            # allowlisted too (the middleware compares the header literally).
+            - --allowed-hosts
+            - grafana-mcp.icaninto.space,grafana-mcp.observability.svc.cluster.local:8000
+            - --disable-api
+            - --usage-stats=disabled
 
-        # New component (2026-10-18): initial estimate; re-measure after two weeks.
-        resources:
-          requests:
-            cpu: 10m
-            memory: 64Mi
-          limits:
-            memory: 128Mi
-        podAnnotations:
-          reloader.stakater.com/auto: "true"
+          # HTTP probes would 403 under Host validation (kubelet sends the pod IP).
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+          livenessProbe:
+            tcpSocket:
+              port: 8000
 
-        automountServiceAccountToken: false
-        serviceAccount:
+          # New component (2026-10-18): initial estimate; re-measure after two weeks.
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          podAnnotations:
+            reloader.stakater.com/auto: "true"
+
           automountServiceAccountToken: false
+          serviceAccount:
+            automountServiceAccountToken: false
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/grafana-mcp
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
   destination:
     namespace: observability
     server: https://kubernetes.default.svc

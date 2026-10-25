@@ -1,0 +1,28 @@
+# metrics.k8s.io API for kubectl top and the vCluster metrics-server proxy.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-server
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/infrabytes/homelab-kubernetes
+    targetRevision: main
+    path: platform/metrics-server
+    directory:
+      recurse: true
+      exclude: "application*.yaml"
+  destination:
+    namespace: kube-system
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        maxDuration: 5m
+        factor: 2

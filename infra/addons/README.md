@@ -148,9 +148,10 @@ terragrunt apply --all     # cluster -> viewer-kubeconfig, addons (this unit) ->
 Once ArgoCD is up, `cd ../argocd-config && terragrunt apply` (or `--all`)
 creates the `platform` Application and the ApplicationSets, and ArgoCD syncs:
 
-- the `platform` Application applies all of `platform/` — each component's Helm
-  chart `Application` (cert-manager, external-dns, spegel, longhorn, ...) plus
-  its companion manifests, one app per component.
+- the `platform` Application applies the per-component Application manifests
+  only (it is an app-of-apps); each of those applies its Helm chart
+  (cert-manager, external-dns, spegel, longhorn, ...) plus the companion
+  manifests in its folder, one app per component.
 - `apps` ApplicationSet syncs `apps/` (ArgoCD's HTTPRoute →
   `argocd.icaninto.space`).
 - Cert-manager issues the cert (DNS-01, ~1 min); external-dns creates the

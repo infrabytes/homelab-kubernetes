@@ -5,272 +5,278 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: https://grafana.github.io/helm-charts
-    chart: k8s-monitoring
-    targetRevision: 4.5.3
-    helm:
-      releaseName: k8s-monitoring
-      values: |
-        cluster:
-          name: talos-cluster
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: k8s-monitoring
+      targetRevision: 4.5.3
+      helm:
+        releaseName: k8s-monitoring
+        values: |
+          cluster:
+            name: talos-cluster
 
-        destinations:
-          prometheus:
-            type: prometheus
-            url: http://vmsingle-victoria-metrics-single-server.observability.svc.cluster.local:8428/api/v1/write
-            auth:
-              type: none
-          loki:
-            type: loki
-            url: http://loki.observability.svc.cluster.local:3100/loki/api/v1/push
-            auth:
-              type: none
+          destinations:
+            prometheus:
+              type: prometheus
+              url: http://vmsingle-victoria-metrics-single-server.observability.svc.cluster.local:8428/api/v1/write
+              auth:
+                type: none
+            loki:
+              type: loki
+              url: http://loki.observability.svc.cluster.local:3100/loki/api/v1/push
+              auth:
+                type: none
 
-        clusterMetrics:
-          enabled: true
-          collector: alloy-metrics
-          cadvisor:
-            metricsTuning:
-              # Metrics the dotdc "Kubernetes / Views" dashboards read that the chart's cAdvisor allowlist omits.
-              includeMetrics:
-                - container_cpu_cfs_throttled_seconds_total
-                - container_network_receive_errors_total
-                - container_network_transmit_errors_total
-                - container_oom_events_total
-                - machine_cpu_cores
-          kube-state-metrics:
-            metricsTuning:
-              # NetworkPolicy objects (~100 series): the default allowlist omits them.
-              # The rest are pod status/QoS and resource-count metrics the dotdc Views dashboards read.
-              includeMetrics:
-                - kube_networkpolicy_.*
-                - kube_pod_container_status_ready
-                - kube_pod_container_status_running
-                - kube_pod_container_status_terminated
-                - kube_pod_container_status_waiting
-                - kube_pod_container_status_last_terminated_exitcode
-                - kube_pod_status_qos_class
-                - kube_pod_status_scheduled
-                - kube_namespace_created
-                - kube_namespace_labels
-                - kube_deployment_labels
-                - kube_deployment_status_replicas_unavailable
-                - kube_statefulset_labels
-                - kube_daemonset_labels
-                - kube_service_info
-                - kube_secret_info
-                - kube_ingress_info
-                - kube_endpoint_info
-        hostMetrics:
-          enabled: true
-          collector: alloy-metrics
-          linuxHosts:
+          clusterMetrics:
             enabled: true
-            metricsTuning:
-              # Chart default keeps only the default allowlist, which omits the node_disk_*/node_load*/netstat families Grafana 1860 reads.
-              useIntegrationAllowList: true
-              # 2026-09-16 measurement, 4 nodes: allowlists keep 499-1,171 series/node; these 58 bring it to ~756-1,587/node (~5,263 cluster-wide).
-              includeMetrics:
-                - node_cpu_core_throttles_total
-                - node_pressure_cpu_waiting_seconds_total
-                - node_pressure_io_stalled_seconds_total
-                - node_pressure_io_waiting_seconds_total
-                - node_pressure_irq_stalled_seconds_total
-                - node_pressure_memory_stalled_seconds_total
-                - node_pressure_memory_waiting_seconds_total
-                - node_time_seconds
-                - node_scrape_collector_duration_seconds
-                - node_scrape_collector_success
-                - node_timex_frequency_adjustment_ratio
-                - node_timex_loop_time_constant
-                - node_timex_pps_calibration_total
-                - node_timex_pps_error_total
-                - node_timex_pps_frequency_hertz
-                - node_timex_pps_jitter_seconds
-                - node_timex_pps_jitter_total
-                - node_timex_pps_shift_seconds
-                - node_timex_pps_stability_exceeded_total
-                - node_timex_pps_stability_hertz
-                - node_timex_tai_offset_seconds
-                - node_timex_tick_seconds
-                - node_entropy_available_bits
-                - node_entropy_pool_size_bits
-                - node_forks_total
-                - node_procs_blocked
-                - node_schedstat_running_seconds_total
-                - node_schedstat_timeslices_total
-                - node_schedstat_waiting_seconds_total
-                - node_softnet_flow_limit_count_total
-                - node_softnet_received_rps_total
-                - node_cooling_device_cur_state
-                - node_cooling_device_max_state
-                - node_disk_io_now
-                - node_disk_reads_merged_total
-                - node_disk_writes_merged_total
-                - node_disk_discard_time_seconds_total
-                - node_disk_discarded_sectors_total
-                - node_disk_discards_completed_total
-                - node_disk_discards_merged_total
-                - node_disk_flush_requests_time_seconds_total
-                - node_disk_flush_requests_total
-                - node_network_receive_frame_total
-                - node_network_receive_nohandler_total
-                - node_network_transmit_carrier_total
-                - node_network_transmit_colls_total
-                - node_udp_queues
-                - node_netstat_Tcp_ActiveOpens
-                - node_netstat_Tcp_CurrEstab
-                - node_netstat_Tcp_PassiveOpens
-                - node_netstat_TcpExt_SyncookiesFailed
-                - node_netstat_TcpExt_SyncookiesRecv
-                - node_netstat_TcpExt_SyncookiesSent
-                - node_netstat_TcpExt_TCPOFOQueue
-                - node_netstat_TcpExt_TCPRcvQDrop
-                - node_netstat_TcpExt_TCPTimeouts
-                - node_sockstat_FRAG_memory
-                - process_virtual_memory_bytes
-                - process_virtual_memory_max_bytes
-        podLogsViaLoki:
-          enabled: true
-          collector: alloy-logs
-        clusterEvents:
-          enabled: true
-          collector: alloy-logs
+            collector: alloy-metrics
+            cadvisor:
+              metricsTuning:
+                # Metrics the dotdc "Kubernetes / Views" dashboards read that the chart's cAdvisor allowlist omits.
+                includeMetrics:
+                  - container_cpu_cfs_throttled_seconds_total
+                  - container_network_receive_errors_total
+                  - container_network_transmit_errors_total
+                  - container_oom_events_total
+                  - machine_cpu_cores
+            kube-state-metrics:
+              metricsTuning:
+                # NetworkPolicy objects (~100 series): the default allowlist omits them.
+                # The rest are pod status/QoS and resource-count metrics the dotdc Views dashboards read.
+                includeMetrics:
+                  - kube_networkpolicy_.*
+                  - kube_pod_container_status_ready
+                  - kube_pod_container_status_running
+                  - kube_pod_container_status_terminated
+                  - kube_pod_container_status_waiting
+                  - kube_pod_container_status_last_terminated_exitcode
+                  - kube_pod_status_qos_class
+                  - kube_pod_status_scheduled
+                  - kube_namespace_created
+                  - kube_namespace_labels
+                  - kube_deployment_labels
+                  - kube_deployment_status_replicas_unavailable
+                  - kube_statefulset_labels
+                  - kube_daemonset_labels
+                  - kube_service_info
+                  - kube_secret_info
+                  - kube_ingress_info
+                  - kube_endpoint_info
+          hostMetrics:
+            enabled: true
+            collector: alloy-metrics
+            linuxHosts:
+              enabled: true
+              metricsTuning:
+                # Chart default keeps only the default allowlist, which omits the node_disk_*/node_load*/netstat families Grafana 1860 reads.
+                useIntegrationAllowList: true
+                # 2026-09-16 measurement, 4 nodes: allowlists keep 499-1,171 series/node; these 58 bring it to ~756-1,587/node (~5,263 cluster-wide).
+                includeMetrics:
+                  - node_cpu_core_throttles_total
+                  - node_pressure_cpu_waiting_seconds_total
+                  - node_pressure_io_stalled_seconds_total
+                  - node_pressure_io_waiting_seconds_total
+                  - node_pressure_irq_stalled_seconds_total
+                  - node_pressure_memory_stalled_seconds_total
+                  - node_pressure_memory_waiting_seconds_total
+                  - node_time_seconds
+                  - node_scrape_collector_duration_seconds
+                  - node_scrape_collector_success
+                  - node_timex_frequency_adjustment_ratio
+                  - node_timex_loop_time_constant
+                  - node_timex_pps_calibration_total
+                  - node_timex_pps_error_total
+                  - node_timex_pps_frequency_hertz
+                  - node_timex_pps_jitter_seconds
+                  - node_timex_pps_jitter_total
+                  - node_timex_pps_shift_seconds
+                  - node_timex_pps_stability_exceeded_total
+                  - node_timex_pps_stability_hertz
+                  - node_timex_tai_offset_seconds
+                  - node_timex_tick_seconds
+                  - node_entropy_available_bits
+                  - node_entropy_pool_size_bits
+                  - node_forks_total
+                  - node_procs_blocked
+                  - node_schedstat_running_seconds_total
+                  - node_schedstat_timeslices_total
+                  - node_schedstat_waiting_seconds_total
+                  - node_softnet_flow_limit_count_total
+                  - node_softnet_received_rps_total
+                  - node_cooling_device_cur_state
+                  - node_cooling_device_max_state
+                  - node_disk_io_now
+                  - node_disk_reads_merged_total
+                  - node_disk_writes_merged_total
+                  - node_disk_discard_time_seconds_total
+                  - node_disk_discarded_sectors_total
+                  - node_disk_discards_completed_total
+                  - node_disk_discards_merged_total
+                  - node_disk_flush_requests_time_seconds_total
+                  - node_disk_flush_requests_total
+                  - node_network_receive_frame_total
+                  - node_network_receive_nohandler_total
+                  - node_network_transmit_carrier_total
+                  - node_network_transmit_colls_total
+                  - node_udp_queues
+                  - node_netstat_Tcp_ActiveOpens
+                  - node_netstat_Tcp_CurrEstab
+                  - node_netstat_Tcp_PassiveOpens
+                  - node_netstat_TcpExt_SyncookiesFailed
+                  - node_netstat_TcpExt_SyncookiesRecv
+                  - node_netstat_TcpExt_SyncookiesSent
+                  - node_netstat_TcpExt_TCPOFOQueue
+                  - node_netstat_TcpExt_TCPRcvQDrop
+                  - node_netstat_TcpExt_TCPTimeouts
+                  - node_sockstat_FRAG_memory
+                  - process_virtual_memory_bytes
+                  - process_virtual_memory_max_bytes
+          podLogsViaLoki:
+            enabled: true
+            collector: alloy-logs
+          clusterEvents:
+            enabled: true
+            collector: alloy-logs
 
-        integrations:
-          collector: alloy-metrics
-          cert-manager:
-            instances:
-              - name: cert-manager
-                labelSelectors:
-                  app.kubernetes.io/instance: cert-manager
-          alloy:
-            instances:
-              - name: alloy
-                labelSelectors:
-                  app.kubernetes.io/name: alloy
-
-        prometheusOperatorObjects:
-          enabled: true
-          collector: alloy-metrics
-
-        # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
-        # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
-        telemetryServices:
-          kube-state-metrics:
-            deploy: true
-            resources:
-              requests:
-                cpu: 10m
-                memory: 64Mi
-              limits:
-                memory: 96Mi
-          node-exporter:
-            deploy: true
-            resources:
-              requests:
-                cpu: 10m
-                memory: 32Mi
-              limits:
-                memory: 48Mi
-
-        collectors:
-          alloy-metrics:
-            presets: [clustered, statefulset]
+          integrations:
+            collector: alloy-metrics
+            cert-manager:
+              instances:
+                - name: cert-manager
+                  labelSelectors:
+                    app.kubernetes.io/instance: cert-manager
             alloy:
-              resources:
-                requests:
-                  cpu: 40m
-                  memory: 448Mi
-                limits:
-                  memory: 672Mi
-            configReloader:
-              resources:
-                requests:
-                  cpu: 10m
-                  memory: 32Mi
-                limits:
-                  memory: 48Mi
-            # Hardware sensors exist only on the PVE physical hosts (Talos nodes
-            # are QEMU guests); their node_exporter is managed by
-            # ansible/proxmox-node-exporter.yml, outside host-metrics discovery.
-            extraConfig: |
-              prometheus.scrape "pve_hosts" {
-                targets = [
-                  {"__address__" = "192.168.0.11:9100", "instance" = "proxmox01"},
-                  {"__address__" = "192.168.0.12:9100", "instance" = "proxmox02"},
-                  {"__address__" = "192.168.0.13:9100", "instance" = "proxmox03"},
-                  {"__address__" = "192.168.0.14:9100", "instance" = "proxmox04"},
-                ]
-                job_name = "pve-node"
-                forward_to = [prometheus.remote_write.prometheus.receiver]
-              }
-          alloy-logs:
-            presets: [daemonset, filesystem-log-reader]
-            # Talos logs arrive on the node IP, so the listener needs `controller.hostNetwork` (ignored under `alloy`).
-            controller:
-              hostNetwork: true
-              dnsPolicy: ClusterFirstWithHostNet
-            # Collector level, not under alloy.: nested there it lands in the
-            # unused Alloy CR and the Talos syslog listener silently never runs.
-            extraConfig: |
-              loki.source.syslog "talos" {
-                listener {
-                  address            = "0.0.0.0:5140"
-                  protocol           = "tcp"
-                  syslog_format      = "raw"
-                  max_message_length = 65536
-                }
-                forward_to = [loki.process.talos.receiver]
-              }
+              instances:
+                - name: alloy
+                  labelSelectors:
+                    app.kubernetes.io/name: alloy
 
-              loki.process "talos" {
-                stage.json {
-                  expressions = {
-                    talos_time    = "talos-time",
-                    talos_level   = "talos-level",
-                    talos_service = "talos-service",
-                    node          = "node",
-                    msg           = "msg",
-                  }
-                }
+          prometheusOperatorObjects:
+            enabled: true
+            collector: alloy-metrics
 
-                stage.template {
-                  source   = "line"
-                  template = "{{ .msg }}"
-                }
-
-                stage.timestamp {
-                  source = "talos_time"
-                  format = "RFC3339Nano"
-                }
-
-                stage.labels {
-                  values = {
-                    talos_level   = "",
-                    talos_service = "",
-                    node          = "",
-                  }
-                }
-
-                forward_to = [loki.write.loki.receiver]
-              }
-            alloy:
-              resources:
-                requests:
-                  cpu: 70m
-                  memory: 384Mi
-                limits:
-                  memory: 576Mi
-              stabilityLevel: experimental
-            configReloader:
+          # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
+          # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
+          telemetryServices:
+            kube-state-metrics:
+              deploy: true
               resources:
                 requests:
                   cpu: 10m
                   memory: 64Mi
                 limits:
                   memory: 96Mi
+            node-exporter:
+              deploy: true
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 48Mi
+
+          collectors:
+            alloy-metrics:
+              presets: [clustered, statefulset]
+              alloy:
+                resources:
+                  requests:
+                    cpu: 40m
+                    memory: 448Mi
+                  limits:
+                    memory: 672Mi
+              configReloader:
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 32Mi
+                  limits:
+                    memory: 48Mi
+              # Hardware sensors exist only on the PVE physical hosts (Talos nodes
+              # are QEMU guests); their node_exporter is managed by
+              # ansible/proxmox-node-exporter.yml, outside host-metrics discovery.
+              extraConfig: |
+                prometheus.scrape "pve_hosts" {
+                  targets = [
+                    {"__address__" = "192.168.0.11:9100", "instance" = "proxmox01"},
+                    {"__address__" = "192.168.0.12:9100", "instance" = "proxmox02"},
+                    {"__address__" = "192.168.0.13:9100", "instance" = "proxmox03"},
+                    {"__address__" = "192.168.0.14:9100", "instance" = "proxmox04"},
+                  ]
+                  job_name = "pve-node"
+                  forward_to = [prometheus.remote_write.prometheus.receiver]
+                }
+            alloy-logs:
+              presets: [daemonset, filesystem-log-reader]
+              # Talos logs arrive on the node IP, so the listener needs `controller.hostNetwork` (ignored under `alloy`).
+              controller:
+                hostNetwork: true
+                dnsPolicy: ClusterFirstWithHostNet
+              # Collector level, not under alloy.: nested there it lands in the
+              # unused Alloy CR and the Talos syslog listener silently never runs.
+              extraConfig: |
+                loki.source.syslog "talos" {
+                  listener {
+                    address            = "0.0.0.0:5140"
+                    protocol           = "tcp"
+                    syslog_format      = "raw"
+                    max_message_length = 65536
+                  }
+                  forward_to = [loki.process.talos.receiver]
+                }
+
+                loki.process "talos" {
+                  stage.json {
+                    expressions = {
+                      talos_time    = "talos-time",
+                      talos_level   = "talos-level",
+                      talos_service = "talos-service",
+                      node          = "node",
+                      msg           = "msg",
+                    }
+                  }
+
+                  stage.template {
+                    source   = "line"
+                    template = "{{ .msg }}"
+                  }
+
+                  stage.timestamp {
+                    source = "talos_time"
+                    format = "RFC3339Nano"
+                  }
+
+                  stage.labels {
+                    values = {
+                      talos_level   = "",
+                      talos_service = "",
+                      node          = "",
+                    }
+                  }
+
+                  forward_to = [loki.write.loki.receiver]
+                }
+              alloy:
+                resources:
+                  requests:
+                    cpu: 70m
+                    memory: 384Mi
+                  limits:
+                    memory: 576Mi
+                stabilityLevel: experimental
+              configReloader:
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                  limits:
+                    memory: 96Mi
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/k8s-monitoring
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
   destination:
     namespace: k8s-monitoring
     server: https://kubernetes.default.svc

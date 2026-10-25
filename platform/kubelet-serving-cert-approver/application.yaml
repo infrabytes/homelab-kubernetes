@@ -1,0 +1,30 @@
+# Approves the kubelet serving CSRs of the Talos nodes, so the API server can scrape kubelet metrics over TLS.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubelet-serving-cert-approver
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/infrabytes/homelab-kubernetes
+    targetRevision: main
+    path: platform/kubelet-serving-cert-approver
+    directory:
+      recurse: true
+      exclude: "application*.yaml"
+  destination:
+    namespace: kubelet-serving-cert-approver
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        maxDuration: 5m
+        factor: 2

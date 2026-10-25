@@ -21,9 +21,14 @@ Three checks run per file:
   create without a values knob are listed with a reason in
   resource-coverage-allowlist.yaml.
 
+A fourth check covers folder Applications, whose second source is the folder
+itself: a directory source must not apply Application manifests (its own or a
+sibling's), otherwise the same Application object has two owners.
+
 Usage: check-argocd-apps.py <application.yaml>...
 """
 
+import re
 import shutil
 import subprocess
 import sys
@@ -82,6 +87,94 @@ else:
 
 def log(msg: str) -> None:
     print(f"[check-argocd-apps] {msg}")
+
+
+def repo_root() -> Path:
+    cached = getattr(repo_root, "cache", None)
+    if cached is None:
+        res = run(["git", "rev-parse", "--show-toplevel"])
+        cached = Path(res.stdout.strip()) if res.returncode == 0 else Path.cwd()
+        repo_root.cache = cached
+    return cached
+
+
+def glob_match(pattern: str, path: str) -> bool:
+    """ArgoCD directory glob: `*` stays inside a segment, `**` crosses, `{a,b}` alternates."""
+    patterns = [pattern]
+    while any("{" in p for p in patterns):
+        for p in list(patterns):
+            head, brace, rest = p.partition("{")
+            if not brace:
+                continue
+            alternatives, _, tail = rest.partition("}")
+            patterns.remove(p)
+            patterns.extend(head + alt + tail for alt in alternatives.split(","))
+    regex = "|".join(
+        "".join(
+            {"**": ".*", "*": "[^/]*", "?": "[^/]"}.get(part, re.escape(part))
+            for part in re.split(r"(\*\*|\*|\?)", one)
+        )
+        for one in patterns
+    )
+    return re.fullmatch(regex, path) is not None
+
+
+def _glob_match_selfcheck() -> None:
+    for pattern, path, expected in (
+        ("application*.yaml", "application.yaml", True),
+        ("application*.yaml", "loki.yaml", False),
+        ("application*.yaml", "tailnet/ingress.yaml", False),
+        ("{application*.yaml,tailnet/**}", "tailnet/ingress.yaml", True),
+        ("{application*.yaml,tailnet/**}", "route.yaml", False),
+        ("application-*.yaml", "application-loki.yaml", True),
+    ):
+        assert glob_match(pattern, path) is expected, (pattern, path)
+
+
+_glob_match_selfcheck()
+
+APPLICATION_MANIFEST = re.compile(r"(?m)^kind:\s*Application\s*$")
+
+
+def folder_sources(doc):
+    """Yield the directory (folder) sources of an Application."""
+    spec = doc.get("spec") or {}
+    sources = spec.get("sources") or ([spec["source"]] if "source" in spec else [])
+    for src in sources:
+        if src.get("chart") or src.get("helm") or src.get("kustomize"):
+            continue
+        if src.get("path"):
+            yield src
+
+
+def check_folder_source(doc, path: Path) -> int:
+    app = (doc.get("metadata") or {}).get("name", "?")
+    failed = 0
+    for source in folder_sources(doc):
+        directory = source.get("directory") or {}
+        base = repo_root() / source["path"]
+        if not base.is_dir():
+            continue
+        walk = base.rglob if directory.get("recurse") else base.glob
+        for candidate in walk("*"):
+            if candidate.suffix not in {".yaml", ".yml", ".json"} or not candidate.is_file():
+                continue
+            if not APPLICATION_MANIFEST.search(candidate.read_text(errors="ignore")):
+                continue
+            relative = candidate.relative_to(base).as_posix()
+            include = directory.get("include")
+            exclude = directory.get("exclude")
+            if include and not glob_match(include, relative):
+                continue
+            if exclude and glob_match(exclude, relative):
+                continue
+            log(
+                f"FAIL {path}: {app} folder source {source['path']} would apply {relative}, an\n"
+                f"  Application manifest that belongs to the `platform` app-of-apps. Name Application\n"
+                f"  manifests application*.yaml and exclude them from the folder source."
+            )
+            failed = 1
+    return failed
 
 
 def load_allowlist():
@@ -264,6 +357,8 @@ def check_file(path: Path) -> int:
     for doc in docs:
         if not isinstance(doc, dict) or doc.get("kind") != "Application":
             continue
+        if check_folder_source(doc, path):
+            return 1
         for app, source, dest_ns, kind in helm_sources(doc):
             helm_block = source.get("helm") or {}
             if helm_block.get("valueFiles"):

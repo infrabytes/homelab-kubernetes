@@ -7,92 +7,98 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: oci://ghcr.io/goauthentik/helm-charts/authentik
-    targetRevision: 2026.8.5
-    path: .
-    helm:
-      releaseName: authentik
-      values: |
-        global:
-          # Rolls the pods when authentik-secret (ESO) or the blueprint ConfigMap changes.
-          podAnnotations:
-            reloader.stakater.com/auto: "true"
-          # Image user is uid 1000 (numeric), which kubelet needs to verify runAsNonRoot.
-          securityContext:
-            runAsNonRoot: true
-            runAsUser: 1000
-            seccompProfile:
-              type: RuntimeDefault
-          env:
-            # CNPG owns the app-user password; no copy in OpenBao.
-            - name: AUTHENTIK_POSTGRESQL__PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: authentik-pg-app
-                  key: password
-            - name: AUTHENTIK_POSTGRESQL__HOST
-              value: authentik-pg-rw.authentik.svc.cluster.local
-            - name: AUTHENTIK_POSTGRESQL__NAME
-              value: authentik
-            - name: AUTHENTIK_POSTGRESQL__USER
-              value: authentik
-            # The relay endpoint and sending address are not in this repo; only the STARTTLS flag is.
-            - name: AUTHENTIK_EMAIL__USE_TLS
-              value: "true"
-            - name: AUTHENTIK_ERROR_REPORTING__ENABLED
-              value: "false"
-        authentik:
-          # AUTHENTIK_SECRET_KEY, AUTHENTIK_WEB__BASE_URL and AUTHENTIK_BOOTSTRAP_* (akadmin break-glass) live here.
-          existingSecret:
-            secretName: authentik-secret
-        postgresql:
-          enabled: false
-        blueprints:
-          configMaps:
-            - authentik-blueprints
-        serviceAccount:
-          # Managed outposts need this remote-cluster ClusterRole; the embedded one runs in-process. Enable with the first proxy provider.
-          create: false
-        server:
-          replicas: 2
-          pdb:
-            enabled: true
-            minAvailable: 1
-          containerSecurityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            runAsNonRoot: true
-          # 47m (2026-10-25 01:20..02:07, workload newer than 14d): mem p95 507Mi, peak 512Mi -> 512Mi/768Mi.
-          resources:
-            requests:
-              cpu: 50m
-              memory: 512Mi
-            limits:
-              memory: 768Mi
-          metrics:
-            enabled: true
-            serviceMonitor:
+  sources:
+    - repoURL: oci://ghcr.io/goauthentik/helm-charts/authentik
+      targetRevision: 2026.8.5
+      path: .
+      helm:
+        releaseName: authentik
+        values: |
+          global:
+            # Rolls the pods when authentik-secret (ESO) or the blueprint ConfigMap changes.
+            podAnnotations:
+              reloader.stakater.com/auto: "true"
+            # Image user is uid 1000 (numeric), which kubelet needs to verify runAsNonRoot.
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000
+              seccompProfile:
+                type: RuntimeDefault
+            env:
+              # CNPG owns the app-user password; no copy in OpenBao.
+              - name: AUTHENTIK_POSTGRESQL__PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: authentik-pg-app
+                    key: password
+              - name: AUTHENTIK_POSTGRESQL__HOST
+                value: authentik-pg-rw.authentik.svc.cluster.local
+              - name: AUTHENTIK_POSTGRESQL__NAME
+                value: authentik
+              - name: AUTHENTIK_POSTGRESQL__USER
+                value: authentik
+              # The relay endpoint and sending address are not in this repo; only the STARTTLS flag is.
+              - name: AUTHENTIK_EMAIL__USE_TLS
+                value: "true"
+              - name: AUTHENTIK_ERROR_REPORTING__ENABLED
+                value: "false"
+          authentik:
+            # AUTHENTIK_SECRET_KEY, AUTHENTIK_WEB__BASE_URL and AUTHENTIK_BOOTSTRAP_* (akadmin break-glass) live here.
+            existingSecret:
+              secretName: authentik-secret
+          postgresql:
+            enabled: false
+          blueprints:
+            configMaps:
+              - authentik-blueprints
+          serviceAccount:
+            # Managed outposts need this remote-cluster ClusterRole; the embedded one runs in-process. Enable with the first proxy provider.
+            create: false
+          server:
+            replicas: 2
+            pdb:
               enabled: true
-        worker:
-          replicas: 1
-          containerSecurityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            runAsNonRoot: true
-          # Initial estimate (2026-10-25), no usage history; re-measure after two weeks.
-          resources:
-            requests:
-              cpu: 50m
-              memory: 256Mi
-            limits:
-              memory: 512Mi
-          metrics:
-            enabled: true
-            serviceMonitor:
+              minAvailable: 1
+            containerSecurityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: ["ALL"]
+              runAsNonRoot: true
+            # 47m (2026-10-25 01:20..02:07, workload newer than 14d): mem p95 507Mi, peak 512Mi -> 512Mi/768Mi.
+            resources:
+              requests:
+                cpu: 50m
+                memory: 512Mi
+              limits:
+                memory: 768Mi
+            metrics:
               enabled: true
+              serviceMonitor:
+                enabled: true
+          worker:
+            replicas: 1
+            containerSecurityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: ["ALL"]
+              runAsNonRoot: true
+            # Initial estimate (2026-10-25), no usage history; re-measure after two weeks.
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 512Mi
+            metrics:
+              enabled: true
+              serviceMonitor:
+                enabled: true
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/authentik
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
   destination:
     namespace: authentik
     server: https://kubernetes.default.svc
