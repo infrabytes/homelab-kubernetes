@@ -16,7 +16,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | Network policies             | Phase-1 namespace isolation for the chart-value workloads: chart values + per-namespace ingress default-deny + egress derived from Hubble flow audits, all co-located with their component under `platform/<component>/`; posture, verified gotchas and the phase-2 backlog in `docs/network-policies.md` |
 | ArgoCD                       | GitOps delivery: a `platform` app-of-apps (one Application per component, chart + its folder) plus the `apps`/`pdeu`/`tenants` ApplicationSets, committed in `argocd/appsets/` and applied by a Terraform-managed bootstrap ApplicationSet; UI at argocd.icaninto.space |
 | Atlantis (k3s)               | Terraform PR automation for `infra/**` (plan per unit, apply, squash-merge) in a single-node k3s cluster on the `windrunner` VM, registered in ArgoCD as cluster `windrunner` and deployed from `platform/atlantis/`; SWAG terminates TLS at atlantis.icaninto.space |
-| SeaweedFS (k3s)              | S3 object store backing the Terragrunt state bucket, Velero and the Grafana/CNPG backups, in the same k3s cluster (`platform/seaweedfs/`): chart `allInOne` on a `local-path` PVC, `s3.icaninto.space` + `seaweedfs.icaninto.space` still fronted by SWAG; only the S3 and admin ports are NodePorts |
+| SeaweedFS (k3s)              | S3 object store backing the Terragrunt state bucket and Velero, in the same k3s cluster (`platform/seaweedfs/`): chart `allInOne` on a `local-path` PVC, `s3.icaninto.space` + `seaweedfs.icaninto.space` still fronted by SWAG; only the S3 and admin ports are NodePorts |
 | cert-manager                 | TLS via Let's Encrypt DNS-01 (Cloudflare), ClusterIssuer `letsencrypt-dns01` |
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
 | OpenBao                      | Cluster secrets manager (Vault fork): HA raft (3 replicas, Longhorn), static-key auto-unseal, KV v2 + Kubernetes auth; SSO via Authentik (`sso-admin`/`sso-user` roles, one issuer for LAN and tailnet); UI at bao.icaninto.space (LAN only) |
@@ -478,7 +478,7 @@ Docker container ran, now on a 100 Gi `local-path` PVC
 (`seaweedfs-all-in-one-data`) with the `seaweedfs-admin` UI beside it. Only S3
 (NodePort 30833) and the admin UI (32346) leave the pod network; SWAG keeps
 the TLS certificates, the allowlist and both DNS names, so
-`infra/root.hcl`, Velero and the CNPG backups keep using
+`infra/root.hcl` and Velero keep using
 `https://s3.icaninto.space/` unchanged.
 
 The S3 identities are not in git: the playbook renders the
@@ -574,10 +574,12 @@ velero backup delete <backup>                       # prune early if needed
 
 Restores always go to a scratch namespace via `--namespace-mapping` — never
 over the original workload. Two caveats are accepted by design: the fileset
-copies are crash-consistent (no fsfreeze), and for Grafana's Postgres
-(`grafana-pg`, Longhorn) the CNPG barman object-store copy stays the
-point-in-time-recovery authority — the Velero fileset is a second,
-coarser-grained DR copy.
+copies are crash-consistent (no fsfreeze), and Grafana's Postgres
+(`grafana-pg`, Longhorn) is covered by that fileset alone. There is no
+point-in-time recovery: a restore returns the cluster to the last fileset.
+An operator who wants a second copy writes it to a bucket-scoped S3 key,
+never the state-bucket admin pair, whose credentials also reach
+`artifacts/kubeconfig` and `artifacts/talosconfig`.
 
 Standing convention: `nfs-nas` and `emptyDir` volumes stay out of the kopia
 filesets, enforced by the Velero resource policy the schedule template

@@ -67,9 +67,8 @@ optionally 403 `/if/admin/` and `/admin/` there; the LAN path keeps full admin t
 ## Seeding (one-time, after OpenBao is up)
 
 ESO's OpenBao provider is read-only, so the values are written into OpenBao by hand first. The block
-below asks for the values only you have, generates the rest, and copies the SeaweedFS key pair from
-the Secret the Grafana database backs up with. Addresses and the mail relay stay in OpenBao, so this
-repo carries neither.
+below asks for the values only you have, generates the rest, and copies the SeaweedFS key pair
+straight out of SOPS. Addresses and the mail relay stay in OpenBao, so this repo carries neither.
 
 ```sh
 printf 'base URL (the public https URL of this instance): '; read -r BASE_URL
@@ -85,8 +84,8 @@ printf 'dhaustein email: '; read -r DHAUSTEIN_EMAIL
 SECRET_KEY=$(openssl rand -base64 48)   # never change it after the first start
 BOOTSTRAP_TOKEN=$(openssl rand -hex 24)
 BOOTSTRAP_PASSWORD=$(openssl rand -base64 24)
-S3_ACCESS_KEY=$(kubectl -n observability get secret grafana-pg-backup-s3 -o jsonpath='{.data.ACCESS_KEY_ID}' | base64 -d)
-S3_SECRET_KEY=$(kubectl -n observability get secret grafana-pg-backup-s3 -o jsonpath='{.data.SECRET_ACCESS_KEY}' | base64 -d)
+S3_ACCESS_KEY=$(sops -d --extract '["seaweedfs_access_key"]' infra/secrets.sops.yaml)
+S3_SECRET_KEY=$(sops -d --extract '["seaweedfs_secret_key"]' infra/secrets.sops.yaml)
 # The four OIDC client secrets the consumers already use; Authentik must hold the same values,
 # so they are copied from SOPS rather than generated.
 OIDC_ARGOCD_SECRET=$(sops -d --extract '["authentik_argocd_client_secret"]' infra/secrets.sops.yaml)
