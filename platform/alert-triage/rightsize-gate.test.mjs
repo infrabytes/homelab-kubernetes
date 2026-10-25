@@ -143,10 +143,7 @@ test("resolves pod -> workload, names the branch and writes the context digest",
 
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, /rightsize-event workload=web\/Deployment\/web container=web/);
-  assert.match(
-    readFileSync(box.key, "utf8"),
-    /^export WORKLOAD=web\/Deployment\/web\nexport BRANCH=rightsize\/web-web-\d{8}\n$/,
-  );
+  assert.match(readFileSync(box.key, "utf8"), /^WORKLOAD=web\/Deployment\/web\nBRANCH=rightsize\/web-web-\d{8}\n$/);
   const digest = readFileSync(box.context, "utf8");
   assert.match(digest, /live resources: requests cpu 100m memory 128Mi, limits cpu unset memory 256Mi/);
   assert.match(digest, /source path: apps\/web/);
@@ -179,6 +176,20 @@ test("an open pull request for the workload suppresses the run", async () => {
   assert.equal(run.status, 10, run.stderr);
   assert.match(run.stdout, /reason=open-pr pr=https:\/\/github.com\/acme\/repo\/pull\/7/);
   assert.equal(existsSync(box.key), false);
+});
+
+test("an open pull request for a longer workload name does not suppress the run", async () => {
+  const box = sandbox();
+  const loki = await lokiWith([]);
+  const api = await serve([
+    { head: { ref: "rightsize/web-web-extra-20261020" }, html_url: "https://github.com/acme/repo/pull/8" },
+  ]);
+  const run = await runGate(box, { lokiUrl: loki.url, apiUrl: api.url });
+  loki.server.close();
+  api.server.close();
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /rightsize-event workload=web\/Deployment\/web/);
 });
 
 test("an unresolvable pod fails loudly instead of guessing a workload", async () => {

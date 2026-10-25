@@ -215,7 +215,7 @@ data:
       return lines.sort((a, b) => b.ts - a.ts);
     }
 
-    async function openPullRequest(prefix) {
+    async function openPullRequest(base) {
       if (!TOKEN) throw new Error("no github token");
       const res = await fetch(`${API}/repos/${REPO}/pulls?state=open&per_page=100`, {
         headers: { authorization: `Bearer ${TOKEN}`, accept: "application/vnd.github+json" },
@@ -223,7 +223,8 @@ data:
       });
       if (!res.ok) throw new Error(`github ${res.status}`);
       const pulls = await res.json();
-      return pulls.find((p) => String(p.head?.ref ?? "").startsWith(prefix))?.html_url ?? "";
+      const pattern = new RegExp(`^${base}\\d{8}$`);
+      return pulls.find((p) => pattern.test(String(p.head?.ref ?? "")))?.html_url ?? "";
     }
 
     function age(ts) {
@@ -272,7 +273,7 @@ data:
     }
 
     try {
-      const open = await openPullRequest(branch.slice(0, branch.lastIndexOf("-")));
+      const open = await openPullRequest(branch.slice(0, -day().length));
       if (open) {
         console.log(`rightsize-skip workload=${key} reason=open-pr pr=${open}`);
         process.exit(10);
@@ -301,7 +302,7 @@ data:
     ].join("\n");
 
     writeFileSync(DIGEST, `${digest}\n`);
-    writeFileSync(KEY, `export WORKLOAD=${key}\nexport BRANCH=${branch}\n`);
+    writeFileSync(KEY, `WORKLOAD=${key}\nBRANCH=${branch}\n`);
 
     console.log(
       `rightsize-event workload=${key} container=${containerName} branch=${branch} pod=${POD}` +
@@ -451,16 +452,16 @@ data:
     fs.writeFileSync("/tmp/commit.txt", pr.commit);
     fs.writeFileSync(
       "/tmp/pr-request.json",
-      JSON.stringify({ title: pr.title, head: process.env.BRANCH, base: "main", body: pr.body }),
+      JSON.stringify({ title: pr.title, head: process.argv[2], base: "main", body: pr.body }),
     );
-    ' "$PR_JSON" || fail "pr.json is unusable"
+    ' "$PR_JSON" "$BRANCH" || fail "pr.json is unusable"
 
     git -C "$REPO_DIR" checkout -q -b "$BRANCH"
     git -C "$REPO_DIR" add -A -- platform apps charts
     git -C "$REPO_DIR" -c user.name="memory-rightsize" -c user.email="memory-rightsize@alert-triage.svc" \
       -c commit.gpgsign=false commit -q -F /tmp/commit.txt
-    git_auth -C "$REPO_DIR" push -q origin "$BRANCH" >/tmp/push.log 2>&1 ||
-      { tail -n 20 /tmp/push.log >&2; fail "push failed (${BRANCH} may already exist)"; }
+    git_auth -C "$REPO_DIR" push -q --force origin "$BRANCH" >/tmp/push.log 2>&1 ||
+      { tail -n 20 /tmp/push.log >&2; fail "push failed"; }
 
     resp="$(curl -sS -X POST "$API/repos/${GITHUB_REPO}/pulls" \
       -H "authorization: Bearer ${TOKEN}" \
