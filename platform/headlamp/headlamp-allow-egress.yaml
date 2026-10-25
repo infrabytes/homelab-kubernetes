@@ -1,4 +1,4 @@
-# DNS + the Dex backend: Headlamp's OIDC discovery and token exchange run against the dex pod and port, never the gateway VIP.
+# DNS + the issuer's gateway VIP; the identity rule the Gateway needs is in headlamp-allow-authentik-egress.yaml.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -20,15 +20,10 @@ spec:
         - port: 53
           protocol: TCP
     - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: dex
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: dex
-              app.kubernetes.io/instance: dex
+        - ipBlock:
+            cidr: 192.168.0.200/32
       ports:
-        - port: 5556
+        - port: 443
           protocol: TCP
   policyTypes:
     - Egress
