@@ -13,10 +13,11 @@ consumer the cluster moves off Dex onto — see the migration table at the end.
   `openbao-authentik` (`service-account.yaml`, `secret-store.yaml`, `external-secrets.yaml`).
   The OpenBao policy/role `eso-authentik` is written by the OpenBao chart's `postStart`.
   The Postgres app-user password is not in OpenBao — CNPG generates it in `authentik-pg-app`.
-- Exposure: `route.yaml` + `redirect.yaml` on the LAN at https://authentik.icaninto.space
-  (`authentik-https` gateway listener, cert-manager DNS-01 cert, external-dns record, DNS-only).
-  Tailnet devices reach the same URL through the `lan-subnet-router` Connector, so there is exactly
-  one issuer for LAN and remote clients.
+- Exposure: one issuer, https://authentik.icaninto.space, for LAN, tailnet and internet. `route.yaml`
+  serves it on the `authentik-https` gateway listener with the `authentik-tls` cert-manager DNS-01
+  certificate, and `redirect.yaml` sends plain HTTP there. `route.yaml` carries the external-dns
+  opt-out, so the record is made by hand; see [Exposure](#exposure) for both paths and the host-side
+  steps.
 - Network policies: `authentik-allow-gateway-ingress.yaml` (gateway → 9000),
   `authentik-allow-metrics.yaml` (Alloy → 9300) and `authentik-allow-egress.yaml` (DNS, the
   in-namespace Postgres, the SMTP relay on the submission ports, the API server for the outpost
@@ -26,6 +27,38 @@ consumer the cluster moves off Dex onto — see the migration table at the end.
 - Observability: ServiceMonitors for server and worker; dashboard in
   `platform/observability/dashboards/authentik.yaml` (folder Authentik); rules
   `authentik-target-down` and `authentik-task-backlog` in `platform/observability/alerting/authentik.yaml`.
+
+## Exposure
+
+Public path: DNS-only Cloudflare record → WAN:443 → SWAG on `windrunner` → `https://192.168.0.200`
+with the original Host header and SNI → gateway `authentik-https` listener → `authentik-server:9000`.
+The gateway terminates TLS; the Service port in `route.yaml` is 80 and maps to container 9000.
+
+LAN path: a router-local DNS override sends the hostname to 192.168.0.200, so LAN clients speak TLS
+to the gateway directly, with no hairpin through SWAG; the nodes use the same resolver. Remote
+tailnet devices take the public path; the issuer no longer rides the `lan-subnet-router` Connector.
+Consumer pods that call the issuer pin the VIP with `hostAliases` as they migrate, so their requests
+stay on the LAN.
+
+`external-dns.alpha.kubernetes.io/controller: "manual-dns"` on the route is what keeps the two
+records apart: external-dns with policy=sync would otherwise publish the cluster's RFC1918 gateway IP
+as the record and fight the hand-made one. It deletes the A/TXT records it owns on the first sync
+after the opt-out lands, so add the Cloudflare A record once they are gone. cert-manager is not
+affected: DNS-01 issues `authentik-tls` from a TXT challenge, not from the A record.
+
+Host-side steps, none of them in this repo:
+
+- SWAG `proxy-confs/authentik.subdomain.conf`: `proxy_pass https://192.168.0.200`, the original `Host`
+  header, SNI set to the hostname, and the websocket upgrade headers. The upstream must be HTTPS: on
+  plain HTTP `redirect.yaml` answers 301 to itself and the browser loops.
+- A SWAG certificate covering `authentik.icaninto.space`.
+- The router-local DNS override above.
+- The Cloudflare A record, created by hand after external-dns has dropped its own.
+
+Hardening for the public leg: TOTP is already mandatory (`mfa.yaml`) and no signup or enrolment flow
+is bound to the login, so an anonymous visitor can only guess passwords. Add SWAG `limit_req` to the
+proxy conf, and optionally 403 `/if/admin/` and `/admin/` there; the LAN path keeps full admin
+through the VIP.
 
 ## Seeding (one-time, after OpenBao is up)
 
@@ -162,6 +195,16 @@ without a manual restart.
 kubectl -n authentik get externalsecret,secretstore     # SecretSynced / Valid
 kubectl -n authentik get pods                          # 2/2 server, 1/1 worker, cluster Healthy
 curl -sS https://authentik.icaninto.space/-/health/ready/
+curl -v --resolve authentik.icaninto.space:443:192.168.0.200 \
+  https://authentik.icaninto.space/-/health/ready/     # gateway listener, DNS bypassed
+```
+
+`--resolve` needs no DNS, so a 200 there proves the listener and certificate before either override
+is in place. After the host-side steps, check both paths:
+
+```sh
+dig +short authentik.icaninto.space                      # outside: the SWAG target, LAN: 192.168.0.200
+curl -I https://authentik.icaninto.space/-/health/ready/ # from outside and from the LAN
 ```
 
 Then sign in at https://authentik.icaninto.space as `akadmin`, check Admin → Blueprints shows the
