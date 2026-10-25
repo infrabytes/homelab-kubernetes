@@ -34,10 +34,10 @@ pair from the Secret the Grafana database backs up with. The emails stay in Open
 address is in this repo.
 
 ```sh
-read -rp 'akadmin email: ' BOOTSTRAP_EMAIL
-read -rsp 'Proton SMTP token: ' SMTP_TOKEN; echo
-read -rp 'bbayrakt email: ' BBAYRAKT_EMAIL
-read -rp 'dhaustein email: ' DHAUSTEIN_EMAIL
+printf 'akadmin email: '; read -r BOOTSTRAP_EMAIL
+printf 'Proton SMTP token: '; read -rs SMTP_TOKEN; printf '\n'
+printf 'bbayrakt email: '; read -r BBAYRAKT_EMAIL
+printf 'dhaustein email: '; read -r DHAUSTEIN_EMAIL
 
 SECRET_KEY=$(openssl rand -base64 48)   # never change it after the first start
 BOOTSTRAP_TOKEN=$(openssl rand -hex 24)
