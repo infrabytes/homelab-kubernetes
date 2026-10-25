@@ -21,8 +21,6 @@ spec:
       selfHeal: true
     syncOptions:
       - ServerSideApply=true
-      # Paused until the component Applications have adopted the resources this one gives up; re-enable in the follow-up.
-      - Prune=false
     retry:
       limit: 5
       backoff:
