@@ -318,7 +318,7 @@ resource "kubernetes_namespace_v1" "dex_tailnet" {
 
 # Tailnet Dex config (config.yaml): second Dex instance with its own issuer
 # (https://dex.taile70903.ts.net) and GitHub OAuth app for remote OpenBao SSO.
-# Consumed by the dex chart (platform/dex/dex-tailnet-app.yaml) via
+# Consumed by the dex chart (platform/dex/application-tailnet.yaml) via
 # configSecret.name=dex-tailnet-config. Serves https on 5554 with the
 # Terraform-generated cert so OpenBao's in-cluster discovery fetch (which
 # cannot reach the tailscale interface) gets a matching issuer over TLS.
