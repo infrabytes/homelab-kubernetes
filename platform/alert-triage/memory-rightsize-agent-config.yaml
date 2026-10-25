@@ -301,7 +301,7 @@ data:
     ].join("\n");
 
     writeFileSync(DIGEST, `${digest}\n`);
-    writeFileSync(KEY, `WORKLOAD=${key}\nBRANCH=${branch}\n`);
+    writeFileSync(KEY, `export WORKLOAD=${key}\nexport BRANCH=${branch}\n`);
 
     console.log(
       `rightsize-event workload=${key} container=${containerName} branch=${branch} pod=${POD}` +
