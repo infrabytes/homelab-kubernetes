@@ -12,12 +12,25 @@ controller.
 
 ### **ArgoCD authentication (SSO-only)**
 
-Login is exclusively via **GitHub SSO** (Dex connector, org-restricted to
-`infrabytes`); no username/password login is offered. The local `admin` account
+Login is exclusively via **Authentik OIDC** (client id `argocd`, PKCE); no
+username/password login is offered. `argocd-cm` carries the `oidc.config`
+block and `argocd-secret` the matching `oidc.clientSecret`
+(`authentik_argocd_client_secret` from SOPS). The issuer name is LAN-only, so
+the chart's `global.hostAliases` pins `authentik.icaninto.space` to the VIP for
+the server's discovery, JWKS and token calls. The local `admin` account
 is disabled (`configs.cm."admin.enabled" = "false"`) and the only local account,
 `tf-bot`, has the `apiKey` capability (token generation) but **not** `login` —
 so the ArgoCD login page shows SSO only (ArgoCD hides the password form when no
 enabled account has the `login` capability).
+
+The chart's embedded Dex is disabled (`dex.enabled = false`). ArgoCD v3.5 attaches
+its `DexRewriteURLRoundTripper` to the OIDC verifier whenever `dex.config` is set,
+without the `OIDCConfigRAW == ""` guard the login client has
+(`util/session/sessionmanager.go:170` vs `util/oidc/oidc.go:264`): the verifier
+then fetches Dex's JWKS instead of Authentik's and rejects every Authentik ID
+token on the signature check. Re-enable Dex only after upstream fixes it. The
+GitHub OAuth app the old Dex connector used is no longer needed; the repo webhook
+below is unrelated to login.
 
 - RBAC is configured in `../env.hcl` (`addons.argocd_rbac`): `policy.default`,
   the OIDC `scopes`, and the `policy.csv` lines (any ArgoCD RBAC syntax —

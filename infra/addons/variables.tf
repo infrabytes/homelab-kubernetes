@@ -31,19 +31,6 @@ variable "argocd_admin_password" {
   sensitive   = true
 }
 
-variable "github_oidc_client_id" {
-  description = "GitHub OAuth app Client ID for ArgoCD SSO (public by design, not a secret)."
-  type        = string
-  default     = ""
-}
-
-variable "github_oidc_client_secret" {
-  description = "GitHub OAuth app Client Secret for ArgoCD SSO. Written into argocd-secret as dex.github.clientSecret."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 variable "argocd_webhook_secret" {
   description = "GitHub webhook shared secret. Written into argocd-secret as webhook.github.secret; the same value must be set on the GitHub repo webhook (Settings -> Webhooks). ArgoCD uses it to verify the X-Hub-Signature-256 of incoming webhook events (argocd.icaninto.space is publicly reachable)."
   type        = string
@@ -52,14 +39,14 @@ variable "argocd_webhook_secret" {
 }
 
 variable "authentik_argocd_client_secret" {
-  description = "Authentik OIDC client secret for ArgoCD (client id \"argocd\"). Written into argocd-secret as oidc.clientSecret; argocd-cm's oidc.config names it once ArgoCD moves off Dex. One of the four mirrored into secret/authentik as oidc_argocd_client_secret."
+  description = "Authentik OIDC client secret for ArgoCD (client id \"argocd\"). Written into argocd-secret as oidc.clientSecret, which argocd-cm's oidc.config names. One of the four mirrored into secret/authentik as oidc_argocd_client_secret."
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "github_oidc_org" {
-  description = "GitHub org whose members are allowed to log in to ArgoCD (Dex GitHub connector orgs restriction)."
+  description = "GitHub org whose members may log in to the standalone Dex GitHub connector (platform/dex)."
   type        = string
   default     = ""
 }

@@ -77,15 +77,10 @@ resource "helm_release" "argo_cd" {
           limits   = { memory = "704Mi" }
         }
       }
-      dex = {
-        # Re-derived 2026-09-16..10-22 (36d retained): p95 118.9Mi (the 128Mi request still
-        # holds); peak 164.5Mi was 0.86 of the old 192Mi limit, so limit = 1.25x = 206Mi,
-        # rounded to 256Mi.
-        resources = {
-          requests = { cpu = "10m", memory = "128Mi" }
-          limits   = { memory = "256Mi" }
-        }
-      }
+      # Embedded Dex stays off: ArgoCD logs in directly against Authentik. With
+      # dex.config set its verifier rewrites the JWKS fetch to Dex (upstream bug),
+      # so Authentik ID tokens fail the signature check on Dex's keys.
+      dex = { enabled = false }
       notifications = {
         # Re-derived 2026-09-16..10-22 (36d retained, local VictoriaMetrics): the working
         # set is dominated by page cache (RSS flat at ~29Mi), so a cache-warm pod holds
@@ -122,9 +117,9 @@ resource "helm_release" "argo_cd" {
           var.argocd_tf_token != "" ? {
             "admin.enabled" = "false"
           } : {},
-          # Authentik OIDC next to Dex (the fallback until the remaining consumers
-          # move); the issuer keeps the trailing slash Authentik emits, and
-          # clientSecret comes from argocd-secret via the chart's secret.extra.
+          # SSO login (direct Authentik OIDC, no embedded Dex); the issuer keeps
+          # the trailing slash Authentik emits, and clientSecret comes from
+          # argocd-secret via the chart's secret.extra.
           {
             "oidc.config" = <<-EOT
               name: Authentik
@@ -135,33 +130,16 @@ resource "helm_release" "argo_cd" {
               enablePKCEAuthentication: true
             EOT
           },
-          var.github_oidc_client_id != "" ? {
-            "dex.config" = <<-EOT
-              connectors:
-                - type: github
-                  id: github
-                  name: GitHub
-                  config:
-                    clientID: ${var.github_oidc_client_id}
-                    clientSecret: $dex.github.clientSecret
-                    orgs:
-                      - name: ${var.github_oidc_org}
-            EOT
-          } : {},
         )
         secret = {
           createSecret = true
           # Stable hash from state
           argocdServerAdminPassword      = terraform_data.argocd_admin_password_bcrypt.output
           argocdServerAdminPasswordMtime = "2026-08-08T00:00:00Z"
-          # The Dex secrets are optional (empty while bootstrapping): the dex
-          # client secret enables SSO, the webhook secret makes the API server
-          # verify GitHub webhook signatures (X-Hub-Signature-256). The Authentik
-          # OIDC secret is unconditional: oidc.config reads it at the cutover.
+          # The webhook secret is optional (empty while bootstrapping): it makes
+          # the API server verify GitHub webhook signatures (X-Hub-Signature-256).
+          # The Authentik OIDC secret is unconditional: oidc.config names it.
           extra = merge(
-            var.github_oidc_client_secret != "" ? {
-              "dex.github.clientSecret" = var.github_oidc_client_secret
-            } : {},
             var.argocd_webhook_secret != "" ? {
               "webhook.github.secret" = var.argocd_webhook_secret
             } : {},

@@ -130,22 +130,20 @@ locals {
   }
 
   addons = {
-    kubeconfig_path           = local.kubeconfig_path
-    seaweedfs_access_key      = local.secrets.seaweedfs_access_key
-    seaweedfs_secret_key      = local.secrets.seaweedfs_secret_key
-    gitops_repo_url           = local.gitops_repo_url
-    github_pat                = local.secrets.github_pat
-    cloudflare_api_token      = local.secrets.cloudflare_api_token
-    argocd_admin_password     = local.secrets.argocd_admin_password
-    github_oidc_client_id     = local.secrets.github_oidc_client_id
-    github_oidc_client_secret = local.secrets.github_oidc_client_secret
-    github_oidc_org           = "infrabytes"
+    kubeconfig_path       = local.kubeconfig_path
+    seaweedfs_access_key  = local.secrets.seaweedfs_access_key
+    seaweedfs_secret_key  = local.secrets.seaweedfs_secret_key
+    gitops_repo_url       = local.gitops_repo_url
+    github_pat            = local.secrets.github_pat
+    cloudflare_api_token  = local.secrets.cloudflare_api_token
+    argocd_admin_password = local.secrets.argocd_admin_password
     # ArgoCD RBAC (argocd-rbac-cm): policy.default, OIDC scopes, raw policy.csv
-    # lines. Bindings use the SSO *username* (GitHub login, preferred_username
-    # scope): Dex returns no groups claim for the GitHub connector. The tf-bot
-    # service-account line is NOT listed here: the addons unit always prepends
-    # `p, tf-bot, *, *, *, allow` (the argocd-config provider needs it; keeping
-    # it enforced prevents a mis-edit from locking out Terraform bootstrap).
+    # lines. Bindings use the SSO *username*, which is the Authentik username
+    # (Authentik's argocd provider sets sub_mode: user_username); the groups
+    # claim its profile mapping emits is available for group bindings. The
+    # tf-bot service-account line is NOT listed here: the addons unit always
+    # prepends `p, tf-bot, *, *, *, allow` (the argocd-config provider needs it;
+    # keeping it enforced prevents a mis-edit from locking out Terraform bootstrap).
     argocd_rbac = {
       policy_default = ""
       scopes         = "[groups, preferred_username]"
@@ -175,7 +173,8 @@ locals {
     argocd_webhook_secret = try(local.secrets.argocd_webhook_secret, "")
     # Authentik OIDC client secret for ArgoCD (client id "argocd"), one of the four
     # mirrored into secret/authentik as oidc_argocd_client_secret. argocd-secret
-    # takes it as oidc.clientSecret; oidc.config names it at the cutover.
+    # takes it as oidc.clientSecret; argocd-cm's oidc.config names it, the only
+    # ArgoCD login path (no embedded Dex).
     authentik_argocd_client_secret = local.secrets.authentik_argocd_client_secret
 
     # Grafana Cloud Loki credentials, kept for the cluster-heartbeat CronJob
@@ -193,11 +192,11 @@ locals {
     # Standalone Dex (OpenBao SSO, platform/dex): dedicated GitHub
     # OAuth app ("Dex (homelab)") and the Dex static-client secret for the
     # OpenBao oidc auth method. Render the dex-config (config.yaml) and
-    # openbao-oidc Secrets. The connector org restriction reuses
-    # github_oidc_org.
+    # openbao-oidc Secrets. The connector org restriction is github_oidc_org.
     dex_github_client_id       = local.secrets.dex_github_client_id
     dex_github_client_secret   = local.secrets.dex_github_client_secret
     openbao_oidc_client_secret = local.secrets.openbao_oidc_client_secret
+    github_oidc_org            = "infrabytes"
 
     # Headlamp OIDC client (platform/headlamp): Dex static client "headlamp"
     # and the headlamp-oidc Secret the chart consumes via envFrom.
