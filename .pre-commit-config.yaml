@@ -93,6 +93,12 @@ repos:
         language: script
         pass_filenames: false
         files: ^platform/alert-triage/(.*agent-config\.ya?ml|gate\.test\.mjs|rightsize-gate\.test\.mjs)$
+      - id: renovate-gate-test
+        name: breaking-change gate fixtures
+        entry: .github/scripts/check-renovate-gate.py
+        language: script
+        pass_filenames: false
+        files: ^\.github/(scripts/(check-)?renovate-gate\.py|workflows/renovate-gate\.yaml)$
       - id: terragrunt-validate
         name: terragrunt validate
         entry: .github/scripts/terragrunt-validate.sh

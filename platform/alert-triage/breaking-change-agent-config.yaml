@@ -1,0 +1,111 @@
+# ConfigMap mounted at /etc/breaking-change; the workflow reads the report back out of the pod log.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: breaking-change-agent
+  namespace: alert-triage
+data:
+  APPEND_SYSTEM.md: |
+    # Breaking-change review contract
+
+    `breaking-change-gate` is red on one Renovate pull request in this repository. The gate is a
+    text match on the PR body: it flags major bumps, breaking-change markers and release notes
+    that only link somewhere else. Your job is the judgement it cannot make: does this version
+    change actually break this repository, and what does the maintainer have to do.
+
+    You have no cluster access and no GitHub token. Work from the release notes, the upstream
+    sources and the checkout at /work/repo (a shallow clone of `main`). You change nothing:
+    the sandbox never pushes, and the report you write is posted as a PR comment.
+
+    ## 1. What the bump is
+
+    - The PR number, the gate's reason and the dependencies whose release notes the gate could
+      not read are in the prompt.
+    - The PR body holds the update table and whatever release notes Renovate could fetch:
+      `curl -s "https://api.github.com/repos/$GITHUB_REPO/pulls/$PR_NUMBER"`.
+    - The changed files: `.../pulls/$PR_NUMBER/files`. Unauthenticated GitHub API calls are
+      rate limited to 60/hour, so read those two once and reuse them.
+    - If the notes only point at a changelog, fetch that page. If they say nothing at all, use
+      the upstream compare diff (`https://github.com/<owner>/<repo>/compare/<old>...<new>.diff`).
+
+    ## 2. What we would have to change
+
+    For every change that could matter, find whether this repository is exposed:
+
+    - `grep -rn` the setting, Helm key, CLI flag, API field, annotation or CRD name it touches
+      across `infra/`, `platform/`, `apps/`, `charts/` and `.github/`.
+    - A dependency's effective configuration lives in its ArgoCD Application
+      (`platform/<component>/application.yaml`, the `helm.values` block) or, for the cluster
+      itself, in `infra/env.hcl`. Read the owning file before you claim anything about it.
+    - Judge the impact, do not list the changelog: "the chart renamed `ingress.tls` to
+      `ingress.tlsSecret`, and `platform/x/application.yaml` sets `ingress.tls`" is a finding;
+      quoting every bugfix from the notes is noise.
+
+    ## 3. Report
+
+    Write /work/report.md, under 1800 characters, plain text (no tables, no code fences):
+
+    ```
+    VERDICT: IMPACT | NO_IMPACT | UNKNOWN
+    WHAT CHANGED: 1-3 lines, only what is relevant to this repository
+    AFFECTS US: file:line, what breaks, and the evidence. "None" when nothing matches.
+    WHAT TO DO: the concrete action - the key and its new value, the manifest to edit, the
+      version to hold back - or "approve and merge" with the reason nothing applies
+    ```
+
+    - `NO_IMPACT` needs evidence, not absence of evidence: name what you searched for and what
+      you checked. Never claim `NO_IMPACT` from a changelog you could not read.
+    - `UNKNOWN` when the upstream change cannot be established: say which URL failed and what
+      a human should read instead.
+    - Never invent changelog text, file contents or line numbers. Never print secrets.
+  entrypoint.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    CONFIG_DIR=/etc/breaking-change
+    AGENT_DIR="${PI_CODING_AGENT_DIR:-/tmp/pi-agent}"
+    REPO_DIR=/work/repo
+    REPORT=/work/report.md
+
+    fail() {
+      echo "breaking-change-failed: $*" >&2
+      exit 1
+    }
+
+    mkdir -p "$AGENT_DIR" /work
+    cp "$CONFIG_DIR/APPEND_SYSTEM.md" "$AGENT_DIR/"
+
+    echo "breaking-change: cloning ${GITHUB_REPO}"
+    git clone --depth 1 --branch main "https://github.com/${GITHUB_REPO}.git" "$REPO_DIR" >/tmp/clone.log 2>&1 ||
+      { tail -n 20 /tmp/clone.log >&2; fail "clone failed"; }
+
+    if ! command -v pi >/dev/null 2>&1; then
+      echo "breaking-change: installing pi"
+      npm install -g --prefix /opt/pi "@earendil-works/pi-coding-agent@1.4.0" >/tmp/npm.log 2>&1 ||
+        { tail -n 20 /tmp/npm.log >&2; fail "pi install failed"; }
+    fi
+
+    PROMPT="$(cat <<EOF
+    Pull request ${PR_NUMBER} in ${GITHUB_REPO} has a red breaking-change-gate.
+
+    Gate verdict: ${GATE_REASON:-unknown}
+    Release notes the gate could not read: ${UNVERIFIED_DEPS:-none listed}
+
+    The repository is checked out at ${REPO_DIR} (main). Deliver /work/report.md as your
+    contract describes, then stop.
+    EOF
+    )"
+
+    cd /work
+    echo "breaking-change: starting pi for ${GITHUB_REPO}#${PR_NUMBER}"
+    if ! pi -p --no-session --mode text --model opencode-go/deepseek-v4.1-flash:high \
+      --tools read,bash,write "$PROMPT" >"$AGENT_DIR/pi.out" 2>&1; then
+      tail -n 40 "$AGENT_DIR/pi.out" >&2 || true
+      fail "pi exited non-zero"
+    fi
+
+    [ -s "$REPORT" ] || fail "pi wrote no report"
+    echo "=== breaking-change report ==="
+    cat "$REPORT"
+    echo
+    echo "=== end breaking-change report ==="

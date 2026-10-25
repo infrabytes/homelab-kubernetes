@@ -1,0 +1,78 @@
+# One analysis sandbox per held PR; the renovate-gate workflow creates the claim.
+apiVersion: extensions.agents.x-k8s.io/v1beta1
+kind: SandboxTemplate
+metadata:
+  name: breaking-change
+  namespace: alert-triage
+spec:
+  service: false
+  envVarsInjectionPolicy: Allowed
+  networkPolicyManagement: Managed
+  # No grafana-mcp, no Loki, no API server: the agent only needs DNS and the public internet.
+  networkPolicy:
+    egress:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+        ports:
+          - port: 53
+            protocol: UDP
+          - port: 53
+            protocol: TCP
+      # npm registry, model calls, github.com and api.github.com, upstream changelogs.
+      - ports:
+          - port: 443
+            protocol: TCP
+  podTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: breaking-change
+        app.kubernetes.io/part-of: alert-triage
+    spec:
+      automountServiceAccountToken: false
+      # Backstop when the workflow is gone (cancelled job): 20 min, past which the pod reports
+      # Failed and the claim TTL collects it. A live workflow stops waiting after six minutes.
+      activeDeadlineSeconds: 1200
+      restartPolicy: Never
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: breaking-change
+          # The full (not slim) Debian variant ships git and curl, so the only install is pi.
+          image: node:24-bookworm
+          command: ["/bin/bash", "/etc/breaking-change/entrypoint.sh"]
+          workingDir: /work
+          env:
+            - name: PATH
+              value: /opt/pi/bin:/usr/local/bin:/usr/bin:/bin
+            - name: PI_CODING_AGENT_DIR
+              value: /tmp/pi-agent
+            - name: HOME
+              value: /tmp
+            - name: OPENCODE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: alert-triage-agent-creds
+                  key: llm_api_key
+          volumeMounts:
+            - name: work
+              mountPath: /work
+            - name: config
+              mountPath: /etc/breaking-change
+          securityContext:
+            allowPrivilegeEscalation: false
+          # New workload (2026-10-25): initial estimate, re-measure after two weeks.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: work
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: breaking-change-agent
