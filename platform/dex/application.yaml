@@ -60,8 +60,7 @@ spec:
       path: platform/dex
       directory:
         recurse: true
-        # tailnet/ belongs to the dex-tailnet Application in this folder.
-        exclude: "{application*.yaml,tailnet/**}"
+        exclude: "application*.yaml"
   destination:
     namespace: dex
     server: https://kubernetes.default.svc

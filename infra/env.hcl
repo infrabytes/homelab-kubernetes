@@ -203,12 +203,6 @@ locals {
     # and the headlamp-oidc Secret the chart consumes via envFrom.
     headlamp_oidc_client_secret = local.secrets.headlamp_oidc_client_secret
 
-    # Tailnet Dex: dedicated GitHub OAuth app ("Dex (homelab tailnet)") with
-    # callback https://dex.taile70903.ts.net/callback. Reuses the OpenBao
-    # static-client secret (openbao_oidc_client_secret) for the tailnet mount.
-    dex_tailnet_github_client_id     = local.secrets.dex_tailnet_github_client_id
-    dex_tailnet_github_client_secret = local.secrets.dex_tailnet_github_client_secret
-
     # Local Grafana (observability namespace): break-glass admin password, the
     # Dex generic_oauth client secret, and the Discord webhook the notification
     # policy posts to. try() keeps the units valid until the webhook lands in SOPS.

@@ -83,8 +83,7 @@ unit before ArgoCD exists, so an ArgoCD-owned namespace would fail the apply.
 - `openbao` — namespace + the `openbao-seal` Secret (static seal key).
 - `dex` — namespace + the `dex-config` Secret (`config.yaml`: org-restricted
   GitHub connector and the static clients **OpenBao**, **Grafana** and
-  **Headlamp**); `dex-tailnet` — namespace + `dex-tailnet-config` + its TLS
-  cert. See [`platform/dex`](../../platform/dex/README.md).
+  **Headlamp**). See [`platform/dex`](../../platform/dex/README.md).
 - `headlamp` — namespace + the `headlamp-oidc` Secret
   (`OIDC_CLIENT_ID`/`_CLIENT_SECRET`/`_ISSUER_URL`/`_SCOPES`, client secret from
   SOPS) that the Headlamp chart reads via `config.oidc.externalSecret`. See
@@ -95,7 +94,7 @@ unit before ArgoCD exists, so an ArgoCD-owned namespace would fail the apply.
 Dex reads its config at container start and the chart's checksum annotation
 does not cover an external Secret, so after changing `dex-config` (for example
 adding a static client) roll the pod:
-`kubectl delete pod -n dex -l app.kubernetes.io/name=dex` (or `-n dex-tailnet`).
+`kubectl delete pod -n dex -l app.kubernetes.io/name=dex`.
 
 ### **cert-manager + external-dns secrets**
 

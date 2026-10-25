@@ -136,19 +136,6 @@ variable "headlamp_oidc_client_secret" {
   sensitive   = true
 }
 
-variable "dex_tailnet_github_client_id" {
-  description = "GitHub OAuth app (\"Dex (homelab tailnet)\") Client ID for the tailnet Dex GitHub connector. Public by design, not a secret."
-  type        = string
-  default     = ""
-}
-
-variable "dex_tailnet_github_client_secret" {
-  description = "GitHub OAuth app (\"Dex (homelab tailnet)\") Client Secret, written into the dex-tailnet-config Secret (config.yaml, GitHub connector)."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 variable "grafana_admin_password" {
   description = "Local Grafana admin password (break-glass login; day-to-day access is Dex/OAuth). Written into the grafana-admin-credentials Secret consumed by the Grafana CR."
   type        = string

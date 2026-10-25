@@ -1,0 +1,19 @@
+---
+# The issuer sits behind the Cilium Gateway, whose envoy is host-network with the reserved `ingress` identity — no pod selector matches it.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openbao-allow-authentik-egress
+  namespace: openbao
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: openbao
+      app.kubernetes.io/instance: openbao
+  egress:
+    - toEntities:
+        - ingress
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
