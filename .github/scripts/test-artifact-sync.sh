@@ -1,15 +1,9 @@
 #!/usr/bin/env bash
-# Asserts root.hcl hook wiring + script key-set vs the local_sensitive_file filenames, then a live PUT/GET round-trip under a disposable test prefix (keys idempotent, no delete).
-# Skips without the SOPS age key, mirroring terragrunt-validate.sh.
+# Asserts root.hcl hook wiring + script key-set vs the local_sensitive_file filenames + credentials_dir, then a live PUT/GET round-trip under a disposable test prefix (keys idempotent, no delete).
+# The offline assertions always run (CI has no age key); only the round-trip skips, mirroring terragrunt-validate.sh.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-age_key_file="${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}"
-
-if [[ -z "${SOPS_AGE_KEY:-}" && ! -f "$age_key_file" ]]; then
-  echo "test-artifact-sync: no SOPS age key available, skipping (set SOPS_AGE_KEY to enable)"
-  exit 0
-fi
 
 fail() {
   echo "test-artifact-sync: FAIL: $*" >&2
@@ -52,6 +46,13 @@ env_cred="$(sed -n 's/^  credentials_dir = "\(.*\)"$/\1/p' "$root/infra/env.hcl"
 script_cred="$(sed -n 's/^CREDENTIALS_DIR="\(.*\)"$/\1/p' "$sync_script")"
 [[ -n "$env_cred" && -n "$script_cred" && "$env_cred" == "$script_cred" ]] ||
   fail "credentials_dir mismatch: env.hcl=[$env_cred] script=[$script_cred]"
+
+age_key_file="${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}"
+
+if [[ -z "${SOPS_AGE_KEY:-}" && ! -f "$age_key_file" ]]; then
+  echo "test-artifact-sync: offline checks passed, skipping bucket round-trip (set SOPS_AGE_KEY to enable)"
+  exit 0
+fi
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

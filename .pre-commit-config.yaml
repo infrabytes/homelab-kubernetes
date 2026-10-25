@@ -105,6 +105,12 @@ repos:
         language: script
         pass_filenames: false
         files: ^infra/
+      - id: artifact-sync-test
+        name: artifact sync hooks, credential list and credentials_dir agree
+        entry: .github/scripts/test-artifact-sync.sh
+        language: script
+        pass_filenames: false
+        files: ^infra/(root\.hcl|env\.hcl|scripts/sync-artifacts\.sh|cluster/modules/talos-cluster/artifacts\.tf|viewer-kubeconfig/main\.tf)$
       - id: sops-encrypted
         name: sops files must be encrypted
         entry: .github/scripts/check-sops-encryption.sh
