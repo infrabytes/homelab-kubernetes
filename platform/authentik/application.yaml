@@ -37,17 +37,13 @@ spec:
               value: authentik
             - name: AUTHENTIK_POSTGRESQL__USER
               value: authentik
-            # Required system setting: without it authentik will not start after the initial setup,
-            # and password-reset links would carry the wrong host.
-            - name: AUTHENTIK_WEB__BASE_URL
-              value: https://authentik.icaninto.space
             # The relay endpoint and sending address are not in this repo; only the STARTTLS flag is.
             - name: AUTHENTIK_EMAIL__USE_TLS
               value: "true"
             - name: AUTHENTIK_ERROR_REPORTING__ENABLED
               value: "false"
         authentik:
-          # AUTHENTIK_SECRET_KEY and AUTHENTIK_BOOTSTRAP_* (akadmin break-glass) live here.
+          # AUTHENTIK_SECRET_KEY, AUTHENTIK_WEB__BASE_URL and AUTHENTIK_BOOTSTRAP_* (akadmin break-glass) live here.
           existingSecret:
             secretName: authentik-secret
         postgresql:

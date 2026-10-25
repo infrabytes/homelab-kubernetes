@@ -35,6 +35,7 @@ the Secret the Grafana database backs up with. Addresses and the mail relay stay
 repo carries neither.
 
 ```sh
+printf 'base URL (the public https URL of this instance): '; read -r BASE_URL
 printf 'akadmin email: '; read -r BOOTSTRAP_EMAIL
 printf 'SMTP host: '; read -r SMTP_HOST
 printf 'SMTP port [587]: '; read -r SMTP_PORT; SMTP_PORT=${SMTP_PORT:-587}
@@ -56,6 +57,7 @@ kubectl exec -n openbao openbao-0 -- sh -c "
     jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token >/dev/null
   bao kv put secret/authentik \
     secret_key=$SECRET_KEY \
+    base_url=$BASE_URL \
     bootstrap_password=$BOOTSTRAP_PASSWORD \
     bootstrap_token=$BOOTSTRAP_TOKEN \
     bootstrap_email=$BOOTSTRAP_EMAIL \
@@ -84,9 +86,9 @@ sync the pods sit in `CreateContainerConfigError`, and ESO keeps retrying.
 
 ## Base URL
 
-`AUTHENTIK_WEB__BASE_URL` in `application.yaml` sets the Base URL system setting on first start. It is
-required: authentik refuses to start after the initial setup without it, and every reset link and
-future OIDC issuer is built from it.
+`base_url` in `secret/authentik` becomes `AUTHENTIK_WEB__BASE_URL`, which sets the Base URL system
+setting on first start. It is required: authentik refuses to start after the initial setup without
+it, and every reset link and future OIDC issuer is built from it.
 
 ## Mail (password reset)
 
