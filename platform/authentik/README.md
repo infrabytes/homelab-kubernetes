@@ -41,7 +41,7 @@ read -rp 'dhaustein email: ' DHAUSTEIN_EMAIL
 
 SECRET_KEY=$(openssl rand -base64 48)   # never change it after the first start
 BOOTSTRAP_TOKEN=$(openssl rand -hex 24)
-BOOTSTRAP_PASSWORD=$(openssl rand -base64 24)         # akadmin break-glass, save it
+BOOTSTRAP_PASSWORD=$(openssl rand -base64 24)
 S3_ACCESS_KEY=$(kubectl -n observability get secret grafana-pg-backup-s3 -o jsonpath='{.data.ACCESS_KEY_ID}' | base64 -d)
 S3_SECRET_KEY=$(kubectl -n observability get secret grafana-pg-backup-s3 -o jsonpath='{.data.SECRET_ACCESS_KEY}' | base64 -d)
 
@@ -61,6 +61,10 @@ kubectl exec -n openbao openbao-0 -- sh -c "
     dhaustein_email=$DHAUSTEIN_EMAIL
   bao kv metadata get secret/authentik
 "
+
+# akadmin break-glass: put both of these in your password manager
+printf 'akadmin (%s)\n  password: %s\n  token:    %s\n' \
+  "$BOOTSTRAP_EMAIL" "$BOOTSTRAP_PASSWORD" "$BOOTSTRAP_TOKEN"
 ```
 
 The `eso-authentik` role the store logs in with is written by the OpenBao chart's `postStart`, so it
