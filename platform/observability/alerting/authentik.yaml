@@ -1,0 +1,108 @@
+# Identity provider for every SSO client plus its config-as-code worker: a silent scrape target or a
+# stuck task queue is what to page on. Backlog threshold is a first estimate (2026-10-25).
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: authentik
+  namespace: observability
+spec:
+  name: authentik
+  folderUID: authentik
+  interval: 60s
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  rules:
+    - uid: authentik-target-down
+      title: Authentik target down
+      condition: threshold
+      for: 5m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: "authentik scrape target {{ $labels.job }} ({{ $labels.instance }}) is down"
+      labels:
+        severity: critical
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            # ServiceMonitor jobs are authentik/authentik-server and authentik/authentik-worker.
+            expr: 'up{job=~"authentik/authentik-.*"} == bool 0'
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold
+    - uid: authentik-task-backlog
+      title: Authentik task queue backlog
+      condition: threshold
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      annotations:
+        summary: "authentik worker is not draining its task queue ({{ $value }} queued): Blueprint applies and outpost reconciles stall"
+      labels:
+        severity: warning
+      data:
+        - refId: query
+          queryType: prometheus
+          datasourceUid: victoriametrics
+          relativeTimeRange:
+            from: 660
+            to: 60
+          model:
+            datasource:
+              type: prometheus
+              uid: victoriametrics
+            expr: 'max(authentik_tasks_queued) > 100'
+            instant: true
+            intervalMs: 1000
+            maxDataPoints: 43200
+            range: false
+            refId: query
+        - refId: threshold
+          queryType: threshold
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 0
+            to: 0
+          model:
+            conditions:
+              - evaluator:
+                  params: [0]
+                  type: gt
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: query
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: threshold
+            type: threshold

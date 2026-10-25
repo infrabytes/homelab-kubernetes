@@ -1,0 +1,158 @@
+# Blueprints mounted into the worker by the chart; deleting a file here does not delete the objects it made.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authentik-blueprints
+  namespace: authentik
+data:
+  users.yaml: |-
+    version: 1
+    metadata:
+      name: Homelab users
+    entries:
+      # Local accounts only; usernames match the GitHub logins the cluster RBAC already names. No passwords (recovery flow).
+      - model: authentik_core.user
+        identifiers:
+          username: bbayrakt
+        attrs:
+          name: bbayrakt
+          email: bbayrakt@infrabytes.dev
+          is_active: true
+          groups:
+            - !Find [authentik_core.group, [name, authentik Admins]]
+      - model: authentik_core.user
+        identifiers:
+          username: dhaustein
+        attrs:
+          name: dhaustein
+          email: dhaustein@infrabytes.dev
+          is_active: true
+  mfa.yaml: |-
+    version: 1
+    metadata:
+      name: Require TOTP
+    entries:
+      # Stage lives in the shipped default flow: apply that blueprint first so the identifiers exist.
+      - model: authentik_blueprints.metaapplyblueprint
+        attrs:
+          identifiers:
+            name: Default - Authentication flow
+          required: true
+      # Enforce TOTP: no enrolled device -> inject the shipped TOTP setup stage instead of skipping.
+      - model: authentik_stages_authenticator_validate.authenticatorvalidatestage
+        identifiers:
+          name: default-authentication-mfa-validation
+        attrs:
+          device_classes:
+            - totp
+          not_configured_action: configure
+          configuration_stages:
+            - !Find [authentik_stages_authenticator_totp.authenticatortotpstage, [name, default-authenticator-totp-setup]]
+  recovery.yaml: |-
+    version: 1
+    metadata:
+      name: Password reset
+    entries:
+      - model: authentik_flows.flow
+        id: recovery-flow
+        identifiers:
+          slug: default-recovery-flow
+        attrs:
+          name: Default recovery flow
+          title: Reset your password
+          designation: recovery
+          authentication: require_unauthenticated
+      - model: authentik_stages_identification.identificationstage
+        id: recovery-identification
+        identifiers:
+          name: default-recovery-identification
+        attrs:
+          user_fields:
+            - email
+            - username
+      # use_global_settings reads AUTHENTIK_EMAIL__* (Proton SMTP submission) from the pod env.
+      - model: authentik_stages_email.emailstage
+        id: recovery-email
+        identifiers:
+          name: default-recovery-email
+        attrs:
+          use_global_settings: true
+          token_expiry: minutes=30
+          subject: Reset your homelab password
+          template: email/password_reset.html
+          activate_user_on_success: true
+          recovery_max_attempts: 5
+          recovery_cache_timeout: minutes=5
+      - model: authentik_stages_prompt.prompt
+        id: recovery-field-password
+        identifiers:
+          name: default-recovery-field-password
+        attrs:
+          field_key: password
+          label: Password
+          type: password
+          required: true
+          placeholder: Password
+          order: 0
+          placeholder_expression: false
+      - model: authentik_stages_prompt.prompt
+        id: recovery-field-password-repeat
+        identifiers:
+          name: default-recovery-field-password-repeat
+        attrs:
+          field_key: password_repeat
+          label: Password (repeat)
+          type: password
+          required: true
+          placeholder: Password (repeat)
+          order: 1
+          placeholder_expression: false
+      - model: authentik_stages_prompt.promptstage
+        id: recovery-prompt
+        identifiers:
+          name: default-recovery-prompt
+        attrs:
+          fields:
+            - !KeyOf recovery-field-password
+            - !KeyOf recovery-field-password-repeat
+      - model: authentik_stages_user_write.userwritestage
+        id: recovery-user-write
+        identifiers:
+          name: default-recovery-user-write
+        attrs:
+          user_creation_mode: never_create
+      - model: authentik_stages_user_login.userloginstage
+        id: recovery-user-login
+        identifiers:
+          name: default-recovery-user-login
+      - model: authentik_flows.flowstagebinding
+        identifiers:
+          order: 10
+          stage: !KeyOf recovery-identification
+          target: !KeyOf recovery-flow
+      - model: authentik_flows.flowstagebinding
+        identifiers:
+          order: 20
+          stage: !KeyOf recovery-email
+          target: !KeyOf recovery-flow
+      - model: authentik_flows.flowstagebinding
+        identifiers:
+          order: 30
+          stage: !KeyOf recovery-prompt
+          target: !KeyOf recovery-flow
+      - model: authentik_flows.flowstagebinding
+        identifiers:
+          order: 40
+          stage: !KeyOf recovery-user-write
+          target: !KeyOf recovery-flow
+      - model: authentik_flows.flowstagebinding
+        identifiers:
+          order: 100
+          stage: !KeyOf recovery-user-login
+          target: !KeyOf recovery-flow
+      # Puts the "Forgot password?" link on the login screen; without it the flow is only reachable by URL.
+      - model: authentik_stages_identification.identificationstage
+        identifiers:
+          name: default-authentication-identification
+        attrs:
+          recovery_flow: !KeyOf recovery-flow

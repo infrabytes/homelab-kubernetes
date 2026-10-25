@@ -76,6 +76,7 @@ gateway traffic working; see the cert-manager and external-secrets policies.
 | `vcluster` | `policies.networkPolicy`: chart defaults plus the metrics-server control-plane egress on 443/10250 | `vcluster-allow-host-dns-egress.yaml`, `vcluster-default-deny-ingress.yaml` |
 | `longhorn-system` | longhorn's internal policies (`restrictInternalTraffic`) | `longhorn-manager-allow-metrics.yaml` |
 | `alert-triage` | — (Argo Events renders no policies; the sandbox pods get a controller-managed policy from their `SandboxTemplate.spec.networkPolicy`: DNS, `grafana-mcp` 8000, Loki 3100 for the gates/memory, API server 6443, internet 443 for npm, models, Discord and GitHub) | `alert-triage-default-deny-ingress.yaml`, `alert-triage-eventsource-allow-grafana-ingress.yaml`, `alert-triage-eventbus-allow-clients-ingress.yaml`, `alert-triage-eventsource-allow-egress.yaml`, `alert-triage-sensor-allow-egress.yaml`, `alert-triage-sensor-allow-apiserver-egress.yaml` (Cilium, API-server entity), `alert-triage-allow-monitoring-ingress.yaml` |
+| `authentik` | — (the chart has no `networkPolicy` values) | `authentik-allow-gateway-ingress.yaml` (Cilium, `ingress` entity → 9000), `authentik-allow-metrics.yaml` (Alloy → 9300), `authentik-allow-egress.yaml` (Cilium: DNS, the in-namespace Postgres 5432, Proton SMTP 587, API server 443/6443 for the outpost controller) |
 
 Known gaps inside covered namespaces:
 
@@ -89,6 +90,10 @@ Known gaps inside covered namespaces:
 - Ingress stays source-unrestricted on declared ports by design; tightening
   it needs `fromEntities` for API-server and Gateway traffic and is a later
   phase.
+- `authentik` has no namespace-wide `default-deny-ingress`: its policies select
+  the authentik pods, so the CloudNativePG instance sharing the namespace keeps
+  its operator, backup and S3 edges, which are not modelled yet. Add the
+  namespace deny together with those CNPG edges.
 
 ### vcluster control-plane note
 

@@ -71,3 +71,15 @@ spec:
       grafanaInstance: main
   title: ArgoCD
   uid: argocd
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaFolder
+metadata:
+  name: authentik
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      grafanaInstance: main
+  title: Authentik
+  uid: authentik

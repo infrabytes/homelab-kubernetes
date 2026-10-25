@@ -135,3 +135,16 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: authentik-https
+      hostname: authentik.icaninto.space
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: authentik-tls
+            group: ""
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All
