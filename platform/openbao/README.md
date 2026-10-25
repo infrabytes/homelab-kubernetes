@@ -93,6 +93,7 @@ another namespace's secrets.
 | `arc-runners` | `openbao-arc-runners` | `arc-runners-eso` | `eso-arc-runners` | `secret/arc-runner-auth` |
 | `tailscale` | `openbao-tailscale` | `tailscale-eso` | `eso-tailscale` | `secret/tailscale-operator` |
 | `external-secrets-demo` | `openbao-demo` | `eso-demo` | `eso-demo` | `secret/demo` |
+| `authentik` | `openbao-authentik` | `authentik-eso` | `eso-authentik` | `secret/authentik` |
 | tenant namespace | `openbao-<tenant>` | `<tenant>-eso` | `eso-<tenant>` | `<tenant>/data/*` |
 
 The chart renders all its CRDs. The two store CRDs' schemas exceed the 256KB

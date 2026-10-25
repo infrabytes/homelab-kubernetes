@@ -1,0 +1,51 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: authentik-pg
+  namespace: authentik
+spec:
+  instances: 1
+  # One instance: the operator PDB (minAvailable 1) can never allow an eviction, it only blocks node drains.
+  enablePDB: false
+  storage:
+    size: 5Gi
+    storageClass: longhorn
+  # Initial estimate (2026-10-25), no usage history; re-measure after two weeks.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  monitoring:
+    enablePodMonitor: true
+  bootstrap:
+    initdb:
+      owner: authentik
+      database: authentik
+  backup:
+    retentionPolicy: "14d"
+    barmanObjectStore:
+      # Same SeaweedFS bucket as the Terraform state and grafana-pg; the prefix keeps them apart.
+      destinationPath: s3://homelab-kubernetes/authentik-pg
+      endpointURL: https://s3.icaninto.space
+      s3Credentials:
+        accessKeyId:
+          name: authentik-pg-backup-s3
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: authentik-pg-backup-s3
+          key: SECRET_ACCESS_KEY
+      wal:
+        compression: gzip
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: authentik-pg-daily
+  namespace: authentik
+spec:
+  schedule: "0 30 2 * * *"
+  backupOwnerReference: self
+  cluster:
+    name: authentik-pg
