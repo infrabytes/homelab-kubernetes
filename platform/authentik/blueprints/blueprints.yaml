@@ -186,17 +186,6 @@ data:
           identifiers:
             name: Default - Invalidation flow
           required: true
-      # ArgoCD asks for `groups` by default and OpenBao names it in oidc_scopes, but the shipped
-      # mappings carry no scope of that name (profile exposes groups, the scope does not).
-      - model: authentik_providers_oauth2.scopemapping
-        identifiers:
-          name: Homelab groups
-        attrs:
-          scope_name: groups
-          expression: |
-            return {
-                "groups": [group.name for group in request.user.groups.all()],
-            }
       # The four consumers. Secrets are the ones the consumers already hold, mirrored from OpenBao
       # by ESO. grant_types is explicit because the model default is empty and the authorize
       # endpoint rejects a grant type the provider does not list.
@@ -209,6 +198,7 @@ data:
           client_secret: !Env BLUEPRINT_OIDC_ARGOCD_SECRET
           grant_types: [authorization_code, refresh_token]
           include_claims_in_id_token: true
+          sub_mode: user_username
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
@@ -216,7 +206,6 @@ data:
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'email'"]]
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'profile'"]]
-            - !Find [authentik_providers_oauth2.scopemapping, [name, Homelab groups]]
           redirect_uris:
             - matching_mode: strict
               url: https://argocd.icaninto.space/auth/callback
@@ -233,6 +222,7 @@ data:
           client_secret: !Env BLUEPRINT_OIDC_GRAFANA_SECRET
           grant_types: [authorization_code, refresh_token]
           include_claims_in_id_token: true
+          sub_mode: user_username
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
@@ -240,7 +230,6 @@ data:
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'email'"]]
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'profile'"]]
-            - !Find [authentik_providers_oauth2.scopemapping, [name, Homelab groups]]
           redirect_uris:
             - matching_mode: strict
               url: https://grafana.icaninto.space/login/generic_oauth
@@ -253,6 +242,7 @@ data:
           client_secret: !Env BLUEPRINT_OIDC_HEADLAMP_SECRET
           grant_types: [authorization_code, refresh_token]
           include_claims_in_id_token: true
+          sub_mode: user_username
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
@@ -260,7 +250,6 @@ data:
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'email'"]]
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'profile'"]]
-            - !Find [authentik_providers_oauth2.scopemapping, [name, Homelab groups]]
           # Headlamp derives the callback from the request host, so both hostnames are registered.
           redirect_uris:
             - matching_mode: strict
@@ -276,6 +265,7 @@ data:
           client_secret: !Env BLUEPRINT_OIDC_OPENBAO_SECRET
           grant_types: [authorization_code, refresh_token]
           include_claims_in_id_token: true
+          sub_mode: user_username
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
@@ -283,7 +273,6 @@ data:
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'email'"]]
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'profile'"]]
-            - !Find [authentik_providers_oauth2.scopemapping, [name, Homelab groups]]
           redirect_uris:
             - matching_mode: strict
               url: https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback

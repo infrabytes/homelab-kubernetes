@@ -192,9 +192,10 @@ kubectl -n authentik exec deploy/authentik-worker -- sh -c 'ak test_email "$BLUE
   (`BLUEPRINT_OIDC_*`), so they are filled by ESO from `secret/authentik` and the blueprint file
   never holds one. The authorization/invalidation flows, the `authentik Self-signed Certificate`
   signing key and the shipped `openid`/`email`/`profile` mappings are looked up by slug/name, so
-  the shipped blueprints own them; a `groups` scope mapping is added because ArgoCD and OpenBao
-  ask for that scope and none of the shipped mappings carries the name. No policy bindings: both
-  local accounts may use all four clients.
+  the shipped blueprints own them; the shipped `profile` mapping carries `groups` (requested by
+  ArgoCD and OpenBao), and `sub_mode: user_username` keeps the subject (and so Grafana's
+  `auth_id`) equal to the username the consumers already use. No policy bindings: both local
+  accounts may use all four clients.
 
 Blueprints are re-read by the worker (mounted volume) and re-applied on change; deleting a file here
 does not delete the objects it created. The files own the fields they list — `name`, `email` and
