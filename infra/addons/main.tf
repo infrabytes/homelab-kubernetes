@@ -18,6 +18,16 @@ resource "helm_release" "argo_cd" {
   values = [
     yamlencode({
       fullnameOverride = "argocd"
+      # The issuer name is a LAN-only override that cluster DNS does not know, so
+      # pin it to the VIP for the server's discovery, JWKS and token calls.
+      global = {
+        hostAliases = [
+          {
+            ip        = "192.168.0.200"
+            hostnames = ["authentik.icaninto.space"]
+          }
+        ]
+      }
       server = {
         service = { type = "ClusterIP" }
         ingress = { enabled = false }
@@ -112,6 +122,19 @@ resource "helm_release" "argo_cd" {
           var.argocd_tf_token != "" ? {
             "admin.enabled" = "false"
           } : {},
+          # Authentik OIDC next to Dex (the fallback until the remaining consumers
+          # move); the issuer keeps the trailing slash Authentik emits, and
+          # clientSecret comes from argocd-secret via the chart's secret.extra.
+          {
+            "oidc.config" = <<-EOT
+              name: Authentik
+              issuer: https://authentik.icaninto.space/application/o/argocd/
+              clientID: argocd
+              clientSecret: $oidc.clientSecret
+              requestedScopes: ["openid", "profile", "email", "groups"]
+              enablePKCEAuthentication: true
+            EOT
+          },
           var.github_oidc_client_id != "" ? {
             "dex.config" = <<-EOT
               connectors:
