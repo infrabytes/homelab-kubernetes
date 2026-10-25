@@ -142,14 +142,12 @@ spec:
                 # Tuned unauth: visible in the unauthenticated UI login dropdown (default is hidden).
                 bao auth tune -listing-visibility=unauth oidc/ >/dev/null 2>&1 || true
 
-                # A failed switch must not crash-loop the secrets manager; the API and ESO use k8s auth, not OIDC.
-                if ! bao write auth/oidc/config \
+                # Fatal by design: a dead issuer must crash-loop visibly; the API and ESO use k8s auth, not this pod's SSO.
+                bao write auth/oidc/config \
                   oidc_discovery_url=https://authentik.icaninto.space/application/o/openbao/ \
                   oidc_client_id="$OIDC_CLIENT_ID" \
                   oidc_client_secret="$OIDC_CLIENT_SECRET" \
-                  default_role=sso-user; then
-                  echo "warning: Authentik OIDC config not applied; keeping the previous config" >&2
-                fi
+                  default_role=sso-user
 
                 # Only the single Authentik issuer mount is used; the retired tailnet mount's roles die with it.
                 bao auth disable oidc-tailnet 2>/dev/null || true
