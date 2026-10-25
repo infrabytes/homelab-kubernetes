@@ -508,11 +508,12 @@
       "groupSlug": "kubernetes-version"
     },
     {
-      "description": "The self-hosted image and the pre-commit validator rev are the same Renovate release stream; bump both in one branch. Must stay below the file-based group rules, which set groupName for .github/** and .pre-commit-config.yaml and win by being later.",
+      "description": "The self-hosted image and the pre-commit validator rev are the same Renovate release stream; bump both in one branch. Must stay below the file-based group rules, which set groupName for .github/** and .pre-commit-config.yaml and win by being later. minimumReleaseAge is off for the pair because only the hook reports a release timestamp: the 3-day gate would hold it back while the image (no timestamp, timestamp-optional) ran ahead, leaving the engine and its validator on different versions.",
       "matchPackageNames": [
         "ghcr.io/renovatebot/renovate",
         "renovatebot/pre-commit-hooks"
       ],
+      "minimumReleaseAge": null,
       "groupName": "renovate",
       "groupSlug": "renovate"
     }
