@@ -281,6 +281,18 @@
     },
     {
       "customType": "regex",
+      "description": "ansible-core version pip-installed by the windrunner setup script",
+      "managerFilePatterns": [
+        "/^ansible\\/windrunner-setup\\.sh$/"
+      ],
+      "matchStrings": [
+        "ANSIBLE_CORE_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "ansible-core",
+      "datasourceTemplate": "pypi"
+    },
+    {
+      "customType": "regex",
       "description": "Terragrunt binary downloaded by the Atlantis initConfig script (must match tg_version in the CI workflows)",
       "managerFilePatterns": [
         "/^platform\\/atlantis\\/application\\.ya?ml$/"
