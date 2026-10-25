@@ -1,5 +1,5 @@
 ---
-# Egress allow-list for the authentik pods (selecting them turns policy into default-deny): DNS, in-namespace Postgres, Proton SMTP, API server.
+# Egress allow-list for the authentik pods (selecting them turns policy into default-deny): DNS, in-namespace Postgres, the SMTP relay, API server.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:

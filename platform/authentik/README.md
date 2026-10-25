@@ -19,7 +19,7 @@ consumer the cluster moves off Dex onto — see the migration table at the end.
   one issuer for LAN and remote clients.
 - Network policies: `authentik-allow-gateway-ingress.yaml` (gateway → 9000),
   `authentik-allow-metrics.yaml` (Alloy → 9300) and `authentik-allow-egress.yaml` (DNS, the
-  in-namespace Postgres, Proton SMTP on 587, the API server for the outpost controller). The chart
+  in-namespace Postgres, the SMTP relay on 587, the API server for the outpost controller). The chart
   ships none, so these are hand-written; they select the authentik pods, not the namespace, so the
   CNPG instance keeps its own traffic.
 - Observability: ServiceMonitors for server and worker; dashboard in
@@ -29,13 +29,17 @@ consumer the cluster moves off Dex onto — see the migration table at the end.
 ## Seeding (one-time, after OpenBao is up)
 
 ESO's OpenBao provider is read-only, so the values are written into OpenBao by hand first. The block
-below asks for the four values only you have, generates the rest, and copies the SeaweedFS key
-pair from the Secret the Grafana database backs up with. The emails stay in OpenBao, so no personal
-address is in this repo.
+below asks for the values only you have, generates the rest, and copies the SeaweedFS key pair from
+the Secret the Grafana database backs up with. Addresses and the mail relay stay in OpenBao, so this
+repo carries neither.
 
 ```sh
 printf 'akadmin email: '; read -r BOOTSTRAP_EMAIL
-printf 'Proton SMTP token: '; read -rs SMTP_TOKEN; printf '\n'
+printf 'SMTP host: '; read -r SMTP_HOST
+printf 'SMTP port [587]: '; read -r SMTP_PORT; SMTP_PORT=${SMTP_PORT:-587}
+printf 'SMTP username (sending address): '; read -r SMTP_USERNAME
+printf 'SMTP From address: '; read -r SMTP_FROM
+printf 'SMTP password: '; read -rs SMTP_PASSWORD; printf '\n'
 printf 'bbayrakt email: '; read -r BBAYRAKT_EMAIL
 printf 'dhaustein email: '; read -r DHAUSTEIN_EMAIL
 
@@ -54,7 +58,11 @@ kubectl exec -n openbao openbao-0 -- sh -c "
     bootstrap_password=$BOOTSTRAP_PASSWORD \
     bootstrap_token=$BOOTSTRAP_TOKEN \
     bootstrap_email=$BOOTSTRAP_EMAIL \
-    smtp_password=$SMTP_TOKEN \
+    smtp_password=$SMTP_PASSWORD \
+    smtp_host=$SMTP_HOST \
+    smtp_port=$SMTP_PORT \
+    smtp_username=$SMTP_USERNAME \
+    smtp_from=$SMTP_FROM \
     s3_access_key=$S3_ACCESS_KEY \
     s3_secret_key=$S3_SECRET_KEY \
     bbayrakt_email=$BBAYRAKT_EMAIL \
@@ -73,13 +81,14 @@ harmless. `external-secrets.yaml` then templates the values into `authentik-secr
 `AUTHENTIK_*` keys and the two `BLUEPRINT_EMAIL_*` ones) and `authentik-pg-backup-s3`; until both
 sync the pods sit in `CreateContainerConfigError`, and ESO keeps retrying.
 
-## Mail (Proton Mail SMTP submission)
+## Mail (password reset)
 
-`global.env` in `application.yaml` points authentik at `smtp.protonmail.ch:587` (STARTTLS) with
-`authentik@infrabytes.dev`; the password is the SMTP token in OpenBao. Generate a token in Proton
-Mail under Settings → All settings → IMAP/SMTP → SMTP tokens for that custom-domain address (the
-address must be active for the domain). Test it from the worker, which already carries the address
-as an env var:
+The relay is not named here, on purpose: host, port, username, From address and password all come
+from `secret/authentik`, templated into `AUTHENTIK_EMAIL__*`. Only `AUTHENTIK_EMAIL__USE_TLS` (STARTTLS)
+is in `application.yaml`, because the protocol carries no identity. Use a submission credential for
+the sending address, and make sure the relay will send as that address.
+
+Test it from the worker, which already carries the address as an env var:
 
 ```sh
 kubectl -n authentik exec deploy/authentik-worker -- sh -c 'ak test_email "$BLUEPRINT_EMAIL_BBAYRAKT"'

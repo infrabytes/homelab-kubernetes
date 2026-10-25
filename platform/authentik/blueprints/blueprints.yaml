@@ -71,7 +71,7 @@ data:
           user_fields:
             - email
             - username
-      # use_global_settings reads AUTHENTIK_EMAIL__* (Proton SMTP submission) from the pod env.
+      # use_global_settings reads AUTHENTIK_EMAIL__* (the relay values from OpenBao) from the pod env.
       - model: authentik_stages_email.emailstage
         id: recovery-email
         identifiers:

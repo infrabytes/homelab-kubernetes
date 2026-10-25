@@ -37,17 +37,9 @@ spec:
               value: authentik
             - name: AUTHENTIK_POSTGRESQL__USER
               value: authentik
-            # Proton Mail SMTP submission (STARTTLS); the password is the SMTP token from OpenBao.
-            - name: AUTHENTIK_EMAIL__HOST
-              value: smtp.protonmail.ch
-            - name: AUTHENTIK_EMAIL__PORT
-              value: "587"
-            - name: AUTHENTIK_EMAIL__USERNAME
-              value: authentik@infrabytes.dev
+            # The relay endpoint and sending address are not in this repo; only the STARTTLS flag is.
             - name: AUTHENTIK_EMAIL__USE_TLS
               value: "true"
-            - name: AUTHENTIK_EMAIL__FROM
-              value: authentik@infrabytes.dev
             - name: AUTHENTIK_ERROR_REPORTING__ENABLED
               value: "false"
         authentik:
