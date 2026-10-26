@@ -62,13 +62,28 @@ the Secret), then `kubectl -n observability rollout restart deploy/grafana-mcp`
 — a Secret change alone does not roll the pods. Update Pi's config in the same
 step when the caller token rotates.
 
+The chart must never mint this token itself: `serverAuth.tokenSecret` in
+`application.yaml` points it at this Secret. Left at its default
+(`serverAuth.token: ""`) chart 0.29 renders its own `grafana-mcp` Secret with a
+random `server-token` plus a second `MCP_GRAFANA_SERVER_TOKEN` env entry ahead of
+any `envValueFrom` one, and the first entry wins — every caller sending the token
+above then gets 401 while the chart's random value works (2026-10-25, chart
+0.29.0). The same applies to `alert-triage`: its sandboxes send this token.
+
 ## Pi wiring
 
-`~/.config/mcp/mcp.json`:
+Pi reads user-level servers from `~/.pi/agent/mcp.json` (project-level from
+`.pi/mcp.json`) — `~/.config/mcp/mcp.json` is not a Pi path. The route is
+LAN-only and the host resolver has no `*.icaninto.space`, so point the name at
+the gateway first:
+
+```sh
+echo '192.168.0.200 grafana-mcp.icaninto.space' | sudo tee -a /etc/hosts
+```
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "grafana": {
       "url": "https://grafana-mcp.icaninto.space/mcp",
       "headers": { "Authorization": "Bearer ${GRAFANA_MCP_SERVER_TOKEN}" }
@@ -77,8 +92,12 @@ step when the caller token rotates.
 }
 ```
 
-Export `GRAFANA_MCP_SERVER_TOKEN` from SOPS (or use the adapter's `!` command
-form) rather than pasting the token into the file.
+Pi expands `${GRAFANA_MCP_SERVER_TOKEN}` from its own environment, or runs the
+`!` command form without one, which keeps the token out of the file:
+
+```json
+"headers": { "Authorization": "!sops -d --extract '[\"grafana_mcp_server_token\"]' /path/to/repo/infra/secrets.sops.yaml | sed 's/^/Bearer /'" }
+```
 
 ## Future: network policy
 
