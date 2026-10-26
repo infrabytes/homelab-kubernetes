@@ -22,7 +22,7 @@ if [ ! -x "$VENV/bin/ansible-playbook" ]; then
   python3 -m venv "$VENV"
   "$VENV/bin/pip" install --quiet "ansible-core==${ANSIBLE_CORE_VERSION}" proxmoxer kubernetes
 fi
-"$VENV/bin/ansible-galaxy" collection install -r "$REPO/ansible/requirements.yml" 2>/dev/null || true
+"$VENV/bin/ansible-galaxy" collection install -r "$REPO/ansible/requirements.yml"
 
 KEYS=~/.config/sops/age/keys.txt
 if [ ! -f "$KEYS" ]; then
