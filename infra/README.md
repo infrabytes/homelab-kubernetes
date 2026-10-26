@@ -83,10 +83,11 @@ parts, both inherited from `root.hcl` hooks running `scripts/sync-artifacts.sh`:
   `credentials_dir` (`/var/tmp/homelab-artifacts`, defined once in `env.hcl`,
   mirrored in the script — the test asserts they match). That path is
   identical on every machine, so once state records it, every workspace plans
-  against the same filename. Files are `0666` in a `0777` dir so whichever
-  user (host user or `atlantis`) last wrote them stays replaceable by the
-  other. `artifacts/` holds symlinks the script manages, so
-  `kubectl`/`kubeconfig_path` paths are unchanged.
+  against the same filename. Files are `0600` in a `0700` directory, readable
+  only by the user that runs Terragrunt; Atlantis runs in a pod with its own
+  container-local copy, so the shared write bits served nobody. `artifacts/`
+  holds symlinks the script manages, so `kubectl`/`kubeconfig_path` paths are
+  unchanged.
 - **Bucket sync**: `before_hook` (plan + apply) runs `download` — GETs the
   three objects from the bucket's `artifacts/` prefix into the canonical home
   and (re)creates the symlinks; `after_hook` (apply) runs `upload` — PUTs them
