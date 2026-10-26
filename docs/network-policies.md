@@ -128,5 +128,3 @@ bootstraps fresh, after which the control plane runs until its next restart.
   chart's policy selects pods).
 - Tenant namespaces (`charts/tenant-access`, `pdeu`) and the unmanaged
   namespaces (`pi-sandbox`, `kagent`, `agent-sandbox-system`).
-- Coverage enforcement as Kyverno policies (a covered namespace that loses its
-  default-deny should fail admission) rather than a bespoke pre-commit hook.
