@@ -31,12 +31,11 @@ p95 after two weeks of 03:30 runs.
 
 ## Decisions
 
-- **grafana-pg filesets overlap CNPG barman — accepted.** Velero's kopia copy
-  of the Grafana Postgres PVC is crash-consistent (no fsfreeze, no
-  Postgres awareness), so it duplicates barman's stream rather than replacing
-  it: **barman stays the point-in-time-recovery authority**, the Velero
-  fileset is a coarser whole-volume fallback. Revisit only if CNPG ships a
-  Velero-aware plugin.
+- **grafana-pg rests on the Velero fileset alone.** Grafana's Postgres PVC is
+  copied crash-consistently (no fsfreeze, no Postgres awareness), and that
+  kopia fileset is now its only copy — there is no point-in-time recovery and
+  a restore returns the cluster to the last fileset. A second copy would need a
+  bucket-scoped S3 key, never the state-bucket admin pair.
 - **Volume skips are a Velero resource policy**, referenced from the
   schedule template (`configMaps.resource-policies` ->
   `spec.template.resourcePolicy`), so scheduled and `--from-schedule`
