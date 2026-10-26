@@ -23,9 +23,6 @@ spec:
           # One runner always alive keeps pod-local caches warm; jobs stay fully concurrent.
           minRunners: 1
           maxRunners: 4
-          # dind: argocd-diff-preview runs its own kind cluster here and Talos has no host docker socket (privileged sidecar, PSA-exempt namespace).
-          containerMode:
-            type: dind
           template:
             spec:
               serviceAccountName: arc-runner
@@ -69,13 +66,13 @@ spec:
                       value: /opt/tool-cache/local/pre-commit
                     - name: PATH
                       value: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-                  # Pre-dind 7d p95 was 896Mi/1536Mi; the in-pod kind cluster + Argo CD escalated it 2026-10-27 — re-measure 2026-11-10.
+                  # 7d p95 over 331 runner pods (p95 860Mi); limit = 1.25x the 1.1Gi peak.
                   resources:
                     requests:
                       cpu: 1090m
-                      memory: 2Gi
+                      memory: 896Mi
                     limits:
-                      memory: 4Gi
+                      memory: 1536Mi
     - repoURL: https://github.com/infrabytes/homelab-kubernetes
       targetRevision: main
       path: platform/arc

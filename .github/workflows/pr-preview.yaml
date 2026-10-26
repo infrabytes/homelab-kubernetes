@@ -12,9 +12,12 @@ concurrency:
 
 jobs:
   preview:
-    # Fork PRs are arbitrary code, executed on the runner and then rendered by the tool.
+    # GitHub-hosted, not the self-hosted scale set: the diff builds its own cluster,
+    # needs no cluster access or host credentials, and this VM's native dockerd and
+    # fast network are what make the ~2.5 GB of image pulls bearable.
+    # Forks stay out: their token cannot write the PR comment.
     if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: homelab-runner
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
@@ -85,7 +88,7 @@ jobs:
           sudo mv /tmp/kind-linux-amd64 /usr/local/bin/kind
           kind version
 
-      # Builds its own kind cluster in the pod's dind daemon and installs Argo CD into it; repo and charts are public, so the run needs no credentials.
+      # Builds its own kind cluster on this VM's dockerd and installs Argo CD into it; repo and charts are public, so the run needs no credentials.
       - name: Generate diff
         if: steps.changed.outputs.any_changed == 'true'
         run: |
@@ -96,7 +99,6 @@ jobs:
               --base-branch main \
               --target-branch refs/pull/${{ github.event.number }}/merge \
               --argocd-chart-version "${ARGOCD_CHART_VERSION}" \
-              --kind-options "--config target-branch/.github/kind-config.yaml" \
               --timeout 600; do
             attempt=$((attempt + 1))
             if [ "$attempt" -ge 3 ]; then
