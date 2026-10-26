@@ -1,0 +1,76 @@
+# Kyverno enforces the resource declarations a chart-render script used to check at PR time
+# (see require-resources.yaml); the operator UIs and the policy reports are a bonus.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kyverno
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://kyverno.github.io/kyverno/
+      chart: kyverno
+      targetRevision: 3.9.2
+      helm:
+        releaseName: kyverno
+        values: |
+          # New component (2026-10-26): initial estimate from the chart defaults, re-measure
+          # after two weeks. One replica per controller: a homelab admission path needs no HA,
+          # and every container declares requests so the policy cannot block its own rollout.
+          admissionController:
+            replicas: 1
+            container:
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 192Mi
+                limits:
+                  memory: 384Mi
+            initContainer:
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+          backgroundController:
+            replicas: 1
+            resources:
+              requests:
+                cpu: 20m
+                memory: 96Mi
+              limits:
+                memory: 192Mi
+          cleanupController:
+            replicas: 1
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 128Mi
+          reportsController:
+            replicas: 1
+            resources:
+              requests:
+                cpu: 20m
+                memory: 96Mi
+              limits:
+                memory: 192Mi
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/kyverno
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
+  destination:
+    namespace: kyverno
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The chart's 22 CRDs exceed the 256KB last-applied-configuration cap.
+      - ServerSideApply=true

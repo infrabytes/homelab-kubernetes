@@ -15,6 +15,31 @@ locals {
 
   secrets = yamldecode(sops_decrypt_file(abspath("${local.infra_dir}/secrets.sops.yaml")))
 
+  # Single node list: Ansible reads ansible/inventory.json as its inventory (-i) and
+  # `nodes` below is derived from the same host vars, so the two can no longer drift.
+  inventory = jsondecode(file(abspath("${local.infra_dir}/../ansible/inventory.json")))
+
+  nodes = {
+    for _host, hv in local.inventory.all.children.pve.hosts : hv.ipv4_address => {
+      role               = hv.talos_role
+      hostname           = hv.talos_node
+      proxmox_node       = hv.pve_node
+      vm_id              = hv.pve_vmid
+      ipv4_address       = hv.ipv4_address
+      ipv4_prefix        = hv.ipv4_prefix
+      ipv4_gateway       = hv.ipv4_gateway
+      dns_servers        = hv.dns_servers
+      mac_address        = hv.mac_address
+      cores              = hv.cores
+      memory             = hv.memory
+      disk_size          = hv.disk_size
+      longhorn_disk_size = try(hv.longhorn_disk_size, 0)
+      swap_disk_size     = hv.swap_disk_size
+      node_labels        = try(hv.node_labels, {})
+      drain_on_upgrade   = try(hv.drain_on_upgrade, true)
+    }
+  }
+
   cluster = {
     # Inline manifests stay in the checkout's artifacts/ (local-only, accepted
     # plan noise); credential files live in the machine-invariant
@@ -56,77 +81,7 @@ locals {
     proxmox_network_bridge = "vmbr0"
     secure_boot            = false
 
-    nodes = {
-      "192.168.0.67" = {
-        role           = "controlplane"
-        hostname       = "talos-cp-1"
-        proxmox_node   = "proxmox01"
-        vm_id          = 210
-        ipv4_address   = "192.168.0.67"
-        ipv4_prefix    = 24
-        ipv4_gateway   = "192.168.0.1"
-        dns_servers    = ["192.168.0.1"]
-        mac_address    = "BC:24:11:00:00:D2"
-        cores          = 4
-        memory         = 14336
-        disk_size      = 80
-        swap_disk_size = 4
-        # Single controlplane: no drain before OS upgrades (nothing to evict,
-        # and a drain can block the upgrade when the cluster is degraded).
-        drain_on_upgrade = false
-      }
-      "192.168.0.68" = {
-        role               = "worker"
-        hostname           = "talos-worker-1"
-        proxmox_node       = "proxmox02"
-        vm_id              = 211
-        ipv4_address       = "192.168.0.68"
-        ipv4_prefix        = 24
-        ipv4_gateway       = "192.168.0.1"
-        dns_servers        = ["192.168.0.1"]
-        mac_address        = "BC:24:11:00:00:D3"
-        cores              = 4
-        memory             = 14336
-        disk_size          = 80
-        longhorn_disk_size = 73
-        swap_disk_size     = 4
-        node_labels        = { "node.longhorn.io/create-default-disk" = "true" }
-      }
-      "192.168.0.69" = {
-        role               = "worker"
-        hostname           = "talos-worker-2"
-        proxmox_node       = "proxmox03"
-        vm_id              = 212
-        ipv4_address       = "192.168.0.69"
-        ipv4_prefix        = 24
-        ipv4_gateway       = "192.168.0.1"
-        dns_servers        = ["192.168.0.1"]
-        mac_address        = "BC:24:11:00:00:D4"
-        cores              = 4
-        memory             = 14336
-        disk_size          = 80
-        longhorn_disk_size = 73
-        swap_disk_size     = 4
-        node_labels        = { "node.longhorn.io/create-default-disk" = "true" }
-      }
-      "192.168.0.70" = {
-        role               = "worker"
-        hostname           = "talos-worker-3"
-        proxmox_node       = "proxmox04"
-        vm_id              = 213
-        ipv4_address       = "192.168.0.70"
-        ipv4_prefix        = 24
-        ipv4_gateway       = "192.168.0.1"
-        dns_servers        = ["192.168.0.1"]
-        mac_address        = "BC:24:11:00:00:D5"
-        cores              = 4
-        memory             = 14336
-        disk_size          = 80
-        longhorn_disk_size = 73
-        swap_disk_size     = 4
-        node_labels        = { "node.longhorn.io/create-default-disk" = "true" }
-      }
-    }
+    nodes = local.nodes
   }
 
   addons = {

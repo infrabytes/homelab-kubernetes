@@ -1,55 +1,24 @@
-name: renovate-gate
+name: breaking-change-analysis
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-  pull_request_review:
-    types: [submitted, dismissed]
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: "PR number to evaluate"
-        required: true
-        type: string
+    types: [labeled]
 
 concurrency:
-  group: renovate-gate-${{ github.event.pull_request.number || github.event.pull_request_review.pull_request.number || github.event.inputs.pr_number }}
+  # One analysis per PR: a re-label supersedes the run for the same head SHA.
+  group: breaking-change-analysis-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  breaking-change-gate:
-    runs-on: ubuntu-latest
-    permissions:
-      statuses: write
-      pull-requests: read
-    outputs:
-      state: ${{ steps.gate.outputs.state }}
-      pr_number: ${{ steps.gate.outputs.pr_number }}
-      head_sha: ${{ steps.gate.outputs.head_sha }}
-      head_repo: ${{ steps.gate.outputs.head_repo }}
-      reason: ${{ steps.gate.outputs.reason }}
-      unverified: ${{ steps.gate.outputs.unverified }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          sparse-checkout: .github/scripts/renovate-gate.py
-          sparse-checkout-cone-mode: false
-          persist-credentials: false
-
-      - name: Evaluate breaking-change gate
-        id: gate
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 .github/scripts/renovate-gate.py
-
   breaking-change-analysis:
-    needs: breaking-change-gate
-    # continue-on-error keeps a failed analysis from flipping the workflow_run conclusion the merge path reads.
-    # A review event keeps the same head SHA, so re-analysing it would only repeat the last comment.
+    # Renovate's hold label is the trigger: every minor and major bump carries it
+    # (renovate.json), so the analysis runs on exactly the PRs a human must merge.
     if: >-
-      needs.breaking-change-gate.outputs.state == 'failure' &&
-      needs.breaking-change-gate.outputs.head_repo == github.repository &&
-      github.event_name != 'pull_request_review'
+      github.event.label.name == 'needs-review' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'renovate/')
+    # continue-on-error keeps a failed analysis from flipping the workflow_run
+    # conclusion the merge paths read.
     runs-on: homelab-runner
     continue-on-error: true
     timeout-minutes: 12
@@ -58,9 +27,9 @@ jobs:
       pull-requests: write
     env:
       KUBECONFIG: ${{ github.workspace }}/.github/host-kubeconfig.yaml
-      PR_NUMBER: ${{ needs.breaking-change-gate.outputs.pr_number }}
-      # The claim name becomes the pod name; the SHA keeps a rebase from colliding with a live run.
-      CLAIM: breaking-${{ needs.breaking-change-gate.outputs.pr_number }}-${{ needs.breaking-change-gate.outputs.head_sha }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      # The claim name becomes the pod name; the SHA keeps a new push from colliding with a live run.
+      CLAIM: breaking-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
     steps:
       # The runner pod has no ambient kubeconfig: the committed one is built from its own SA mount.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -75,9 +44,6 @@ jobs:
           version: 1.37.1 # keep in sync with kubernetes_version in infra/env.hcl
 
       - name: Create the sandbox claim
-        env:
-          GATE_REASON: ${{ needs.breaking-change-gate.outputs.reason }}
-          UNVERIFIED: ${{ needs.breaking-change-gate.outputs.unverified }}
         run: |
           set -eu
           python3 - <<'PY' > /tmp/claim.json
@@ -95,8 +61,7 @@ jobs:
                   "env": [
                       {"name": "GITHUB_REPO", "value": os.environ["GITHUB_REPOSITORY"]},
                       {"name": "PR_NUMBER", "value": os.environ["PR_NUMBER"]},
-                      {"name": "GATE_REASON", "value": os.environ.get("GATE_REASON", "")},
-                      {"name": "UNVERIFIED_DEPS", "value": os.environ.get("UNVERIFIED", "")},
+                      {"name": "REVIEW_REASON", "value": "held for review (needs-review label)"},
                   ],
               },
           }))
@@ -121,7 +86,6 @@ jobs:
         if: success() || failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GATE_REASON: ${{ needs.breaking-change-gate.outputs.reason }}
         run: |
           set -eu
           kubectl -n alert-triage logs "$CLAIM" > /tmp/sandbox.log 2>&1 || true
@@ -136,15 +100,15 @@ jobs:
           )
           if found:
               text = (
-                  f"**Breaking-change analysis** (gate: {os.environ['GATE_REASON']})\n\n"
+                  "**Breaking-change analysis** (held for review)\n\n"
                   f"{found.group(1).strip()}\n\n"
                   "_A read-only analysis of the upstream release notes against this repository. "
-                  "The gate still needs an approving review._"
+                  "The PR still needs a merge click._"
               )
           else:
               run = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
               text = (
-                  f"**Breaking-change analysis failed** (gate: {os.environ['GATE_REASON']}) — "
+                  f"**Breaking-change analysis failed** (held for review) — "
                   f"the agent produced no verdict. Logs: {run}"
               )
           req = urllib.request.Request(

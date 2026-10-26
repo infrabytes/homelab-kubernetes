@@ -2,15 +2,17 @@
 """renovate-atlantis-apply.py: request Atlantis apply on green Renovate infra PRs.
 
 Driven by .github/workflows/renovate-atlantis-apply.yaml, which fires when the
-`pre-commit` or `renovate-gate` workflow completes or when any commit status
-changes. The status trigger is what lets an apply request land when Atlantis
-plans slower than those two workflows: the aggregate `atlantis/plan` update is
-commonly the last gate to turn green. Resolves the pull request behind the
-triggering SHA and comments `atlantis apply` once every gate on that SHA is
+`pre-commit` or `breaking-change-analysis` workflow completes or when any commit
+status changes. The status trigger is what lets an apply request land when
+Atlantis plans slower than those two workflows: the aggregate `atlantis/plan`
+update is commonly the last gate to turn green. Resolves the pull request behind
+the triggering SHA and comments `atlantis apply` once every gate on that SHA is
 green, so Atlantis applies the units and merges without a human in the loop.
-Green must also exist: a gate context that was never posted (renovate-gate
-exits 0 when its status POST is rejected) blocks the apply instead of
-letting a held major through.
+
+A PR carrying the `needs-review` label is never auto-applied: Renovate adds it to
+every minor and major bump (see renovate.json), which is exactly the set a human
+must look at before Atlantis' automerge runs. Those PRs need one manual
+`atlantis apply` comment, which then applies and merges.
 
 The comment body is deliberately the bare single line `atlantis apply`:
 Atlantis ignores a comment whose body has a second non-empty line
@@ -37,7 +39,7 @@ import urllib.error
 import urllib.request
 
 API_ROOT = "https://api.github.com"
-TRIGGER_WORKFLOWS = frozenset({"pre-commit", "renovate-gate"})
+TRIGGER_WORKFLOWS = frozenset({"pre-commit", "breaking-change-analysis"})
 RENOVATE_LOGIN = "infrabytes-renovate[bot]"
 # PRs opened by the Mend-hosted app stay eligible until they close.
 LEGACY_RENOVATE_LOGIN = "renovate[bot]"
@@ -46,7 +48,8 @@ INFRA_PREFIX = "infra/"
 APPLY_COMMENT = "atlantis apply"
 PLAN_CONTEXT = "atlantis/plan"
 APPLY_CONTEXT = "atlantis/apply"
-GATE_CONTEXT = "breaking-change-gate"
+# Renovate's hold label for the updates a human has to merge (renovate.json).
+REVIEW_LABEL = "needs-review"
 GREEN_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
 
 
@@ -115,6 +118,9 @@ def evaluate(
     if not any(name.startswith(INFRA_PREFIX) for name in files):
         return False, f"no {INFRA_PREFIX}** files"
 
+    if REVIEW_LABEL in {label.get("name") for label in pr.get("labels") or []}:
+        return False, f"held for review ({REVIEW_LABEL})"
+
     for check_run in check_runs:
         if own_check_run(check_run, run_id):
             continue
@@ -136,13 +142,6 @@ def evaluate(
         return False, f"no {PLAN_CONTEXT} status on {run_sha}"
     if plan.get("state") != "success":
         return False, f"{PLAN_CONTEXT} is {plan.get('state')}"
-
-    # renovate-gate exits 0 without posting when its status POST is rejected, so a missing gate means "never decided", not "passed".
-    gate = newest_status(statuses, GATE_CONTEXT)
-    if gate is None:
-        return False, f"no {GATE_CONTEXT} status on {run_sha}"
-    if gate.get("state") != "success":
-        return False, f"{GATE_CONTEXT} is {gate.get('state')}"
 
     if apply_comments:
         if retry:
@@ -267,7 +266,7 @@ FIXTURE_HEAD_DATE = "2026-09-16T10:00:00Z"
 
 def fixture(**overrides) -> dict:
     base = {
-        "pr": {"state": "open", "user": {"login": RENOVATE_LOGIN}, "head": {"sha": FIXTURE_SHA}},
+        "pr": {"state": "open", "user": {"login": RENOVATE_LOGIN}, "head": {"sha": FIXTURE_SHA}, "labels": []},
         "files": ["infra/env.hcl", "platform/observability/grafana.yaml"],
         "check_runs": [
             {
@@ -277,7 +276,7 @@ def fixture(**overrides) -> dict:
                 "details_url": "https://github.com/o/r/actions/runs/1/job/11",
             },
             {
-                "name": "breaking-change-gate",
+                "name": "preview",
                 "status": "completed",
                 "conclusion": "success",
                 "details_url": "https://github.com/o/r/actions/runs/2/job/22",
@@ -286,7 +285,6 @@ def fixture(**overrides) -> dict:
         "combined_state": "success",
         "statuses": [
             {"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"},
-            {"context": GATE_CONTEXT, "state": "success", "created_at": "2026-09-16T10:31:00Z"},
         ],
         "comments": [],
         "head_committer_date": FIXTURE_HEAD_DATE,
@@ -298,10 +296,9 @@ def fixture(**overrides) -> dict:
 
 
 def green_statuses(apply_state: str) -> list[dict]:
-    """Plan and gate green plus one Atlantis apply state, as Atlantis posts them."""
+    """Plan green plus one Atlantis apply state, as Atlantis posts them."""
     return [
         {"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"},
-        {"context": GATE_CONTEXT, "state": "success", "created_at": "2026-09-16T10:31:00Z"},
         {"context": APPLY_CONTEXT, "state": apply_state, "created_at": "2026-09-16T11:05:00Z"},
     ]
 
@@ -327,13 +324,26 @@ SELF_TEST_CASES = [
         "failed check run",
         fixture(
             check_runs=[
-                {"name": "breaking-change-gate", "status": "completed", "conclusion": "failure", "details_url": "https://github.com/o/r/actions/runs/2/job/22"}
+                {"name": "preview", "status": "completed", "conclusion": "failure", "details_url": "https://github.com/o/r/actions/runs/2/job/22"}
             ]
         ),
         False,
-        "breaking-change-gate is failure",
+        "preview is failure",
     ),
-    ("red breaking-change-gate status", fixture(combined_state="failure"), False, "combined commit status is failure"),
+    (
+        "held for review never auto-applies",
+        fixture(
+            pr={
+                "state": "open",
+                "user": {"login": RENOVATE_LOGIN},
+                "head": {"sha": FIXTURE_SHA},
+                "labels": [{"name": "dependencies"}, {"name": REVIEW_LABEL}],
+            }
+        ),
+        False,
+        f"held for review ({REVIEW_LABEL})",
+    ),
+    ("red commit status", fixture(combined_state="failure"), False, "combined commit status is failure"),
     (
         "pending status blocks",
         fixture(statuses=[{"context": "atlantis/apply", "state": "pending", "created_at": "2026-09-16T10:30:00Z"}, {"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"}], combined_state="pending"),
@@ -345,7 +355,7 @@ SELF_TEST_CASES = [
         fixture(
             check_runs=[
                 {"name": "pre-commit", "status": "completed", "conclusion": "success", "details_url": "https://github.com/o/r/actions/runs/1/job/11"},
-                {"name": "breaking-change-gate", "status": "completed", "conclusion": "success", "details_url": "https://github.com/o/r/actions/runs/2/job/22"},
+                {"name": "preview", "status": "completed", "conclusion": "success", "details_url": "https://github.com/o/r/actions/runs/2/job/22"},
                 {"name": "request-apply", "status": "in_progress", "conclusion": None, "details_url": f"https://github.com/o/r/actions/runs/{FIXTURE_RUN_ID}/job/33"},
             ]
         ),
@@ -365,37 +375,6 @@ SELF_TEST_CASES = [
         ),
         False,
         "atlantis/plan is pending",
-    ),
-    (
-        "missing breaking-change-gate status",
-        fixture(
-            statuses=[{"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"}]
-        ),
-        False,
-        "no breaking-change-gate status",
-    ),
-    (
-        "failed breaking-change-gate status",
-        fixture(
-            statuses=[
-                {"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"},
-                {"context": GATE_CONTEXT, "state": "failure", "created_at": "2026-09-16T10:31:00Z"},
-            ]
-        ),
-        False,
-        "breaking-change-gate is failure",
-    ),
-    (
-        "newest breaking-change-gate wins",
-        fixture(
-            statuses=[
-                {"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"},
-                {"context": GATE_CONTEXT, "state": "pending", "created_at": "2026-09-16T10:32:00Z"},
-                {"context": GATE_CONTEXT, "state": "success", "created_at": "2026-09-16T10:31:00Z"},
-            ]
-        ),
-        False,
-        "breaking-change-gate is pending",
     ),
     (
         "prior apply comment belongs to an older sha",
@@ -497,7 +476,7 @@ def status_event() -> dict:
 
 TRIGGER_SHA_CASES = [
     ("trigger: completed run of ours", "workflow_run", workflow_run_event(), FIXTURE_SHA),
-    ("trigger: completed run of another workflow", "workflow_run", {"action": "completed", "workflow_run": {"name": "pr-preview"}}, None),
+    ("trigger: completed run of another workflow", "workflow_run", {"action": "completed", "workflow_run": {"name": "preview"}}, None),
     ("trigger: run is not completed", "workflow_run", {"action": "requested", "workflow_run": {"name": "pre-commit"}}, None),
     ("trigger: status event", "status", status_event(), FIXTURE_SHA),
     ("trigger: status event without sha", "status", {"context": PLAN_CONTEXT, "state": "success"}, None),
@@ -554,7 +533,7 @@ MAIN_CASES = [
 
 def stub_responses(sha: str, *, combined_state: str, extra_check_runs: list | None = None) -> dict:
     return {
-        "/repos/o/r/pulls/7": {"state": "open", "user": {"login": RENOVATE_LOGIN}, "head": {"sha": sha}},
+        "/repos/o/r/pulls/7": {"state": "open", "user": {"login": RENOVATE_LOGIN}, "head": {"sha": sha}, "labels": []},
         "/repos/o/r/pulls/7/files": [{"filename": "infra/env.hcl"}],
         f"/repos/o/r/commits/{sha}/pulls": [{"number": 7, "state": "open"}],
         f"/repos/o/r/commits/{sha}/check-runs": {
@@ -566,7 +545,6 @@ def stub_responses(sha: str, *, combined_state: str, extra_check_runs: list | No
         f"/repos/o/r/commits/{sha}/status": {"state": combined_state},
         f"/repos/o/r/commits/{sha}/statuses": [
             {"context": PLAN_CONTEXT, "state": "success", "created_at": "2026-09-16T10:30:00Z"},
-            {"context": GATE_CONTEXT, "state": "success", "created_at": "2026-09-16T10:31:00Z"},
         ],
         "/repos/o/r/issues/7/comments": [],
         f"/repos/o/r/commits/{sha}": {"commit": {"committer": {"date": FIXTURE_HEAD_DATE}}},
