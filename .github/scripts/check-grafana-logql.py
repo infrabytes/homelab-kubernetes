@@ -142,15 +142,30 @@ def substitute(expr, interval):
 
 
 def panel_queries(dashboard, allowlist):
-    uid = dashboard.get("uid")
-    for panel in dashboard.get("panels", []):
-        targets = panel.get("targets") or []
+    yield from nested_panel_queries(dashboard.get("panels") or [], dashboard.get("uid"), allowlist)
+
+
+def nested_panel_queries(panels, uid, allowlist):
+    """A row panel carries its own panels, so descend to reach those targets too."""
+    for panel in panels:
+        yield from nested_panel_queries(panel.get("panels") or [], uid, allowlist)
         interval = allowlist.get((uid, panel.get("title")), INTERVAL)
-        for target in targets:
+        for target in panel.get("targets") or []:
             expr = target.get("expr")
             if not expr or not (is_loki(target.get("datasource")) or is_loki(panel.get("datasource"))):
                 continue
             yield panel.get("title") or target.get("refId") or "unnamed panel", panel.get("type"), substitute(expr, interval)
+
+
+def _panel_queries_selfcheck():
+    panel = {"type": "logs", "title": "in a row", "targets": [{"expr": '{pod="$pod"}', "datasource": {"type": "loki"}}]}
+    row = {"type": "row", "title": "a row", "collapsed": True, "panels": [panel]}
+    assert [q[2] for q in panel_queries({"uid": "selfcheck", "panels": [row]}, {})] == ['{pod=".*"}'], "row panel"
+    del row["panels"]
+    assert list(panel_queries({"uid": "selfcheck", "panels": [row]}, {})) == [], "row without panels"
+
+
+_panel_queries_selfcheck()
 
 
 def variable_queries(dashboard):
