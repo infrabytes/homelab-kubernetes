@@ -134,13 +134,23 @@ re-runs are no-ops.
 venv with `ansible-core` + `proxmoxer` + `kubernetes` + the collections, the
 age key, known_hosts entries, and the system units:
 
-- `proxmox-node-updates.service`: `ExecStartPre` pulls the repo, then
+- `proxmox-node-updates.service`: `ExecStartPre` pulls the repo and re-runs
+  `windrunner-setup.sh` (tolerated failure, so a flaky pip/curl step cannot
+  block a roll whose venv still works), then
   `run-maintenance.sh` takes the `flock -n` lock on
   `/run/proxmox-node-updates/lock` (so a manual run colliding with the
   Sunday roll exits immediately instead of rolling two hosts at once) and
   wraps `sops exec-env ... ansible-playbook`.
 - `proxmox-node-updates.timer`: `OnCalendar=Sun *-*-* 04:00:00`
   (Europe/Vienna), `Persistent=true` (catch-up at the next boot).
+
+The venv is tied to the system python, so setup rebuilds it whenever the
+`ansible-core` version inside it differs from `ANSIBLE_CORE_VERSION`. That
+covers both an `ansible-core` bump and an OS upgrade that swaps the
+interpreter: the old packages stay in `lib/pythonX.Y/site-packages` while every
+`bin/` entrypoint still exists, so an existence check passes on a venv that
+imports nothing (a 12 → 13 upgrade on 2026-10-24 did exactly that and cost the
+2026-10-25 run).
 
 Never `systemctl start proxmox-node-updates` as a test — that performs a
 real roll. Use the dry run above instead.

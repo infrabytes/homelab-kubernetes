@@ -18,8 +18,9 @@ if [ ! -x "$BIN/sops" ] || [ "$("$BIN/sops" --version 2>/dev/null | head -1 | aw
   mv "$BIN/.sops.new" "$BIN/sops"
 fi
 
-if [ ! -x "$VENV/bin/ansible-playbook" ]; then
-  python3 -m venv "$VENV"
+# An OS python bump leaves bin/ intact but importing nothing: probe the package, not the file.
+if [ "$("$VENV/bin/python" -c 'import importlib.metadata as m; print(m.version("ansible-core"))' 2>/dev/null)" != "$ANSIBLE_CORE_VERSION" ]; then
+  python3 -m venv --clear "$VENV"
   "$VENV/bin/pip" install --quiet "ansible-core==${ANSIBLE_CORE_VERSION}" proxmoxer kubernetes
 fi
 "$VENV/bin/ansible-galaxy" collection install -r "$REPO/ansible/requirements.yml"
