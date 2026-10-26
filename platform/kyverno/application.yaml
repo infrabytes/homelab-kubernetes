@@ -48,5 +48,32 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      # The chart's 22 CRDs exceed the 256KB last-applied-configuration cap.
+      # 22 CRDs exceed the 256KB last-applied cap; SSA over the note's Replace, which would wipe the cert-controller's webhook caBundle.
       - ServerSideApply=true
+  ignoreDifferences:
+    # The aggregation controller owns `rules` on the four controller roles.
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: kyverno:admission-controller
+      jsonPointers:
+        - /rules
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: kyverno:background-controller
+      jsonPointers:
+        - /rules
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: kyverno:cleanup-controller
+      jsonPointers:
+        - /rules
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: kyverno:reports-controller
+      jsonPointers:
+        - /rules
+    # kyverno-api renders `labels: {}` on its policy CRDs, which the API server drops: permanent OutOfSync otherwise.
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      jsonPointers:
+        - /metadata/labels
