@@ -239,9 +239,12 @@ Infra PRs get their apply comment on their own:
 `preview` or `breaking-change-analysis` workflow completes and whenever a commit
 status changes on the repository — the status trigger is what picks a PR up when
 Atlantis posts its `atlantis/plan` status, which is usually the last gate to turn
-green. The script comments `atlantis apply` on the head SHA — at most once per SHA —
-and only when every commit status and check run on that SHA is green and Atlantis
-has posted a successful `atlantis/plan` status for that same SHA. A PR carrying
+green. The script comments `atlantis apply` on the head SHA once, and only when
+every commit status and check run on that SHA is green and Atlantis has posted a
+successful `atlantis/plan` status for that same SHA. A failed `atlantis/apply`
+earns one retry, allowed past the red combined status while that failure is the
+only non-green context and the bot has commented once already — two comments per
+SHA is the ceiling, so a permanently failing apply cannot loop. A PR carrying
 `needs-review` is never auto-applied: Renovate holds exactly the bumps a human has
 to decide on, and one `atlantis apply` comment from that human applies and merges.
 The comment is authored by
