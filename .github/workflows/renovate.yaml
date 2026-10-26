@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   # The run that updates a branch leaves it waiting on CI; nothing else would merge it until the next scheduled tick.
   workflow_run:
-    workflows: [pre-commit, renovate-gate]
+    workflows: [pre-commit, preview]
     types: [completed]
   issues:
     types: [edited]
@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 env:
-  RENOVATE_VERSION: 44.181.6
+  RENOVATE_VERSION: 44.182.2
 
 jobs:
   renovate:
@@ -46,7 +46,7 @@ jobs:
       - name: Run Renovate
         uses: renovatebot/github-action@a63d9a7bc606f7336fd20b47f2f32259a35e6213 # v46.3.9
         with:
-          # App installation token: a GITHUB_TOKEN PR would not trigger pre-commit/renovate-gate, stalling automerge.
+          # App installation token: a GITHUB_TOKEN PR would not trigger pre-commit/preview, stalling automerge.
           token: ${{ steps.app-token.outputs.token }}
           renovate-version: ${{ env.RENOVATE_VERSION }}
         env:

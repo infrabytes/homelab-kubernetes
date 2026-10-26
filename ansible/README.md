@@ -70,7 +70,7 @@ Secrets come from the environment, never disk — wrap every run:
 ```sh
 cd ansible
 sops exec-env ../infra/secrets.sops.yaml \
-  'ansible-playbook -i inventory.yml proxmox-node-updates.yml --check --diff'
+  'ansible-playbook -i inventory.json proxmox-node-updates.yml --check --diff'
 ```
 
 - **Dry run** (`--check --diff`): nothing is installed, cordoned, stopped or
@@ -80,7 +80,7 @@ sops exec-env ../infra/secrets.sops.yaml \
 
   ```sh
   sops exec-env ../infra/secrets.sops.yaml \
-    'ansible-playbook -i inventory.yml proxmox-node-updates.yml --limit proxmox02'
+    'ansible-playbook -i inventory.json proxmox-node-updates.yml --limit proxmox02'
   ```
 
   The preflight still gates on the whole cluster (all nodes Ready, all in-use
@@ -161,9 +161,9 @@ see the root README's
 ```sh
 ansible-galaxy collection install -r requirements.yml      # pinned collections
 sops exec-env ../infra/secrets.sops.yaml \
-  'ansible-playbook -i inventory.yml windrunner-k3s.yml --check --diff'
+  'ansible-playbook -i inventory.json windrunner-k3s.yml --check --diff'
 sops exec-env ../infra/secrets.sops.yaml \
-  'ansible-playbook -i inventory.yml windrunner-k3s.yml'
+  'ansible-playbook -i inventory.json windrunner-k3s.yml'
 kubectl --kubeconfig ../infra/cluster/artifacts/kubeconfig \
   apply -f ~/appdata/atlantis/cluster-windrunner.yaml
 ```
