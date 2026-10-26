@@ -99,7 +99,9 @@ unit before ArgoCD exists, so an ArgoCD-owned namespace would fail the apply.
   SOPS) that the Headlamp chart reads via `config.oidc.externalSecret`. See
   [`platform/headlamp`](../../platform/headlamp/README.md).
 - `k8s-monitoring`, `arc-systems`, `arc-runners`, `observability` (+ its
-  Grafana Secrets).
+  Grafana Secrets). `arc-runners` additionally carries
+  `pod-security.kubernetes.io/enforce: privileged`: the runner pods run ARC's
+  `containerMode: dind` sidecar for the PR preview's kind cluster.
 
 ### **cert-manager + external-dns secrets**
 
