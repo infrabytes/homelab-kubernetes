@@ -233,11 +233,14 @@ store `openbao-pdeu`, role `sso-pdeu`. Open items on the tenant side:
 
 ### Retired shared store (one-time cleanup)
 
-Deleting `platform/external-secrets/` also prunes the cluster-wide
-`ClusterSecretStore openbao`: the `platform` ApplicationSet generates its
-Applications with Argo CD's `resources-finalizer.argocd.argoproj.io` finalizer
-(nothing sets `preserveResourcesOnDeletion`), so dropping the directory from
-git cascades to the Application's resources. Verify:
+Deleting `platform/external-secrets/` pruned the cluster-wide
+`ClusterSecretStore openbao`. At the time the `platform` ApplicationSet generated
+one Application per folder with Argo CD's
+`resources-finalizer.argocd.argoproj.io` finalizer (nothing sets
+`preserveResourcesOnDeletion`), so dropping the directory cascaded. The committed
+app-of-apps Applications that replaced it set no finalizer, so a folder removal
+there prunes only the Application and leaves the release's objects running.
+Verify:
 
 ```sh
 kubectl get clustersecretstore   # openbao must not be listed
