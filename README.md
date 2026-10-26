@@ -300,14 +300,9 @@ releases, not the merge path.
 
 `prHourlyLimit: 0` in `renovate.json` compensates for the daily schedule: the
 default of 2 would cap creation at ~2 PRs per day, while `prConcurrentLimit`
-(10) still bounds open PRs. The `renovate` group rule turns
-`minimumReleaseAge` off: only the pre-commit hook reports a release timestamp,
-so the 3-day gate would hold the validator back while the image (no timestamp)
-ran ahead, leaving the engine and its validator on different versions.
-
-`prHourlyLimit: 0` in `renovate.json` compensates for the daily schedule: the
-default of 2 would cap creation at ~2 PRs per day, while `prConcurrentLimit`
-(10) still bounds open PRs. The `renovate` group rule turns
+(20) bounds open PRs. The default of 10 is too low now that every minor and
+major PR waits for a human: ten parked bumps would stop Renovate from creating
+the patch PRs that merge themselves. The `renovate` group rule turns
 `minimumReleaseAge` off: only the pre-commit hook reports a release timestamp,
 so the 3-day gate would hold the validator back while the image (no timestamp)
 ran ahead, leaving the engine and its validator on different versions.

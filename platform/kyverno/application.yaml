@@ -15,8 +15,8 @@ spec:
         releaseName: kyverno
         values: |
           # New component (2026-10-26): initial estimate from the chart defaults, re-measure
-          # after two weeks. One replica per controller: a homelab admission path needs no HA,
-          # and every container declares requests so the policy cannot block its own rollout.
+          # after two weeks. Only the admission controller is pinned; background, cleanup and
+          # reports keep the chart's 100m/64Mi requests and 128Mi limit, which already comply.
           admissionController:
             replicas: 1
             container:
@@ -33,30 +33,6 @@ spec:
                   memory: 64Mi
                 limits:
                   memory: 128Mi
-          backgroundController:
-            replicas: 1
-            resources:
-              requests:
-                cpu: 20m
-                memory: 96Mi
-              limits:
-                memory: 192Mi
-          cleanupController:
-            replicas: 1
-            resources:
-              requests:
-                cpu: 10m
-                memory: 64Mi
-              limits:
-                memory: 128Mi
-          reportsController:
-            replicas: 1
-            resources:
-              requests:
-                cpu: 20m
-                memory: 96Mi
-              limits:
-                memory: 192Mi
     - repoURL: https://github.com/infrabytes/homelab-kubernetes
       targetRevision: main
       path: platform/kyverno
