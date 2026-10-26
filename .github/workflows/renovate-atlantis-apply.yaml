@@ -2,7 +2,7 @@ name: renovate-atlantis-apply
 
 on:
   workflow_run:
-    workflows: [pre-commit, renovate-gate]
+    workflows: [pre-commit, breaking-change-analysis, preview]
     types: [completed]
   status:
 

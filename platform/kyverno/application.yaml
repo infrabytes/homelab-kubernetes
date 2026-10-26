@@ -1,0 +1,52 @@
+# Kyverno enforces the resource declarations a chart-render script used to check at PR time
+# (see require-resources.yaml); the operator UIs and the policy reports are a bonus.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kyverno
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://kyverno.github.io/kyverno/
+      chart: kyverno
+      targetRevision: 3.9.2
+      helm:
+        releaseName: kyverno
+        values: |
+          # New component (2026-10-26): initial estimate from the chart defaults, re-measure
+          # after two weeks. Only the admission controller is pinned; background, cleanup and
+          # reports keep the chart's 100m/64Mi requests and 128Mi limit, which already comply.
+          admissionController:
+            replicas: 1
+            container:
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 192Mi
+                limits:
+                  memory: 384Mi
+            initContainer:
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/kyverno
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
+  destination:
+    namespace: kyverno
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The chart's 22 CRDs exceed the 256KB last-applied-configuration cap.
+      - ServerSideApply=true

@@ -8,10 +8,11 @@ data:
   APPEND_SYSTEM.md: |
     # Breaking-change review contract
 
-    `breaking-change-gate` is red on one Renovate pull request in this repository. The gate is a
-    text match on the PR body: it flags major bumps, breaking-change markers and release notes
-    that only link somewhere else. Your job is the judgement it cannot make: does this version
-    change actually break this repository, and what does the maintainer have to do.
+    A Renovate pull request in this repository is held for review: every minor and major bump
+    carries the `needs-review` label and nothing checks its release notes. Patch and digest
+    updates still automerge, so the version change here is one a human has to look at. Your job
+    is the judgement a label cannot make: does this version change actually break this
+    repository, and what does the maintainer have to do.
 
     You have no cluster access and no GitHub token. Work from the release notes, the upstream
     sources and the checkout at /work/repo (a shallow clone of `main`). You change nothing:
@@ -19,8 +20,7 @@ data:
 
     ## 1. What the bump is
 
-    - The PR number, the gate's reason and the dependencies whose release notes the gate could
-      not read are in the prompt.
+    - The PR number and the review reason are in the prompt.
     - The PR body holds the update table and whatever release notes Renovate could fetch:
       `curl -s "https://api.github.com/repos/$GITHUB_REPO/pulls/$PR_NUMBER"`.
     - The changed files: `.../pulls/$PR_NUMBER/files`. Unauthenticated GitHub API calls are
@@ -86,10 +86,11 @@ data:
     fi
 
     PROMPT="$(cat <<EOF
-    Pull request ${PR_NUMBER} in ${GITHUB_REPO} has a red breaking-change-gate.
+    Pull request ${PR_NUMBER} in ${GITHUB_REPO} is held for review: Renovate marks every
+    minor and major bump with the needs-review label, and nothing checked its release notes
+    automatically.
 
-    Gate verdict: ${GATE_REASON:-unknown}
-    Release notes the gate could not read: ${UNVERIFIED_DEPS:-none listed}
+    Review reason: ${REVIEW_REASON:-held for review (needs-review label)}
 
     The repository is checked out at ${REPO_DIR} (main). Deliver /work/report.md as your
     contract describes, then stop.
