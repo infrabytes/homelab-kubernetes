@@ -26,7 +26,7 @@ spec:
   backup:
     retentionPolicy: "14d"
     barmanObjectStore:
-      # Same SeaweedFS bucket as the Terraform state and grafana-pg; the prefix keeps them apart.
+      # Same SeaweedFS bucket as the Terraform state; the prefix keeps them apart.
       destinationPath: s3://homelab-kubernetes/authentik-pg
       endpointURL: https://s3.icaninto.space
       s3Credentials:
