@@ -22,32 +22,4 @@ variable "nodes" {
     node_taints        = optional(list(string), [])
     drain_on_upgrade   = optional(bool, true)
   }))
-  default = {
-    "10.0.0.10" = {
-      role         = "controlplane"
-      hostname     = "talos-cp-1"
-      proxmox_node = "pve"
-      vm_id        = 210
-      ipv4_address = "10.0.0.10"
-      ipv4_prefix  = 24
-      ipv4_gateway = "10.0.0.1"
-      dns_servers  = ["10.0.0.1"]
-      cores        = 4
-      memory       = 8192
-      disk_size    = 100
-    }
-    "10.0.0.11" = {
-      role         = "worker"
-      hostname     = "talos-worker-1"
-      proxmox_node = "pve"
-      vm_id        = 211
-      ipv4_address = "10.0.0.11"
-      ipv4_prefix  = 24
-      ipv4_gateway = "10.0.0.1"
-      dns_servers  = ["10.0.0.1"]
-      cores        = 8
-      memory       = 16384
-      disk_size    = 200
-    }
-  }
 }
