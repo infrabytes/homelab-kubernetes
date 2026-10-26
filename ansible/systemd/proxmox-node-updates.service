@@ -9,5 +9,6 @@ User=deschain
 RuntimeDirectory=proxmox-node-updates
 # Specifiers resolve against the system manager, so %h is /root here, not deschain's home.
 ExecStartPre=/usr/bin/git -C /home/deschain/homelab/homelab-kubernetes pull --ff-only
+ExecStartPre=-/home/deschain/homelab/homelab-kubernetes/ansible/windrunner-setup.sh
 ExecStart=/home/deschain/homelab/homelab-kubernetes/ansible/run-maintenance.sh
 TimeoutStartSec=4h
