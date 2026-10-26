@@ -7,7 +7,7 @@ REPO=~/homelab/homelab-kubernetes
 VENV=~/.local/share/proxmox-maintenance/venv
 BIN=~/.local/bin
 SOPS_VERSION=3.13.3
-ANSIBLE_CORE_VERSION=2.19.13
+ANSIBLE_CORE_VERSION=2.21.5
 
 mkdir -p "$BIN"
 

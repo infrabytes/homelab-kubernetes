@@ -1,14 +1,12 @@
 name: PR Preview
 
 on:
+  # No paths filter: this is a required check, and a filtered workflow that never
+  # runs leaves a PR pending forever. Argo CD's render is the only check that a
+  # chart still resolves with its values, so it has to report on every PR.
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, closed]
-    paths:
-      - "platform/**"
-      - "apps/**"
-      - ".github/argocd-preview-values.yaml"
-      - ".github/host-kubeconfig.yaml"
 
 concurrency:
   group: pr-preview-${{ github.event.number }}

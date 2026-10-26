@@ -9,6 +9,7 @@
   "automergeType": "pr",
   "automergeStrategy": "squash",
   "prHourlyLimit": 0,
+  "prConcurrentLimit": 20,
   "ignorePaths": [
     "**/.terragrunt-cache/**",
     "**/artifacts/**"
@@ -99,9 +100,9 @@
     },
     {
       "customType": "regex",
-      "description": "kubectl version pinned in the PR preview, gate and tool-cache workflows (matches kubernetes_version in env.hcl)",
+      "description": "kubectl version pinned in the PR preview, breaking-change analysis and tool-cache workflows (matches kubernetes_version in env.hcl)",
       "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/(pr-preview|renovate-gate|warm-tool-cache)\\.ya?ml$/"
+        "/^\\.github\\/workflows\\/(pr-preview|breaking-change-analysis|warm-tool-cache)\\.ya?ml$/"
       ],
       "matchStrings": [
         "\\n\\s*version:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)"
@@ -459,7 +460,7 @@
       "overridePackageName": "kubernetes-sigs/agent-sandbox"
     },
     {
-      "description": "The chart index gives no source URL, so Renovate fetches no release notes and the gate has nothing to read. Upstream tags the chart v4.13.x, so the changelog lookup resolves.",
+      "description": "The chart index gives no source URL, so Renovate fetches no release notes into the PR body. Upstream tags the chart v4.13.x, so the changelog lookup resolves.",
       "matchDatasources": [
         "helm"
       ],
@@ -477,13 +478,6 @@
         "ghcr.io/spegel-org/helm-charts/spegel"
       ],
       "sourceUrl": "https://github.com/spegel-org/spegel"
-    },
-    {
-      "description": "Hold majors for review regardless of changelog content",
-      "matchUpdateTypes": [
-        "major"
-      ],
-      "automerge": false
     },
     {
       "description": "Hold the CI Python at 3.14: ansible-core (latest 2.21.5) supports up to 3.14, and the pre-commit ansible-lint hook crashes on 3.15. Lift the cap once ansible-core supports 3.15.",
@@ -505,6 +499,17 @@
       "automerge": true,
       "minimumReleaseAge": "3 days",
       "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
+      "description": "Hold minor and major bumps for a human: patch and digest automerge, but anything that can change behaviour waits for a merge click and gets the label that starts the breaking-change analysis. After the age rule on purpose: a later packageRule wins, and this one must not be undone by its automerge: true.",
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "needs-review"
+      ]
     },
     {
       "description": "Atlantis is the sole merger for infra PRs (apply-before-merge)",

@@ -1,4 +1,4 @@
-# Cloud-side watchdog feed; the stack's Loki push URL matches ansible/inventory.yml.
+# Cloud-side watchdog feed; the stack's Loki push URL matches ansible/inventory.json.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
