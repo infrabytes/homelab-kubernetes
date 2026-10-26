@@ -12,10 +12,10 @@ concrete fix suggestion. It never changes anything.
 memory over 14 days, decides whether the request/limit should be raised, and opens a pull
 request with the change (see [Memory rightsize](#memory-rightsize)).
 
-**breaking-change** starts when the `breaking-change-gate` status on a Renovate pull request
-turns red. The agent reads the upstream release notes, checks this repository for usage of
-whatever changed, and posts one comment on the PR saying whether it matters and what to do
-(see [Breaking-change review](#breaking-change-review)).
+**breaking-change** starts when Renovate adds the `needs-review` label to a minor or major
+pull request (the bumps it does not automerge). The agent reads the upstream release notes,
+checks this repository for usage of whatever changed, and posts one comment on the PR saying
+whether it matters and what to do (see [Breaking-change review](#breaking-change-review)).
 
 ```
 Grafana alertmanager ──webhook POST /grafana (Bearer)──► EventSource grafana-alerts
@@ -240,14 +240,13 @@ kubectl -n alert-triage logs -f sandbox/rightsize-manual-1
 
 ## Breaking-change review
 
-Renovate bumps a dependency past a breaking change and the `breaking-change-gate` status
-goes red. The gate is a text match on the PR body, so it can only say "something here looks
-breaking" — and for the many dependencies whose release body only links to a changelog it
-has nothing to read at all. The sandbox answers the question that actually decides the
-merge: does this break *this* repository.
+Renovate holds every minor and major bump for a human merge and labels it `needs-review`.
+That label is the whole gate: nothing reads the release notes, so for the many dependencies
+whose body only links to a changelog there is nothing to read. The sandbox answers the
+question that actually decides the merge: does this break *this* repository.
 
 ```
-renovate-gate (ubuntu-latest) ──red──► breaking-change-analysis (homelab-runner)
+PR labeled needs-review ──► breaking-change-analysis (homelab-runner)
                                           │ kubectl create
                                           ▼
                               SandboxClaim breaking-<pr>-<sha>
@@ -304,10 +303,8 @@ spec:
       value: infrabytes/homelab-kubernetes
     - name: PR_NUMBER
       value: "455"
-    - name: GATE_REASON
-      value: major bump: hold for review
-    - name: UNVERIFIED_DEPS
-      value: tailscale-operator
+    - name: REVIEW_REASON
+      value: held for review (needs-review label)
 EOF
 
 kubectl -n alert-triage logs -f breaking-manual-1

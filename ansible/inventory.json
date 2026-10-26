@@ -1,0 +1,128 @@
+{
+  "all": {
+    "vars": {
+      "silence_duration_seconds": 14400,
+      "grafana_url": "https://grafana.icaninto.space"
+    },
+    "children": {
+      "pve": {
+        "hosts": {
+          "proxmox02": {
+            "ansible_host": "192.168.0.12",
+            "ansible_user": "root",
+            "pve_node": "proxmox02",
+            "pve_vmid": 211,
+            "talos_node": "talos-worker-1",
+            "talos_role": "worker",
+            "drain": true,
+            "ipv4_address": "192.168.0.68",
+            "ipv4_prefix": 24,
+            "ipv4_gateway": "192.168.0.1",
+            "dns_servers": [
+              "192.168.0.1"
+            ],
+            "mac_address": "BC:24:11:00:00:D3",
+            "cores": 4,
+            "memory": 14336,
+            "disk_size": 80,
+            "longhorn_disk_size": 73,
+            "swap_disk_size": 4,
+            "node_labels": {
+              "node.longhorn.io/create-default-disk": "true"
+            }
+          },
+          "proxmox03": {
+            "ansible_host": "192.168.0.13",
+            "ansible_user": "root",
+            "pve_node": "proxmox03",
+            "pve_vmid": 212,
+            "talos_node": "talos-worker-2",
+            "talos_role": "worker",
+            "drain": true,
+            "ipv4_address": "192.168.0.69",
+            "ipv4_prefix": 24,
+            "ipv4_gateway": "192.168.0.1",
+            "dns_servers": [
+              "192.168.0.1"
+            ],
+            "mac_address": "BC:24:11:00:00:D4",
+            "cores": 4,
+            "memory": 14336,
+            "disk_size": 80,
+            "longhorn_disk_size": 73,
+            "swap_disk_size": 4,
+            "node_labels": {
+              "node.longhorn.io/create-default-disk": "true"
+            }
+          },
+          "proxmox04": {
+            "ansible_host": "192.168.0.14",
+            "ansible_user": "root",
+            "pve_node": "proxmox04",
+            "pve_vmid": 213,
+            "talos_node": "talos-worker-3",
+            "talos_role": "worker",
+            "drain": true,
+            "ipv4_address": "192.168.0.70",
+            "ipv4_prefix": 24,
+            "ipv4_gateway": "192.168.0.1",
+            "dns_servers": [
+              "192.168.0.1"
+            ],
+            "mac_address": "BC:24:11:00:00:D5",
+            "cores": 4,
+            "memory": 14336,
+            "disk_size": 80,
+            "longhorn_disk_size": 73,
+            "swap_disk_size": 4,
+            "node_labels": {
+              "node.longhorn.io/create-default-disk": "true"
+            }
+          },
+          "proxmox01": {
+            "ansible_host": "192.168.0.11",
+            "ansible_user": "root",
+            "pve_node": "proxmox01",
+            "pve_vmid": 210,
+            "talos_node": "talos-cp-1",
+            "talos_role": "controlplane",
+            "drain": false,
+            "ipv4_address": "192.168.0.67",
+            "ipv4_prefix": 24,
+            "ipv4_gateway": "192.168.0.1",
+            "dns_servers": [
+              "192.168.0.1"
+            ],
+            "mac_address": "BC:24:11:00:00:D2",
+            "cores": 4,
+            "memory": 14336,
+            "disk_size": 80,
+            "swap_disk_size": 4,
+            "drain_on_upgrade": false
+          }
+        },
+        "vars": {
+          "pve_api_host": "192.168.0.11:8006",
+          "pve_validate_certs": false,
+          "pve_api_timeout": 60,
+          "kubeconfig_path_env": "KUBECONFIG_PATH",
+          "loki_url": "https://logs-prod-012.grafana.net/loki/api/v1/push",
+          "longhorn_namespace": "longhorn-system",
+          "drain_timeout": 600,
+          "vm_shutdown_timeout": 600,
+          "node_ready_timeout": 900,
+          "longhorn_healthy_timeout": 900
+        }
+      },
+      "management": {
+        "hosts": {
+          "windrunner": {
+            "ansible_host": "ssh.icaninto.space",
+            "ansible_port": 21496,
+            "ansible_user": "deschain"
+          }
+        }
+      }
+    }
+  }
+}

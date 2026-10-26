@@ -67,7 +67,7 @@ subjects:
     name: alert-triage-agent
     namespace: alert-triage
 ---
-# The renovate-gate workflow runs on the ARC runner inside the cluster: it creates one claim
+# The breaking-change-analysis workflow runs on the ARC runner inside the cluster: it creates one claim
 # per held PR, reads the report out of the sandbox log and deletes the claim again.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
