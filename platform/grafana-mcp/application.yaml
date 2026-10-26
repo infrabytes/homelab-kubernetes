@@ -21,11 +21,14 @@ spec:
               key: grafana-token
 
           # Caller auth on /mcp (401 without Bearer <server-token>); /healthz stays open.
-          envValueFrom:
-            MCP_GRAFANA_SERVER_TOKEN:
-              secretKeyRef:
-                name: grafana-mcp-credentials
-                key: server-token
+          # Pin the chart to the Terraform-owned secret: with serverAuth.token left at its
+          # default ("") the chart renders its own randomly generated Secret and a second
+          # MCP_GRAFANA_SERVER_TOKEN env entry ahead of any envValueFrom one, and the first
+          # entry wins — the SOPS token then stops working (chart 0.29.0, 2026-10-25).
+          serverAuth:
+            tokenSecret:
+              name: grafana-mcp-credentials
+              key: server-token
 
           disableWrite: true
           # Tool groups whose plugins/renderer are absent from this Grafana.
