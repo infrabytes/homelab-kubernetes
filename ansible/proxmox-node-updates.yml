@@ -74,25 +74,6 @@
         - name: Report run summary to Loki
           ansible.builtin.include_tasks: tasks/report_summary.yml
           when: inventory_hostname == (ansible_play_hosts_all | last)
-        - name: Lift the maintenance silences
-          vars:
-            silences: >-
-              {{ hostvars[(ansible_play_hosts_all | first)].silence_result.results
-                 | default([]) | selectattr('json', 'defined')
-                 | selectattr('json.silenceID', 'defined') | list }}
-          ansible.builtin.uri:
-            url: "{{ item.item.base }}/silence/{{ item.json.silenceID }}"
-            method: DELETE
-            headers: "{{ item.item.headers }}"
-            status_code: [200, 404]
-          loop: "{{ silences }}"
-          loop_control:
-            label: "{{ item.item.name }}"
-          delegate_to: localhost
-          when:
-            - inventory_hostname == (ansible_play_hosts_all | last)
-            - not ansible_check_mode
-          failed_when: false
       rescue:
         - name: Report the failed host to Loki
           ansible.builtin.include_tasks: tasks/report_failure.yml

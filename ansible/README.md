@@ -45,11 +45,13 @@ be retired separately.
 6. **Report**: one k=v log line per host plus a run summary to Grafana Cloud
    Loki (`job="proxmox-node-updates"`). Alert rules live in
    `infra/grafana-cloud-config/maintenance_alerts.tf` (failed run + 8-day
-   dead-man). The silence is lifted after the last host; on a failed or
-   aborted run the rescue lifts it first and pushes a `result=failed` line,
-   so the failed-run alert fires instead of being muted. The silence also
-   self-expires after 5h as a backstop (e.g. a `--limit` canary that ends
-   without reaching the last-host cleanup). The results are visualised in the
+   dead-man). A successful run leaves the silence to run out its 5h on its
+   own: the roll's pod restarts keep the crash-loop rule firing for up to an
+   hour after the last health gate, so lifting early released that tail as
+   notifications. On a failed or aborted run the rescue lifts the silence
+   instead and pushes a `result=failed` line, so the failed-run alert fires
+   immediately. The 5h expiry is also the backstop for a `--limit` canary.
+   The results are visualised in the
    "PVE Host Maintenance" dashboard (Talos folder in Grafana Cloud, managed by
    `infra/grafana-cloud-config/dashboards/proxmox-maintenance.json`): run
    health stats, reporting activity per host, and the raw log.
