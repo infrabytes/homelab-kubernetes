@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   # The run that updates a branch leaves it waiting on CI; nothing else would merge it until the next scheduled tick.
   workflow_run:
-    workflows: [pre-commit, preview]
+    workflows: [pre-commit, PR Preview]
     types: [completed]
   issues:
     types: [edited]

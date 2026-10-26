@@ -282,7 +282,7 @@ version pinned in `RENOVATE_VERSION` — the same release stream as the
 repository config instead of doubling as global config.
 
 Triggers: `0 5 * * *` UTC as the baseline, `workflow_dispatch` for a run on
-demand, `pre-commit`/`preview` completions on `renovate/*` branches, and
+demand, `pre-commit`/`PR Preview` completions on `renovate/*` branches, and
 `issues`/`pull_request` `edited` events so ticking a Dependency Dashboard box
 (matched by title) or a PR's "rebase/retry" box starts a run in seconds. The job
 `if` narrows those edits to the dashboard and to `renovate/*` branches and
