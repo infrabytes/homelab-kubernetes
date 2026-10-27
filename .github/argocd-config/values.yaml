@@ -1,0 +1,9 @@
+# The argo-cd chart's default redis image is on ECR Public, which rate-limits
+# anonymous pulls per source IP: GitHub-hosted runners get 429s there and
+# argocd-redis then never becomes ready. Same image and tag, pulled from Docker Hub.
+# Read from the PR's checkout (target branch), so a fix to this file can be
+# previewed — the cluster it configures is ephemeral either way.
+redis:
+  image:
+    repository: docker.io/library/redis
+    tag: 8.6.4-alpine

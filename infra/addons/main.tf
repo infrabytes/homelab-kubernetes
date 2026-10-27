@@ -283,15 +283,8 @@ resource "kubernetes_namespace_v1" "arc_systems" {
   metadata { name = "arc-systems" }
 }
 
-# The runner pods carry a privileged docker:dind sidecar (containerMode: dind in
-# platform/arc, for the PR preview's kind cluster); Talos enforces PSA baseline.
 resource "kubernetes_namespace_v1" "arc_runners" {
-  metadata {
-    name = "arc-runners"
-    labels = {
-      "pod-security.kubernetes.io/enforce" = "privileged"
-    }
-  }
+  metadata { name = "arc-runners" }
 }
 
 # Terraform owns the alert-triage namespace: the webhook token Secret must exist before

@@ -1,12 +1,10 @@
 name: PR Preview
 
 on:
-  # No paths filter: this is a required check, and a filtered workflow that never
-  # runs leaves a PR pending forever. Argo CD's render is the only check that a
-  # chart still resolves with its values, so it has to report on every PR.
+  # Runs on every PR (a required check cannot be path-filtered without leaving PRs pending); the changed-files step below gates the expensive work.
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: pr-preview-${{ github.event.number }}
@@ -14,15 +12,19 @@ concurrency:
 
 jobs:
   preview:
-    # Fork PRs are arbitrary code, rendered against the cluster by the runner.
-    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: homelab-runner
-    timeout-minutes: 25
+    # GitHub-hosted, not the self-hosted scale set: the diff builds its own cluster,
+    # needs no cluster access or host credentials, and this VM's native dockerd and
+    # fast network are what make the ~2.5 GB of image pulls bearable.
+    # Forks stay out: their token cannot write the PR comment.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: write
     env:
-      VCLUSTER_VERSION: v0.37.4
+      # Keep in sync with the argo-cd chart in infra/addons: the preview renders with production's Argo CD.
+      ARGOCD_CHART_VERSION: 10.10.5
       ARGOCD_DIFF_PREVIEW_VERSION: v0.2.17
       GH_CLI_VERSION: v2.103.0
       KIND_VERSION: v0.33.0
@@ -42,26 +44,22 @@ jobs:
           path: base-branch
           persist-credentials: false
 
-      - uses: Azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5.2.0
+      # Everything below only runs when a GitOps-managed manifest changed; a skipped step still passes the check.
+      - id: changed
+        name: Detect GitOps changes
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
-          version: 1.37.1 # keep in sync with kubernetes_version in infra/env.hcl
+          # The checkouts live in subdirectories; detect against the merge-ref one.
+          path: target-branch
+          files: |
+            platform/**
+            apps/**
+            argocd/**
+            charts/**
 
-      - uses: Azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-        with:
-          version: v4.3.1
-
-      # The CLIs below are installed per-run from the *_VERSION job env pins;
-      # they are not part of the persisted tool cache.
-      - name: Install vcluster CLI
-        run: |
-          set -eu
-          curl -fSL --retry 3 -o /tmp/vcluster-linux-amd64 \
-            "https://github.com/loft-sh/vcluster/releases/download/${VCLUSTER_VERSION}/vcluster-linux-amd64"
-          chmod +x /tmp/vcluster-linux-amd64
-          sudo mv /tmp/vcluster-linux-amd64 /usr/local/bin/vcluster
-          vcluster version
-
+      # Installed per-run from the *_VERSION pins; not part of the persisted tool cache.
       - name: Install argocd-diff-preview
+        if: steps.changed.outputs.any_changed == 'true'
         run: |
           set -eu
           curl -fSL --retry 3 -o /tmp/argocd-diff-preview.tar.gz \
@@ -71,6 +69,7 @@ jobs:
           argocd-diff-preview --version
 
       - name: Install gh CLI
+        if: steps.changed.outputs.any_changed == 'true'
         run: |
           set -eu
           curl -fSL --retry 3 -o /tmp/gh.tar.gz \
@@ -79,10 +78,8 @@ jobs:
           sudo mv "/tmp/gh_${GH_CLI_VERSION#v}_linux_amd64/bin/gh" /usr/local/bin/gh
           gh --version
 
-      # argocd-diff-preview requires a local cluster tool to be present for
-      # its config validation even with --create-cluster=false; it is never
-      # used to create a cluster in this workflow.
       - name: Install kind
+        if: steps.changed.outputs.any_changed == 'true'
         run: |
           set -eu
           curl -fSL --retry 3 -o /tmp/kind-linux-amd64 \
@@ -91,67 +88,9 @@ jobs:
           sudo mv /tmp/kind-linux-amd64 /usr/local/bin/kind
           kind version
 
-      # The runner pod has no kubeconfig file; use the committed one, which
-      # points at the host cluster through the pod's service account mount.
-      - name: Prepare host kubeconfig
-        run: |
-          cp target-branch/.github/host-kubeconfig.yaml /tmp/host-kubeconfig.yaml
-          kubectl --kubeconfig /tmp/host-kubeconfig.yaml get secret -n vcluster vc-vcluster
-          echo "KUBECONFIG_HOST=/tmp/host-kubeconfig.yaml" >> "$GITHUB_ENV"
-
-      - name: Connect to vcluster
-        env:
-          KUBECONFIG: /tmp/host-kubeconfig.yaml
-        run: |
-          vcluster connect vcluster -n vcluster \
-            --server https://vcluster.vcluster.svc:443 \
-            --insecure \
-            --print > /tmp/vcluster-kubeconfig.yaml
-          echo "KUBECONFIG=/tmp/vcluster-kubeconfig.yaml" >> "$GITHUB_ENV"
-
-      # Idempotent: converges the in-vcluster ArgoCD instance on every run.
-      # --force-conflicts: the vcluster syncer owns the helm.sh/chart label on the instance Services, so a chart bump SSA-apply conflicts forever without it.
-      - name: Ensure ArgoCD in vcluster
-        run: |
-          converged=0
-          for attempt in 1 2 3; do
-            if helm upgrade --install argocd-preview argo-cd \
-                --repo https://argoproj.github.io/argo-helm \
-                --version 10.10.5 \
-                --namespace argocd-preview \
-                --create-namespace \
-                --values target-branch/.github/argocd-preview-values.yaml \
-                --force-conflicts \
-                --wait --timeout 10m; then
-              converged=1
-              break
-            fi
-            echo "helm upgrade attempt $attempt failed, retrying in 30s"
-            sleep 30
-          done
-          if [ "$converged" -ne 1 ]; then
-            echo "helm upgrade failed on all 3 attempts; the preview Argo CD did not converge"
-            exit 1
-          fi
-          kubectl -n argocd-preview rollout status deployment -l app.kubernetes.io/component=server --timeout=5m
-
-      # ArgoCD's repo-server clones the private repo with this token; the
-      # re-apply on every run also refreshes the short-lived GITHUB_TOKEN.
-      - name: Ensure ArgoCD repository secret
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          kubectl -n argocd-preview create secret generic pr-preview-repo \
-            --from-literal=type=git \
-            --from-literal=url=https://github.com/${{ github.repository }} \
-            --from-literal=username=x-access-token \
-            --from-literal=password="${GITHUB_TOKEN}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-          kubectl -n argocd-preview label secret pr-preview-repo \
-            argocd.argoproj.io/secret-type=repository --overwrite
-
-      # Retry: the tool's stale-app GC races other preview runs and aborts on the NotFound delete.
+      # Builds its own kind cluster on this VM's dockerd and installs Argo CD into it; repo and charts are public, so the run needs no credentials.
       - name: Generate diff
+        if: steps.changed.outputs.any_changed == 'true'
         run: |
           set -eu
           attempt=0
@@ -159,20 +98,21 @@ jobs:
               --repo ${{ github.repository }} \
               --base-branch main \
               --target-branch refs/pull/${{ github.event.number }}/merge \
-              --argocd-namespace=argocd-preview \
-              --create-cluster=false; do
+              --argocd-chart-version "${ARGOCD_CHART_VERSION}" \
+              --argocd-config-dir target-branch/.github/argocd-config \
+              --timeout 600; do
             attempt=$((attempt + 1))
             if [ "$attempt" -ge 3 ]; then
               echo "argocd-diff-preview failed after 3 attempts"
               exit 1
             fi
-            echo "argocd-diff-preview attempt $attempt failed, retrying in 15s"
-            sleep 15
+            echo "diff attempt $attempt failed, retrying in 30s"
+            sleep 30
           done
 
       # Found by marker, not --edit-last: the same bot also posts the breaking-change verdict.
       - name: Comment diff
-        if: always()
+        if: always() && steps.changed.outputs.any_changed == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -89,7 +89,7 @@
       "customType": "regex",
       "description": "Helm CLI version pinned in the CI workflows",
       "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/(pre-commit|pr-preview|warm-tool-cache)\\.ya?ml$/"
+        "/^\\.github\\/workflows\\/(pre-commit|warm-tool-cache)\\.ya?ml$/"
       ],
       "matchStrings": [
         "\\n\\s*version:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
@@ -100,9 +100,9 @@
     },
     {
       "customType": "regex",
-      "description": "kubectl version pinned in the PR preview, breaking-change analysis and tool-cache workflows (matches kubernetes_version in env.hcl)",
+      "description": "kubectl version pinned in the breaking-change analysis and tool-cache workflows (matches kubernetes_version in env.hcl)",
       "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/(pr-preview|breaking-change-analysis|warm-tool-cache)\\.ya?ml$/"
+        "/^\\.github\\/workflows\\/(breaking-change-analysis|warm-tool-cache)\\.ya?ml$/"
       ],
       "matchStrings": [
         "\\n\\s*version:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)"
@@ -165,25 +165,12 @@
     },
     {
       "customType": "regex",
-      "description": "vcluster CLI version pinned in the PR preview workflow",
+      "description": "Argo CD Helm chart installed into the PR preview kind cluster (matches the argo-cd chart in infra/addons)",
       "managerFilePatterns": [
         "/^\\.github\\/workflows\\/pr-preview\\.ya?ml$/"
       ],
       "matchStrings": [
-        "VCLUSTER_VERSION:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
-      ],
-      "depNameTemplate": "loft-sh/vcluster",
-      "datasourceTemplate": "github-releases",
-      "versioningTemplate": "semver"
-    },
-    {
-      "customType": "regex",
-      "description": "Argo CD Helm chart version installed in the PR preview vCluster",
-      "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/pr-preview\\.ya?ml$/"
-      ],
-      "matchStrings": [
-        "--version\\s+(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+        "ARGOCD_CHART_VERSION:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)"
       ],
       "depNameTemplate": "argo-cd",
       "datasourceTemplate": "helm",

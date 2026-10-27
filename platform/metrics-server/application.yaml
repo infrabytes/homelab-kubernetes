@@ -1,4 +1,4 @@
-# metrics.k8s.io API for kubectl top and the vCluster metrics-server proxy.
+# metrics.k8s.io API for kubectl top.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

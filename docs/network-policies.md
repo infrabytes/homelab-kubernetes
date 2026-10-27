@@ -78,7 +78,6 @@ gateway traffic working; see the cert-manager and external-secrets policies.
 | `openbao` | `server.networkPolicy`: DNS, raft 8201 | `openbao-allow-apiserver-egress.yaml`, `openbao-allow-authentik-egress.yaml` (Cilium: the identity rule to the Authentik server pods on 9000, without which the Gateway denies the issuer with 403), `openbao-allow-gateway-ingress.yaml`, `openbao-default-deny-ingress.yaml` |
 | `headlamp` | — (the chart has no `networkPolicy` values) | `headlamp-default-deny-ingress.yaml`, `headlamp-allow-gateway-ingress.yaml`, `headlamp-allow-tailnet-ingress.yaml`, `headlamp-allow-egress.yaml` (DNS + the issuer's gateway VIP on 443), `headlamp-allow-authentik-egress.yaml` (Cilium: the identity rule to the Authentik server pods on 9000, without which the Gateway denies the issuer with 403), `headlamp-allow-apiserver-egress.yaml` |
 | `hubble-observer` | `ciliumNetworkPolicy`: relay egress, cf2cnp ingress with the `ingress` entity | `hubble-observer-allow-relay-egress.yaml`, `hubble-observer-allow-dns-egress.yaml`, `hubble-observer-default-deny-ingress.yaml` |
-| `vcluster` | `policies.networkPolicy`: chart defaults plus the metrics-server control-plane egress on 443/10250 | `vcluster-allow-host-dns-egress.yaml`, `vcluster-default-deny-ingress.yaml` |
 | `longhorn-system` | longhorn's internal policies (`restrictInternalTraffic`) | `longhorn-manager-allow-metrics.yaml` |
 | `alert-triage` | — (Argo Events renders no policies; the sandbox pods get a controller-managed policy from their `SandboxTemplate.spec.networkPolicy`: DNS, `grafana-mcp` 8000, Loki 3100 for the gates/memory, API server 6443, internet 443 for npm, models, Discord and GitHub; the breaking-change sandbox gets DNS and 443 only) | `alert-triage-default-deny-ingress.yaml`, `alert-triage-eventsource-allow-grafana-ingress.yaml`, `alert-triage-eventbus-allow-clients-ingress.yaml`, `alert-triage-eventsource-allow-egress.yaml`, `alert-triage-sensor-allow-egress.yaml`, `alert-triage-sensor-allow-apiserver-egress.yaml` (Cilium, API-server entity), `alert-triage-allow-monitoring-ingress.yaml` |
 | `authentik` | — (the chart has no `networkPolicy` values) | `authentik-allow-gateway-ingress.yaml` (Cilium, `ingress` entity → 9000), `authentik-allow-metrics.yaml` (Alloy → 9300), `authentik-allow-egress.yaml` (Cilium: DNS, the in-namespace Postgres 5432, SMTP submission 587/465/2525, API server 443/6443 for the outpost controller) |
@@ -97,18 +96,6 @@ Known gaps inside covered namespaces:
   the authentik pods, so the CloudNativePG instance sharing the namespace keeps
   its operator, backup and S3 edges, which are not modelled yet. Add the
   namespace deny together with those CNPG edges.
-
-### vcluster control-plane note
-
-Applying a policy change rolls the vcluster control plane, and that control plane
-does not reliably survive a restart: the syncer's `ensure protection policy` hook
-can stop completing (the nested API never reports ready through
-`rbac/bootstrap-roles`) and the pod crash-loops with no ready endpoint. This is
-**not** caused by these policies: reproduced with them absent, and again on a
-fresh volume immediately after a single restart. Recovery is a destructive reset
-of the `data-vcluster-0` PVC (clear its `pvc-protection` finalizer while the pod
-is stopped); the StatefulSet then recreates the volume and the nested cluster
-bootstraps fresh, after which the control plane runs until its next restart.
 
 ## Phase 2 backlog
 
