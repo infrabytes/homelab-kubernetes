@@ -136,8 +136,11 @@ The workflow needs no credentials and no host-cluster access: the repository and
 every chart it renders are public, so the ephemeral cluster clones them anonymously
 (`arc-runner` holds no RBAC), and everything the preview creates dies with the runner
 VM. Its cost is the cluster build: ~2.5 GB of kind-node and Argo CD image pulls on
-every run, into a store that is never warm — which is what the GitHub-hosted VM's
-native dockerd and network are there for.
+every run, into a store that is never warm — hence the GitHub-hosted VM, whose native
+dockerd and network do that in 21s + 36s (job 1m22s end to end, level with the retired
+vCluster flow). One image is redirected: the chart's redis lives on ECR Public, which
+rate-limits anonymous pulls per IP, so `.github/argocd-config/values.yaml` pulls the
+same tag from Docker Hub.
 
 Runner pods keep their caches pod-local and hydrate them from a shared
 Longhorn RWX seed volume (`gha-runner-tool-cache` PVC in `arc-runners`, from
