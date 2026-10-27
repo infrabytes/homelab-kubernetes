@@ -24,9 +24,9 @@ jobs:
       pull-requests: write
     env:
       # Keep in sync with the argo-cd chart in infra/addons: the preview renders with production's Argo CD.
-      ARGOCD_CHART_VERSION: 10.10.5
+      ARGOCD_CHART_VERSION: 10.11.1
       ARGOCD_DIFF_PREVIEW_VERSION: v0.2.17
-      GH_CLI_VERSION: v2.103.0
+      GH_CLI_VERSION: v2.103.2
       KIND_VERSION: v0.33.0
     steps:
       - name: Checkout target branch
