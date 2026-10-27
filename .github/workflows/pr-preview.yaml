@@ -99,6 +99,7 @@ jobs:
               --base-branch main \
               --target-branch refs/pull/${{ github.event.number }}/merge \
               --argocd-chart-version "${ARGOCD_CHART_VERSION}" \
+              --argocd-config-dir target-branch/.github/argocd-config \
               --timeout 600; do
             attempt=$((attempt + 1))
             if [ "$attempt" -ge 3 ]; then
