@@ -41,7 +41,7 @@ spec:
         # PATH-injected toolchain: terragrunt (workflow), sops (env.hcl), kubectl (converge local-exec); tofu is Atlantis's own download.
         initConfig:
           enabled: true
-          image: alpine:3.22
+          image: alpine:3.24
           script: |
             #!/bin/sh
             set -eu
