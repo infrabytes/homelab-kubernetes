@@ -65,7 +65,10 @@ spec:
               capabilities:
                 drop: ["ALL"]
               runAsNonRoot: true
-            # 21m sampled (2026-10-26 18:31..18:52, workload newer than 14d): mem p95 707Mi, peak 708Mi -> 768Mi/1152Mi.
+            # 2026-10-25..2026-10-28 (3d20h, VictoriaMetrics; the forward-auth gate went live 2026-10-28):
+            # mem p95 732Mi, peak 732Mi -> request 768Mi; limit = max(1.5x request, 1.25x peak) = 1152Mi.
+            # CPU: steady-state p95 40m over the gated 2h; 50m keeps the per-restart Django startup burst
+            # (p95 287m while it runs) inside the request without limiting anything.
             resources:
               requests:
                 cpu: 50m
@@ -83,13 +86,15 @@ spec:
               capabilities:
                 drop: ["ALL"]
               runAsNonRoot: true
-            # Initial estimate (2026-10-25), no usage history; re-measure after two weeks.
+            # 2026-10-25..2026-10-28 (3d20h, VictoriaMetrics), longest-lived replica: cpu p95 100m (avg 96m,
+            # max 129m) -> 100m; mem p95 372Mi -> request 384Mi, peak 391Mi -> limit 576Mi.
+            # Re-measure after the next two weeks of task history (2026-11-11).
             resources:
               requests:
-                cpu: 50m
-                memory: 256Mi
+                cpu: 100m
+                memory: 384Mi
               limits:
-                memory: 512Mi
+                memory: 576Mi
             metrics:
               enabled: true
               serviceMonitor:
