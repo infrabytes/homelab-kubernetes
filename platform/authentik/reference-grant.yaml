@@ -1,0 +1,23 @@
+# The gated apps' HTTPRoutes reference the authentik-server Service from their own namespaces: as
+# the ExternalAuth filter backend, and for the exempt /outpost.goauthentik.io flow path. Gateway API
+# requires the target namespace to accept that kind of reference.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-gated-routes-to-authentik-server
+  namespace: authentik
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: kube-system
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: longhorn-system
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: hubble-observer
+  to:
+    - group: ""
+      kind: Service
+      name: authentik-server

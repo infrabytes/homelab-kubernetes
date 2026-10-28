@@ -74,6 +74,27 @@ spec:
                 sectionName: longhorn-https
             hostnames:
               - longhorn.icaninto.space
+            # The UI has no authentication of its own: every request passes the authentik outpost
+            # first (authentik-outpost-longhorn in platform/authentik serves /outpost.goauthentik.io).
+            filters:
+              - type: ExternalAuth
+                externalAuth:
+                  protocol: HTTP
+                  backendRef:
+                    group: ""
+                    kind: Service
+                    name: authentik-server
+                    namespace: authentik
+                    # The Service port, not the container port (80 -> 9000).
+                    port: 80
+                  http:
+                    path: /outpost.goauthentik.io/auth/envoy
+                    allowedHeaders:
+                      - cookie
+                      - user-agent
+                      - x-forwarded-for
+                      - x-forwarded-host
+                      - x-forwarded-proto
     - repoURL: https://github.com/infrabytes/homelab-kubernetes
       targetRevision: main
       path: platform/longhorn

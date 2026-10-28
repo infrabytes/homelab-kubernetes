@@ -305,3 +305,112 @@ data:
         attrs:
           name: OpenBao
           provider: !Find [authentik_providers_oauth2.oauth2provider, [name, openbao]]
+  forward-auth.yaml: |-
+    version: 1
+    metadata:
+      name: Homelab forward auth
+    entries:
+      # Every lookup below lives in a shipped blueprint, and blueprint order across files is undefined.
+      - model: authentik_blueprints.metaapplyblueprint
+        attrs:
+          identifiers:
+            name: Default - Provider authorization flow (implicit consent)
+          required: true
+      - model: authentik_blueprints.metaapplyblueprint
+        attrs:
+          identifiers:
+            name: Default - Invalidation flow
+          required: true
+      # Apps that cannot speak OIDC. The reverse proxy still forwards the app traffic itself and
+      # only asks the outpost whether the browser session may pass, so internal_host stays empty
+      # (forward auth is exclusive with it) and external_host is the URL the app is served on.
+      # longhorn, cf2cnp and hubble are gated at the Cilium Gateway (outpost-httproute.yaml);
+      # atlantis and seaweedfs are gated by SWAG on windrunner, a host-side nginx config.
+      - model: authentik_providers_proxy.proxyprovider
+        id: forward-longhorn
+        identifiers:
+          name: longhorn
+        attrs:
+          mode: forward_single
+          external_host: https://longhorn.icaninto.space
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+      - model: authentik_providers_proxy.proxyprovider
+        id: forward-cf2cnp
+        identifiers:
+          name: cf2cnp
+        attrs:
+          mode: forward_single
+          external_host: https://cf2cnp.icaninto.space
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+      - model: authentik_providers_proxy.proxyprovider
+        id: forward-hubble
+        identifiers:
+          name: hubble
+        attrs:
+          mode: forward_single
+          external_host: https://hubble.icaninto.space
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+      - model: authentik_providers_proxy.proxyprovider
+        id: forward-atlantis
+        identifiers:
+          name: atlantis
+        attrs:
+          mode: forward_single
+          external_host: https://atlantis.icaninto.space
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+      - model: authentik_providers_proxy.proxyprovider
+        id: forward-seaweedfs
+        identifiers:
+          name: seaweedfs
+        attrs:
+          mode: forward_single
+          external_host: https://seaweedfs.icaninto.space
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+      - model: authentik_core.application
+        identifiers:
+          slug: longhorn
+        attrs:
+          name: Longhorn
+          provider: !KeyOf forward-longhorn
+      - model: authentik_core.application
+        identifiers:
+          slug: cf2cnp
+        attrs:
+          name: CF2CNP
+          provider: !KeyOf forward-cf2cnp
+      - model: authentik_core.application
+        identifiers:
+          slug: hubble
+        attrs:
+          name: Hubble UI
+          provider: !KeyOf forward-hubble
+      - model: authentik_core.application
+        identifiers:
+          slug: atlantis
+        attrs:
+          name: Atlantis
+          provider: !KeyOf forward-atlantis
+      - model: authentik_core.application
+        identifiers:
+          slug: seaweedfs
+        attrs:
+          name: SeaweedFS
+          provider: !KeyOf forward-seaweedfs
+      # The embedded outpost runs inside the server pod (no extra workload, and no managed-outpost
+      # ServiceAccount/ClusterRole). This list is owned here: a provider attached in the admin UI is
+      # dropped on the next apply, like the user groups in users.yaml.
+      - model: authentik_outposts.outpost
+        identifiers:
+          name: authentik Embedded Outpost
+        attrs:
+          providers:
+            - !KeyOf forward-longhorn
+            - !KeyOf forward-cf2cnp
+            - !KeyOf forward-hubble
+            - !KeyOf forward-atlantis
+            - !KeyOf forward-seaweedfs
