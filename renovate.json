@@ -463,6 +463,13 @@
       "sourceUrl": "https://github.com/spegel-org/spegel"
     },
     {
+      "description": "A sourceUrl rule cannot fetch the seaweedfs chart's release notes: upstream (same repo as the chart) tags releases 4.51, and Renovate matches release notes to the new version by exact tag string, which never equals the chart index 4.51.0. Track the releases instead, as agent-sandbox does, and the tag is the version: the release notes and the rewrite value both come out of the release list. loose versioning is required because the semver scheme rejects two-segment tags (isVersion 4.51 is false under it); loose compares them fine (4.49.0 -> 4.51). Renovate then rewrites the pin to the release tag, e.g. 4.49.0 -> 4.51; the chart is published within a day of each release, so the 3-day minimumReleaseAge gate sees chart versions that exist. Never override the depName: branch-time auto-replace re-extracts the file with the raw manager depName (see the agent-sandbox rule). Tag inventory verified: modern releases are all 4.NN; the two lettered ancient tags version below the current pin and can never be proposed.",
+      "matchPackageNames": ["seaweedfs"],
+      "overrideDatasource": "github-releases",
+      "overridePackageName": "SeaweedFS/seaweedfs",
+      "versioning": "loose"
+    },
+    {
       "description": "Hold the CI Python at 3.14: ansible-core (latest 2.21.5) supports up to 3.14, and the pre-commit ansible-lint hook crashes on 3.15. Lift the cap once ansible-core supports 3.15.",
       "matchManagers": [
         "github-actions"
