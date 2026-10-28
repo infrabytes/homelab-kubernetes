@@ -33,6 +33,16 @@ network policy itself:
 - rules with a `from` selector (`namespaceSelector`, `podSelector`) can never
   match it: the Gateway needs `fromEntities: [ingress]`
   (`openbao-allow-gateway-ingress.yaml`);
+- `ingress` only covers delivery on the Gateway's **own node**. A host-network
+  envoy connection that crosses the tunnel to a backend pod on another node is
+  classified `remote-node`, so a backend whose endpoints span nodes needs both
+  entities. Verified on the forward-auth checks: with `ingress` alone, half of
+  the `ext_authz` calls (the ones routed to the far replica) were dropped as
+  `Policy denied`, and the Gateway's fail-closed answer to a timed-out check is
+  a 5-second, then 403, response (`authentik-allow-gateway-ingress.yaml`).
+  Routes that go through the Service VIP do not show it: the in-node load
+  balancer keeps that traffic local; the `ext_authz` filter dials the Service's
+  pod IPs directly, which is what crosses nodes;
 - for a request going *through* the Gateway, the client's egress policy is
   enforced against the HTTPRoute's backend pod and pod port, so rules aimed at
   the VIP or the node are inert. What keeps the Authentik UI reachable is the
