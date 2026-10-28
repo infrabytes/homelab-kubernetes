@@ -41,7 +41,7 @@ spec:
       containers:
         - name: breaking-change
           # The full (not slim) Debian variant ships git and curl, so the only install is pi.
-          image: node:24-bookworm
+          image: node:26-bookworm
           command: ["/bin/bash", "/etc/breaking-change/entrypoint.sh"]
           workingDir: /work
           env:

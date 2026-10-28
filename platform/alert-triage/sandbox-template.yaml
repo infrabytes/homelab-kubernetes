@@ -102,7 +102,7 @@ spec:
               memory: 64Mi
       containers:
         - name: triage
-          image: node:24-bookworm-slim
+          image: node:26-bookworm-slim
           command: ["/bin/bash", "/etc/triage/entrypoint.sh"]
           workingDir: /tmp
           env:
