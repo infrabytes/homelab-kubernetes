@@ -1,0 +1,43 @@
+# Backendless OpenTaco drift detection for the pilot unit: runs the digger
+# Action with mode=drift-detection on a daily schedule, reports drift as
+# GitHubIssues (transport agreed for the pilot), no orchestrator involvement.
+# The toolchain pins match digger_workflow.yml.
+name: Digger drift detection
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *"
+
+permissions:
+  contents: write
+  actions: write
+  id-token: write
+  pull-requests: write
+  issues: write
+  statuses: write
+
+jobs:
+  drift:
+    runs-on: homelab-runner
+    steps:
+      - name: Install sops
+        run: |
+          wget -q -O /usr/local/bin/sops \
+            https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
+          chmod 755 /usr/local/bin/sops
+      - uses: actions/checkout@v4
+      - uses: diggerhq/digger@v0.6.154
+        with:
+          mode: drift-detection
+          digger-filename: digger.yml
+          no-backend: true
+          setup-terragrunt: true
+          terragrunt-version: 1.2.1
+          setup-opentofu: true
+          opentofu-version: 1.13.2
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+          INPUT_DRIFT_GITHUB_ISSUES: "true"
