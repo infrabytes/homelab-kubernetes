@@ -1,0 +1,83 @@
+# Forward auth on the embedded outpost: the gated apps' own routes call
+# /outpost.goauthentik.io/auth/envoy for every request, and the outpost sends the browser here to
+# run the login flow. That flow (and its static assets) lives under the same prefix on the app's
+# hostname, so each host needs this unauthenticated route to the outpost before the app's rule.
+# One route per host: a Gateway listener pins exactly one hostname.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: authentik-outpost-longhorn
+  namespace: authentik
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab
+      namespace: gateway
+      sectionName: longhorn-https
+  hostnames:
+    - longhorn.icaninto.space
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /outpost.goauthentik.io
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: authentik-server
+          # Service port 80 -> container 9000, same as route.yaml.
+          port: 80
+          weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: authentik-outpost-cf2cnp
+  namespace: authentik
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab
+      namespace: gateway
+      sectionName: cf2cnp-https
+  hostnames:
+    - cf2cnp.icaninto.space
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /outpost.goauthentik.io
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: authentik-server
+          port: 80
+          weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: authentik-outpost-hubble
+  namespace: authentik
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab
+      namespace: gateway
+      sectionName: hubble-https
+  hostnames:
+    - hubble.icaninto.space
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /outpost.goauthentik.io
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: authentik-server
+          port: 80
+          weight: 1
