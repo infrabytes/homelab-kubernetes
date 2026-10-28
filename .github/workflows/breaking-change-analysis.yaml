@@ -21,7 +21,7 @@ jobs:
     # conclusion the merge paths read.
     runs-on: homelab-runner
     continue-on-error: true
-    timeout-minutes: 12
+    timeout-minutes: 36
     permissions:
       contents: read
       pull-requests: write
@@ -71,14 +71,16 @@ jobs:
       - name: Wait for the analysis
         run: |
           set -eu
-          for _ in $(seq 1 36); do
+          # 30 min: an analysis hand-checks one agent session, and a grouped
+          # platform PR can carry a dozen component bumps.
+          for _ in $(seq 1 180); do
             phase="$(kubectl -n alert-triage get pod "$CLAIM" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
             case "$phase" in
               Succeeded|Failed) echo "sandbox $CLAIM: $phase"; exit 0 ;;
             esac
             sleep 10
           done
-          echo "sandbox $CLAIM did not finish within 6 minutes" >&2
+          echo "sandbox $CLAIM did not finish within 30 minutes" >&2
           exit 1
 
       # success() || failure() also covers a step above that failed, which is when this needs to explain itself.
