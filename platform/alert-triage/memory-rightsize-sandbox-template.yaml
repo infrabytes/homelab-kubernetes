@@ -91,7 +91,7 @@ spec:
         - name: rightsize
           # The full (not slim) Debian variant: it ships git, curl and a glibc node, so the
           # only runtime install is pi itself.
-          image: node:24-bookworm
+          image: node:26-bookworm
           command: ["/bin/bash", "/etc/rightsize/entrypoint.sh"]
           workingDir: /work
           env:
