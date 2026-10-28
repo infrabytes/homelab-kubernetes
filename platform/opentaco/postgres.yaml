@@ -1,0 +1,89 @@
+# Single-instance Postgres for the OpenTaco pilot on windrunner: the
+# orchestrator and drift services each need their own database, one Postgres
+# serves both (the self-hosted reference deployment runs them the same way).
+# Pilot sizing: 256Mi/250m requests, 1Gi limit; local-path storage like the
+# Atlantis PVC. Move to a proper CloudNativePG cluster if the pilot passes.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: opentaco-postgres
+  namespace: opentaco
+spec:
+  serviceName: opentaco-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opentaco-postgres
+  template:
+    metadata:
+      labels:
+        app: opentaco-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:18.1-trixie
+          args: ["-c", "shared_buffers=128MB", "-c", "max_connections=50"]
+          env:
+            - name: POSTGRES_PASSWORD
+              # Staged taco-orchestrator-secrets is env-file, not kubectl data,
+              # so the DB password comes from its own Secret.
+              valueFrom:
+                secretKeyRef:
+                  name: opentaco-postgres
+                  key: POSTGRES_PASSWORD
+          ports:
+            - name: pg
+              containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: init
+          configMap:
+            name: opentaco-postgres-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opentaco-postgres
+  namespace: opentaco
+spec:
+  selector:
+    app: opentaco-postgres
+  ports:
+    - name: pg
+      port: 5432
+      targetPort: pg
+---
+# Two databases for one shared instance: orchestrator and drift.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opentaco-postgres-init
+  namespace: opentaco
+data:
+  init.sql: |
+    CREATE DATABASE digger;
+    CREATE DATABASE drift;
