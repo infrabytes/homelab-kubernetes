@@ -174,7 +174,7 @@ kubectl -n authentik exec deploy/authentik-worker -- sh -c 'ak test_email "$BLUE
 
 ## Blueprints (config-as-code)
 
-`blueprints/blueprints.yaml` holds four files, mounted into the worker by the chart:
+`blueprints/blueprints.yaml` holds five files, mounted into the worker by the chart:
 
 - `users.yaml` — the two local accounts. Usernames match the GitHub logins the cluster's RBAC
   already names (`bbayrakt`, `dhaustein`), so ArgoCD rules, Headlamp identities and OpenBao claims
@@ -195,12 +195,84 @@ kubectl -n authentik exec deploy/authentik-worker -- sh -c 'ak test_email "$BLUE
   ArgoCD's RBAC and OpenBao's bound claims see group membership, and `sub_mode: user_username`
   keeps the subject (and so Grafana's `auth_id`) equal to the username the consumers already use.
   No policy bindings: both local accounts may use all four clients.
+- `forward-auth.yaml` — the proxy providers for the UIs that cannot speak OIDC, all in forward-auth
+  (single application) mode: `longhorn`, `cf2cnp`, `hubble`, `atlantis` and `seaweedfs`. The reverse
+  proxy still forwards the app traffic itself and only asks the outpost whether the browser session
+  may pass, so `internal_host` stays empty (forward auth is exclusive with it) and `external_host`
+  is the URL the app is served on. The file also owns the **embedded outpost's** `providers` list
+  (`authentik Embedded Outpost`) — a provider attached in the admin UI is dropped on the next apply,
+  like user group membership. See [Forward auth](#forward-auth).
 
 Blueprints are re-read by the worker (mounted volume) and re-applied on change; deleting a file here
 does not delete the objects it created. The files own the fields they list — `name`, `email` and
 `groups` on a user are reset on every apply, so add group membership here, not in the admin UI.
 Reloader rolls the worker when the ConfigMap changes, so a committed edit applies on the next sync
 without a manual restart.
+
+## Forward auth
+
+Apps that cannot speak OIDC get a proxy provider in forward-auth (single application) mode: the
+reverse proxy keeps forwarding the app traffic and only asks the outpost for a yes/no, so the app
+never sees authentik. `forward-auth.yaml` creates the providers and assigns them to the embedded
+outpost, which runs in-process in the `server` pods — no managed outpost, so `serviceAccount.create:`
+stays `false`.
+
+In the cluster the check is the Gateway API `ExternalAuth` filter (GEP-1494, Cilium 1.20) on the app's
+HTTPRoute, pointing at `authentik-server` port 80, path `/outpost.goauthentik.io/auth/envoy`:
+
+| Host | Route | Gate |
+|---|---|---|
+| `longhorn.icaninto.space` | chart-rendered, via `httproute.filters` in `platform/longhorn/application.yaml` | Gateway |
+| `cf2cnp.icaninto.space` | `platform/hubble-observer/cf2cnp-httproute.yaml` | Gateway |
+| `hubble.icaninto.space` | `platform/hubble-ui/httproute.yaml` | Gateway |
+
+Three things make it work, and each is easy to break:
+
+- `httproutes` comes from the **experimental** Gateway API channel (`infra/cluster/addons.tf`). The
+  standard CRD prunes `externalAuth`, and the route then quietly has no filter.
+- `/outpost.goauthentik.io` on each of those hostnames must reach `authentik-server` **without** the
+  filter: that is where the login flow and its assets are served. `outpost-httproute.yaml` owns one
+  route per host, because a Gateway listener pins exactly one hostname.
+- the app namespaces reference that Service across namespaces, which `reference-grant.yaml` allows.
+
+`hubble-ui`'s tailnet Ingress is gone for the same reason: it went straight to the proxy pod, past
+the check. Tailnet devices use the LAN hostname through the `lan-subnet-router` Connector.
+
+### Atlantis and the SeaweedFS admin UI (SWAG, host-side)
+
+Both are fronted by SWAG on `windrunner`, which this repo does not manage, so their gate is an nginx
+config instead of a route. The providers exist (above); add the forward-auth blocks to
+`proxy-confs/atlantis.subdomain.conf` and `proxy-confs/seaweedfs.subdomain.conf`:
+
+```nginx
+location /outpost.goauthentik.io {
+    proxy_pass https://authentik.icaninto.space;
+    proxy_set_header Host $host;
+    proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
+    proxy_set_header X-Original-Method $request_method;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location / {
+    auth_request /outpost.goauthentik.io/auth/nginx;
+    error_page 401 = @authentik_signin;
+    auth_request_set $authentik_cookie $upstream_http_set_cookie;
+    add_header Set-Cookie $authentik_cookie;
+    # ... the proxy_pass the app already has stays here
+}
+
+location @authentik_signin {
+    internal;
+    add_header Set-Cookie $authentik_cookie;
+    return 302 /outpost.goauthentik.io/start?rd=$request_uri;
+}
+```
+
+**Atlantis needs `/events` exempt.** GitHub posts the webhook there unauthenticated and Atlantis
+checks its own `X-Hub-Signature`; without an `auth_request off;` location for it, GitHub gets a login
+redirect instead of a 200 and every PR stops reporting. `s3.icaninto.space` is deliberately not
+gated: it is an S3 API with sigv4 keys, and Velero and Terragrunt cannot log in through a browser.
 
 ## Accounts
 
@@ -229,11 +301,10 @@ without a manual restart.
   drop the other keys, which takes the pods down.
 - **Sizing** is a first estimate (2026-10-25, no history) for server, worker and the database;
   re-derive from the alerting history after two weeks.
-- **Outposts:** the embedded outpost runs inside the `server` pod, so forward-auth works with no
-  extra workload. Managed outposts would be Deployments created by the server, which needs the
-  chart's ServiceAccount and remote-cluster ClusterRole — both off while `serviceAccount.create:`
-  is `false`, so switch it on in the commit that adds the first proxy provider. Forward-auth also
-  needs the apps' hostnames to route `/outpost.goauthentik.io` to authentik.
+- **Outposts:** the embedded outpost runs inside the `server` pod (on its ports 9000/9443), so
+  forward auth works with no extra workload; only *managed* outposts would be Deployments created by
+  the server, which needs the chart's ServiceAccount and remote-cluster ClusterRole — both stay off
+  while `serviceAccount.create:` is `false`.
 
 ## Verify
 
@@ -253,7 +324,7 @@ curl -I https://authentik.icaninto.space/-/health/ready/ # from outside and from
 ```
 
 Then sign in at https://authentik.icaninto.space as `akadmin`, check Admin → Blueprints shows the
-four files applied, reset `bbayrakt`'s password through "Forgot password?", and confirm the login
+five files applied, reset `bbayrakt`'s password through "Forgot password?", and confirm the login
 demands a TOTP device.
 
 ## Consumers
@@ -264,4 +335,5 @@ demands a TOTP device.
 | Grafana | `auth.generic_oauth` → authentik; tailnet path keeps `auth.proxy` |
 | Headlamp | OIDC + Talos `KubeAuthenticationConfig` JWT authenticator on this issuer, `rbac.yaml` identities |
 | OpenBao | `auth/oidc` config in the chart `postStart` + the tenant `sso-<tenant>` roles |
-| Longhorn, Hubble UI, SeaweedFS, Atlantis, vmui | proxy provider + `forward_auth` on the embedded outpost |
+| Longhorn, Hubble UI, CF2CNP | proxy provider + Gateway `ExternalAuth` filter → embedded outpost |
+| Atlantis, SeaweedFS admin | proxy provider + `auth_request` in SWAG (host-side nginx) |
