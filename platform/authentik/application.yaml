@@ -52,7 +52,8 @@ spec:
             configMaps:
               - authentik-blueprints
           serviceAccount:
-            # Managed outposts need this remote-cluster ClusterRole; the embedded one runs in-process. Enable with the first proxy provider.
+            # Only managed outposts need this ServiceAccount and its remote-cluster ClusterRole; the
+            # forward-auth proxy providers in blueprints/ are served by the embedded outpost in-process.
             create: false
           server:
             replicas: 2
