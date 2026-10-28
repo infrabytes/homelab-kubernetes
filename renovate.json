@@ -456,10 +456,7 @@
       "sourceUrl": "https://github.com/kubernetes-csi/csi-driver-nfs"
     },
     {
-      "description": "An OCI chart artifact carries no source URL either, so its release notes are never fetched. Upstream tags it v0.8.x, matching the chart version.",
-      "matchDatasources": [
-        "helm"
-      ],
+      "description": "An OCI chart artifact carries no source URL either, so its release notes are never fetched. The oci:// repoURL resolves through the docker datasource (argocd manager), so no matchDatasources filter: the package name is unique, and matching it alone survives a manager-side datasource change. Upstream tags it v0.8.x, matching the chart version.",
       "matchPackageNames": [
         "ghcr.io/spegel-org/helm-charts/spegel"
       ],
