@@ -206,8 +206,13 @@ kubectl -n authentik exec deploy/authentik-worker -- sh -c 'ak test_email "$BLUE
 Blueprints are re-read by the worker (mounted volume) and re-applied on change; deleting a file here
 does not delete the objects it created. The files own the fields they list — `name`, `email` and
 `groups` on a user are reset on every apply, so add group membership here, not in the admin UI.
-Reloader rolls the worker when the ConfigMap changes, so a committed edit applies on the next sync
-without a manual restart.
+Reloader rolls the worker when the ConfigMap changes, so a committed edit to an **existing** file
+applies on the next sync without a manual restart. A **new** file is different: it only becomes a
+Blueprint instance at the next `blueprints_discovery` run (roughly hourly, checked at
+Admin → Blueprints), because the worker's file watcher only re-applies files that already have an
+instance. So land a blueprint change first and let it apply before merging the manifests that depend
+on the objects it creates — otherwise whatever needs them is broken in the meantime, and a route
+whose provider does not exist yet fails closed.
 
 ## Forward auth
 

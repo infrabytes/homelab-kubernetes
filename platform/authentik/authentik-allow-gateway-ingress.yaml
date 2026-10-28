@@ -1,6 +1,11 @@
 ---
 # The Cilium Gateway's envoy is host-network and carries the reserved `ingress` identity, which
 # namespace/pod selectors cannot match; without this, Gateway -> 9000 (authentik.icaninto.space) is dropped.
+# `remote-node` is needed for the forward-auth checks: the gateway's ext_authz filter dials the
+# Service's pod IPs directly (no VIP, so no node-local shortcut), and a connection arriving through
+# the tunnel from the node running the gateway is classified `remote-node`, not `ingress` — with
+# `ingress` alone, the half of the checks that land on the other server replica time out and the
+# gateway fails closed (403 after 5s).
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -13,6 +18,7 @@ spec:
   ingress:
     - fromEntities:
         - ingress
+        - remote-node
       toPorts:
         - ports:
             - port: "9000"
