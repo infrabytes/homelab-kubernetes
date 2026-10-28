@@ -40,7 +40,7 @@ spec:
                     sizeLimit: 10Gi
               containers:
                 - name: runner
-                  image: ghcr.io/actions/actions-runner:2.338.1
+                  image: ghcr.io/actions/actions-runner:2.338.2
                   # Best-effort hydration from the seed tarballs (UID derived at runtime: image content changes across versions).
                   command:
                     - /bin/sh
