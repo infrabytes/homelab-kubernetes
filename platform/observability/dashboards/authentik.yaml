@@ -1,7 +1,9 @@
 # authentik's upstream Grafana dashboard, vendored verbatim from
 # https://raw.githubusercontent.com/goauthentik/authentik/version/2026.8.5/website/static/monitoring/grafana-dashboard.json
 # (2026.8.5, fetched 2026-10-25, sha256 3d01ab8dd25eb652dfeea8597a38af6360ec8c1596028484d678029933b8d5db);
-# kept upstream-unchanged so a re-vendor shows a reviewable diff.
+# kept upstream-unchanged so a re-vendor shows a reviewable diff; the one deviation is the
+# dashboard uid (upstream ships "authentik", which equals the folder uid and makes Grafana's
+# folder page recurse forever - see the GrafanaDashboard spec below).
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -1970,7 +1972,7 @@ data:
       "timepicker": {},
       "timezone": "",
       "title": "authentik",
-      "uid": "authentik",
+      "uid": "authentik-dashboard",
       "version": 69
     }
 ---
@@ -1983,7 +1985,10 @@ spec:
   instanceSelector:
     matchLabels:
       grafanaInstance: main
-  folder: Authentik
+  # folderUID, not folder: the legacy title lookup raced the GrafanaFolder above on first sync
+  # and left an empty duplicate folder. A dashboard uid equal to its folder uid (upstream ships
+  # "authentik" for both) also breaks the folder page in Grafana 13 (infinite recursion).
+  folderUID: authentik
   resyncPeriod: 1h
   configMapRef:
     name: authentik
