@@ -8,7 +8,8 @@ spec:
   source:
     repoURL: https://seaweedfs.github.io/seaweedfs/helm
     chart: seaweedfs
-    targetRevision: 4.49.0
+    # Quoted for Renovate: a bare two-segment tag (4.51) is a YAML float, which the argocd manager rejects.
+    targetRevision: "4.49.0"
     helm:
       releaseName: seaweedfs
       values: |
