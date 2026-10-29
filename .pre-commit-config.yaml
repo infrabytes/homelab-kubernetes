@@ -47,6 +47,8 @@ repos:
     rev: 44.190.2
     hooks:
       - id: renovate-config-validator
+        # node >= 25 needs libatomic.so.1, which the ARC runner image lacks; drop when it can run one.
+        language_version: "24"
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.2
