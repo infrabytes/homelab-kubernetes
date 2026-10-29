@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 env:
-  RENOVATE_VERSION: 44.190.2
+  RENOVATE_VERSION: 44.192.2
 
 jobs:
   renovate:
