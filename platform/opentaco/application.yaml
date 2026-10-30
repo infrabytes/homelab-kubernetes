@@ -1,0 +1,84 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opentaco
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # OpenTaco (Digger) umbrella chart, PR automation + drift only: statesman,
+    # token-service, UI and sidecar are off, which leaves just the
+    # orchestrator and drift Deployments. cloudSql must be disabled on both or
+    # the chart renders a GCP cloud-sql-proxy sidecar for Postgres mode too.
+    # Sizing: values commented examples in the upstream chart (250m/256Mi req,
+    # 1Gi limit per pod); no production window measured yet because the
+    # platform is not in service — re-derive after the pilot.
+    # Credentials (GitHub App, Postgres) live in the taco-orchestrator-secrets
+    # and drift-secrets env-file manifests (the chart's default
+    # existingSecretName values) staged on windrunner the same way atlantis-env
+    # is, never committed and never rendered here.
+    - repoURL: oci://ghcr.io/diggerhq/helm-charts
+      chart: opentaco
+      targetRevision: 0.1.2-public
+      helm:
+        values: |
+          global:
+            imageRegistry: ghcr.io/diggerhq
+          taco-orchestrator:
+            enabled: true
+            cloudSql:
+              enabled: false
+            digger:
+              image:
+                repository: digger_backend
+                tag: v0.6.154
+              replicaCount: 1
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 256Mi
+                limits:
+                  memory: 1Gi
+              cloudSql:
+                enabled: false
+          taco-drift:
+            enabled: true
+            drift:
+              image:
+                # No release tags exist yet (staging-per-commit only), so this
+                # stays latest until Digger publishes release tags for it.
+                tag: latest
+              replicaCount: 1
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 256Mi
+                limits:
+                  memory: 1Gi
+              cloudSql:
+                enabled: false
+          taco-statesman:
+            enabled: false
+          taco-token-service:
+            enabled: false
+          taco-ui:
+            enabled: false
+          taco-sidecar:
+            enabled: false
+    # Postgres and the web NodePort live beside the chart release; the
+    # grafana-cloud-config keys end up on the Windrunner cluster alongside
+    # Atlantis. Secrets are staged by hand, not committed here.
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes.git
+      targetRevision: main
+      path: platform/opentaco
+      directory:
+        exclude: "application*.yaml"
+  destination:
+    name: windrunner
+    namespace: opentaco
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
