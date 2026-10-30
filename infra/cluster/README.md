@@ -194,7 +194,15 @@ automatically on version bumps).
   the new config instead of the old one rejecting it. Controlplane nodes go
   first, then workers one at a time (`-parallelism=1` is injected into `apply`
   by the unit's `terragrunt.hcl`: parallel worker reboots would take all
-  Longhorn replicas down at once).
+  Longhorn replicas down at once). The drain budget is a fixed 5 minutes
+  (`nodedrain.DefaultDrainTimeout` in the provider, not exposed by the
+  resource — no `timeouts` block can raise it), and a node whose drain exceeds
+  it fails the apply and is left cordoned. So the drain must not depend on
+  replica migration (see `nodeDrainPolicy` in `platform/longhorn`) or on a
+  multi-replica app coming back with quorum (`openbao`), and a node that has
+  piled up loads of pods — the survivors of a failed upgrade, say — is better
+  drained by hand (`kubectl drain --ignore-daemonsets --delete-emptydir-data`,
+  no deadline) before re-running the apply.
 - **Kubernetes** — `talos_cluster.kubernetes_version` runs Talos's
   `upgrade-k8s` procedure: sequential control-plane component upgrades with
   health gating, kubelet node-by-node, CoreDNS/kube-proxy manifests.
