@@ -143,20 +143,11 @@ spec:
                 bao auth tune -listing-visibility=unauth oidc/ >/dev/null 2>&1 || true
 
                 # Fatal by design: a dead issuer must crash-loop visibly; the API and ESO use k8s auth, not this pod's SSO.
-                # Bounded retry first: an issuer 503 while authentik was itself being
-                # rescheduled killed the container, and a non-Ready member holds the
-                # max-unavailable-1 PDB at zero disruptions — enough to wedge a worker
-                # drain past the provider's 5-minute budget (2026-10-30).
-                i=0
-                until bao write auth/oidc/config \
+                bao write auth/oidc/config \
                   oidc_discovery_url=https://authentik.icaninto.space/application/o/openbao/ \
                   oidc_client_id="$OIDC_CLIENT_ID" \
                   oidc_client_secret="$OIDC_CLIENT_SECRET" \
-                  default_role=sso-user; do
-                  i=$((i+1))
-                  [ "$i" -ge 20 ] && exit 1
-                  sleep 3
-                done
+                  default_role=sso-user
 
                 # bound_claims is a map — no CLI flag, so roles are JSON documents (OpenBao docs).
                 bao write auth/oidc/role/sso-admin - <<'EOF'
