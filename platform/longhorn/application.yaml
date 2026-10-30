@@ -27,13 +27,16 @@ spec:
             defaultDataPath: /var/mnt/longhorn
             # Only applies at disk creation; the three existing disks carry their own spec.disks[].storageReserved.
             storageReservedPercentageForDefaultDisk: "10"
-            # Nodes are rebooted, not removed, during upgrades: the default
-            # block-if-contains-last-replica held an instance-manager PDB for 27
-            # minutes after every volume had detached, which no 5-minute provider
-            # drain can outwait. This still blocks while a replica is running,
-            # then lets the eviction through; the replica data stays on the disk
-            # of the node that comes back.
-            nodeDrainPolicy: allow-if-replica-is-stopped
+            # Nodes are rebooted, not removed, during upgrades, and the provider's
+            # drain budget is a fixed 5 minutes (`nodedrain.DefaultDrainTimeout`, not
+            # configurable from the resource), so nothing may gate an eviction on
+            # replica migration: block-if-contains-last-replica held the
+            # instance-manager PDB for 27 minutes, and allow-if-replica-is-stopped
+            # still wedged the 2026-10-30 v1.14.4->v1.14.5 apply past the budget on two
+            # workers. always-allow lets the eviction through; the replica data stays
+            # on the rebooted node's disk and Longhorn rebuilds from it, so a volume
+            # can stay degraded until that rebuild finishes.
+            nodeDrainPolicy: always-allow
             createDefaultDiskLabeledNodes: true
             storageMinimalAvailablePercentage: "10"
             # Replicas are only placed at creation/rebuild time; best-effort lets Longhorn correct the 2026-09-13 skew itself.
