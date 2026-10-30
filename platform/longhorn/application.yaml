@@ -33,9 +33,12 @@ spec:
             # replica migration: block-if-contains-last-replica held the
             # instance-manager PDB for 27 minutes, and allow-if-replica-is-stopped
             # still wedged the 2026-10-30 v1.14.4->v1.14.5 apply past the budget on two
-            # workers. always-allow lets the eviction through; the replica data stays
-            # on the rebooted node's disk and Longhorn rebuilds from it, so a volume
-            # can stay degraded until that rebuild finishes.
+            # workers. always-allow is the policy that never blocks one — but it has
+            # not yet been seen releasing an instance-manager eviction here (the PDB
+            # still read 0 allowed disruptions while it was live), so watch that PDB
+            # on the next upgrade. The replica data stays on the rebooted node's disk:
+            # the existing 2-replica volumes rebuild elsewhere, a 3-replica one
+            # (default-replica-count) just gets its replica back with the node.
             nodeDrainPolicy: always-allow
             createDefaultDiskLabeledNodes: true
             storageMinimalAvailablePercentage: "10"
