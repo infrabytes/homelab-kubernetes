@@ -503,15 +503,6 @@
       ]
     },
     {
-      "description": "Hold every Talos bump for a human, patches included: `cluster` upgrades all four nodes in place behind a fixed 5-minute per-node drain (`nodedrain.DefaultDrainTimeout`, not configurable from the `talos_machine` resource), so an unattended apply is a cluster-wide operation on a timer. The 2026-10-30 v1.14.4->v1.14.5 patch bump was auto-applied, wedged on two worker drains and left both cordoned; `needs-review` makes `renovate-atlantis-apply.py` refuse it so the apply waits for a chosen window.",
-      "matchDepNames": [
-        "siderolabs/talos"
-      ],
-      "addLabels": [
-        "needs-review"
-      ]
-    },
-    {
       "description": "Atlantis is the sole merger for infra PRs (apply-before-merge)",
       "matchFileNames": [
         "infra/**"
