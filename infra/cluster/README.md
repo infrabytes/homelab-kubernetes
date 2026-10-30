@@ -197,12 +197,25 @@ automatically on version bumps).
   Longhorn replicas down at once). The drain budget is a fixed 5 minutes
   (`nodedrain.DefaultDrainTimeout` in the provider, not exposed by the
   resource — no `timeouts` block can raise it), and a node whose drain exceeds
-  it fails the apply and is left cordoned. So the drain must not depend on
-  replica migration (see `nodeDrainPolicy` in `platform/longhorn`) or on a
-  multi-replica app coming back with quorum (`openbao`), and a node that has
-  piled up loads of pods — the survivors of a failed upgrade, say — is better
-  drained by hand (`kubectl drain --ignore-daemonsets --delete-emptydir-data`,
-  no deadline) before re-running the apply.
+  it fails the apply and is left cordoned. Two things here have cost more than
+  that: Longhorn's instance-manager eviction (`nodeDrainPolicy` in
+  `platform/longhorn`) and OpenBao, where a `postStart` that fails while
+  authentik restarts leaves a replica non-Ready, and the `maxUnavailable: 1` PDB
+  then refuses the next eviction. The bump is auto-applied, so nothing pre-drains
+  the node first; when an apply does fail this way, recover by hand, then either
+  uncordon or re-run the apply to finish the upgrade:
+
+  ```sh
+  # The instance-manager PDB allows 0 disruptions and `kubectl drain` retries a
+  # refused eviction forever, hence --disable-eviction; replica data stays on the
+  # node's disk.
+  kubectl drain talos-worker-N --ignore-daemonsets --delete-emptydir-data \
+    --force --disable-eviction
+  ```
+
+  Before re-applying, `kubectl -n longhorn-system get pdb | grep
+  instance-manager` must show a disruption available for the node being drained;
+  at 0 the next drain hits the same 5-minute wall.
 - **Kubernetes** — `talos_cluster.kubernetes_version` runs Talos's
   `upgrade-k8s` procedure: sequential control-plane component upgrades with
   health gating, kubelet node-by-node, CoreDNS/kube-proxy manifests.
