@@ -74,7 +74,7 @@ spec:
           # Matches kubernetes_version in infra/env.hcl (read-only kubectl for RCA).
           env:
             - name: KUBECTL_VERSION
-              value: v1.37.1
+              value: v1.37.2
           image: curlimages/curl:8.23.0
           command:
             - sh
