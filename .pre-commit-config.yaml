@@ -44,7 +44,7 @@ repos:
         args: [--baseline, .secrets.baseline]
 
   - repo: https://github.com/renovatebot/pre-commit-hooks
-    rev: 44.192.2
+    rev: 44.198.3
     hooks:
       - id: renovate-config-validator
         # node >= 25 needs libatomic.so.1, which the ARC runner image lacks; drop when it can run one.
