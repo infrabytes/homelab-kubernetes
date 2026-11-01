@@ -50,7 +50,7 @@ spec:
             wget -q -O "$INIT_SHARED_DIR/sops" \
               https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
             wget -q -O "$INIT_SHARED_DIR/kubectl" \
-              https://dl.k8s.io/release/v1.37.1/bin/linux/amd64/kubectl
+              https://dl.k8s.io/release/v1.37.2/bin/linux/amd64/kubectl
             chmod 755 "$INIT_SHARED_DIR/terragrunt" "$INIT_SHARED_DIR/sops" "$INIT_SHARED_DIR/kubectl"
         # Sizing: one docker stats sample (604MiB RSS, 2026-10-23); the host kept no history for a p95, so the 2Gi limit is headroom for tofu/terragrunt peaks, not a derivation.
         resources:
