@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Syncs kubeconfig/talosconfig/viewer-kubeconfig with the shared S3 bucket (Terragrunt hooks): real files live in the machine-invariant CREDENTIALS_DIR (state stores these filenames — a checkout path differs per machine/Atlantis workspace and plans creates everywhere else); artifacts/ holds symlinks the script manages.
+# Syncs kubeconfig/talosconfig/viewer-kubeconfig and the two rendered inline manifests with the shared S3 bucket (Terragrunt hooks): real files live in the machine-invariant CREDENTIALS_DIR (state stores these filenames — a checkout path differs per machine/Atlantis workspace and plans creates everywhere else); artifacts/ holds symlinks the script manages.
 # A download 404 is a cache miss (exit 0): apply regenerates, after_hook re-uploads. Credentials come from sops and reach curl via a stdin config (-K -), never argv, never echoed; silent on success, errors to stderr, no `set -x`.
 set -euo pipefail
 
 BUCKET="homelab-kubernetes"
 PREFIX="artifacts"
 REGION="us-east-1"
-FILES=(kubeconfig talosconfig viewer-kubeconfig)
+FILES=(kubeconfig talosconfig viewer-kubeconfig cilium-manifest.yaml gateway-api-crds-manifest.yaml)
 # Must match credentials_dir in infra/env.hcl.
 CREDENTIALS_DIR="/var/tmp/homelab-artifacts"
 

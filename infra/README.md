@@ -72,27 +72,33 @@ each unit's `terragrunt.hcl` reads with `read_terragrunt_config(...)`.
 
 ## Artifact sync (bucket + machine-invariant credential home)
 
-Two things made the credential files noisy in plans: `artifacts/` is
+Two things made these files noisy in plans: `artifacts/` is
 gitignored (fresh checkout has no files), and state stores each
 `local_sensitive_file`'s **absolute `filename`** — a checkout path differs per
 machine and per Atlantis workspace, so plans outside the last-applied
 workspace dropped the resource and re-planned it as a create. The fix has two
 parts, both inherited from `root.hcl` hooks running `scripts/sync-artifacts.sh`:
 
-- **Canonical home**: `kubeconfig`/`talosconfig`/`viewer-kubeconfig` live in
+- **Canonical home**: `kubeconfig`/`talosconfig`/`viewer-kubeconfig` and the
+  two rendered inline manifests (`cilium-manifest.yaml`,
+  `gateway-api-crds-manifest.yaml`) live in
   `credentials_dir` (`/var/tmp/homelab-artifacts`, defined once in `env.hcl`,
   mirrored in the script — the test asserts they match). That path is
   identical on every machine, so once state records it, every workspace plans
   against the same filename. Files are `0600` in a `0700` directory, readable
-  only by the user that runs Terragrunt; Atlantis runs in a pod with its own
-  container-local copy, so the shared write bits served nobody. `artifacts/`
+  only by the user that runs Terragrunt. `artifacts/`
   holds symlinks the script manages, so `kubectl`/`kubeconfig_path` paths are
   unchanged.
 - **Bucket sync**: `before_hook` (plan + apply) runs `download` — GETs the
-  three objects from the bucket's `artifacts/` prefix into the canonical home
+  five objects from the bucket's `artifacts/` prefix into the canonical home
   and (re)creates the symlinks; `after_hook` (apply) runs `upload` — PUTs them
   back after a successful apply. Legacy real files in `artifacts/` are adopted
   into the canonical home on the next run.
+
+In Atlantis that home is a `1Gi` `local-path` PVC (`atlantis-credentials`,
+mounted at `/var/tmp/homelab-artifacts` by `platform/atlantis/application.yaml`),
+so a pod roll no longer empties it; the bucket leg is what heals a fresh PVC or
+a host whose `/var/tmp` was pruned.
 
 A missing bucket object is a cache miss, not an error: download exits 0, plan
 shows create, apply regenerates the file and the after_hook re-uploads it —
@@ -101,13 +107,13 @@ self-healing with no manual bootstrap. Credentials come from
 argv); the script is silent on success so no file contents can surface in
 Atlantis output. Files sit plaintext in the bucket — same trust boundary as
 remote state, whose credentials are SOPS-protected. The cilium/gateway-api
-inline manifests are local-only and never synced (they keep planning as
-creates when absent on another machine — accepted noise). `artifacts/` stays
+inline manifests are synced too: without that, a plan in a fresh checkout
+planned them as creates on every run. `artifacts/` stays
 gitignored; nothing here changes the no-committed-secrets guardrail.
 
 One-time transition: state written before the canonical home existed points
 at a workspace-specific path, so the first apply after this change re-creates
-the three files at `/var/tmp/homelab-artifacts/` (a create in that one plan).
+the files at `/var/tmp/homelab-artifacts/` (a create in that one plan).
 Every plan after that is workspace-independent.
 
 `.github/scripts/test-artifact-sync.sh` asserts the hook wiring, that the

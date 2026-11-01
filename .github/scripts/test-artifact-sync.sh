@@ -34,7 +34,8 @@ if grep -E 'commands = \[[^]]*(init|validate)' "$root_hcl" | grep -q sync-artifa
 fi
 
 script_keys="$(sed -n 's/^FILES=(\(.*\))$/\1/p' "$sync_script" | tr ' ' '\n' | sort | xargs)"
-tf_keys="$(grep -ohE '\$\{var\.(credentials_dir|artifacts_dir)\}/[a-z-]+' \
+tf_keys="$(grep -ohE '\$\{var\.(credentials_dir|artifacts_dir)\}/[a-z0-9.-]+' \
+  "$root/infra/cluster/converge.tf" \
   "$root/infra/cluster/modules/talos-cluster/artifacts.tf" \
   "$root/infra/viewer-kubeconfig/main.tf" |
   sed 's|.*/||' | sort | xargs)"

@@ -159,7 +159,9 @@ for production, as an **inline manifest**:
 > skips every object already in the bootstrap inventory, and backfills the
 > inventory for objects that already exist, so a chart bump or a values change
 > never reaches objects that are already running. `converge.tf` closes that
-> gap: it writes both renders to `artifacts/` and applies them with
+> gap: it writes both renders to `credentials_dir` (`/var/tmp/homelab-artifacts`,
+> machine-invariant so plans don't see them as creates on every fresh checkout —
+> see `../../infra/README.md`, "Artifact sync") and applies them with
 > `kubectl apply --server-side --field-manager=talos` after the config apply
 > (needs `kubectl` on PATH).
 
