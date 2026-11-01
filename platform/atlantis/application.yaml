@@ -63,6 +63,28 @@ spec:
           enabled: true
           dataStorage: 5Gi
           storageClassName: local-path
+        # The credential home Terragrunt writes/reads (kubeconfig, talosconfig,
+        # viewer-kubeconfig and the inline manifests) must survive pod rolls, or
+        # every restart re-plans those local_sensitive_file resources as creates.
+        # The bucket sync in infra/scripts/sync-artifacts.sh still heals a fresh PVC.
+        extraManifests:
+          - apiVersion: v1
+            kind: PersistentVolumeClaim
+            metadata:
+              name: atlantis-credentials
+            spec:
+              accessModes: [ReadWriteOnce]
+              storageClassName: local-path
+              resources:
+                requests:
+                  storage: 1Gi
+        extraVolumes:
+          - name: atlantis-credentials
+            persistentVolumeClaim:
+              claimName: atlantis-credentials
+        extraVolumeMounts:
+          - name: atlantis-credentials
+            mountPath: /var/tmp/homelab-artifacts
   destination:
     name: windrunner
     namespace: atlantis

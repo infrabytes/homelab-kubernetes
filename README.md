@@ -429,9 +429,11 @@ What lives where:
   (first on PATH) at every pod start; tofu is Atlantis's own download per
   `atlantis.yaml`. The server-side repo settings (formerly `repos.yaml` on the
   VM) are the chart's `repoConfig` value.
-- `kubeconfig`/`talosconfig` reach each checkout from the state bucket
+- `kubeconfig`/`talosconfig` and the two rendered inline manifests reach each
+  checkout from the state bucket
   (`infra/scripts/sync-artifacts.sh`, run by the Terragrunt hooks), so the old
-  `pre_workflow_hooks` copy is gone.
+  `pre_workflow_hooks` copy is gone. Their home (`/var/tmp/homelab-artifacts`)
+  is the `atlantis-credentials` `local-path` PVC, so it survives pod rolls.
 - Credentials are not in git: the `atlantis-env` Secret in namespace `atlantis`
   holds `ATLANTIS_GH_USER`, `ATLANTIS_GH_TOKEN`, `ATLANTIS_GH_WEBHOOK_SECRET`,
   `ATLANTIS_API_SECRET` and `SOPS_AGE_KEY`, staged by the playbook from the

@@ -41,10 +41,9 @@ locals {
   }
 
   cluster = {
-    # Inline manifests stay in the checkout's artifacts/ (local-only, accepted
-    # plan noise); credential files live in the machine-invariant
-    # credentials_dir, symlinked back into artifacts/ by sync-artifacts.sh.
-    artifacts_dir   = abspath("${local.infra_dir}/cluster/artifacts")
+    # Credential files and the inline manifests live in the machine-invariant
+    # credentials_dir (state stores their absolute filenames), symlinked back into
+    # the checkout's artifacts/ by sync-artifacts.sh.
     credentials_dir = local.credentials_dir
 
     proxmox_endpoint  = "https://192.168.0.11:8006/"
