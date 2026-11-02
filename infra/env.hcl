@@ -59,7 +59,7 @@ locals {
     talos_version            = "v1.14.5"
     kubernetes_version       = "1.37.2"
     cilium_chart_version     = "1.20.4"
-    gateway_api_crds_version = "v1.6.3"
+    gateway_api_crds_version = "v1.7.0"
 
     # Image Factory (standard, non-secureboot metal ISO)
     talos_arch     = "amd64"
