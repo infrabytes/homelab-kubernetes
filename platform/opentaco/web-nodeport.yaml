@@ -1,0 +1,18 @@
+# NodePort exposing the orchestrator web/webhook port behind SWAG on the
+# host, same exposure pattern as Atlantis (NodePort 30414). SWAG terminates
+# TLS at https://opentaco.icaninto.space and proxies to host:30415.
+apiVersion: v1
+kind: Service
+metadata:
+  name: opentaco-web-nodeport
+  namespace: opentaco
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: taco-orchestrator
+    app.kubernetes.io/instance: opentaco
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      nodePort: 30415
