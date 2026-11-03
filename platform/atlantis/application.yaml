@@ -8,11 +8,13 @@ spec:
   source:
     repoURL: https://runatlantis.github.io/helm-charts
     chart: atlantis
-    targetRevision: 6.16.2
+    targetRevision: 7.0.0
     helm:
       releaseName: atlantis
       values: |
         orgAllowlist: github.com/infrabytes/homelab-kubernetes
+        # v0.49.0 images ship no tofu binary; without this the server crashloops at startup. Matches atlantis.yaml's terraform_version, not the workflows' tofu_version.
+        defaultTFVersion: "1.13.5"
         atlantisUrl: https://atlantis.icaninto.space
         # SWAG terminates TLS on the host and proxies to this NodePort.
         service:
