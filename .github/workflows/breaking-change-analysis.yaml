@@ -5,9 +5,8 @@ on:
     types: [labeled]
 
 concurrency:
-  # One analysis per PR: a re-label supersedes the run for the same head SHA.
+  # Renovate adds both labels in one second; the group must queue, not cancel, the needs-review run.
   group: breaking-change-analysis-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
 
 jobs:
   breaking-change-analysis:
