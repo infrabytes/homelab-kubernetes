@@ -13,6 +13,8 @@ spec:
       releaseName: atlantis
       values: |
         orgAllowlist: github.com/infrabytes/homelab-kubernetes
+        # v0.49.0 images ship no tofu binary; without this the server crashloops at startup. Matches atlantis.yaml's terraform_version, not the workflows' tofu_version.
+        defaultTFVersion: "1.13.5"
         atlantisUrl: https://atlantis.icaninto.space
         # SWAG terminates TLS on the host and proxies to this NodePort.
         service:
