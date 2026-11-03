@@ -1,0 +1,25 @@
+# OpenTaco (Digger) pilot config — plan/apply automation from GitHub PRs,
+# dispatched by the self-hosted orchestrator to .github/workflows/digger_workflow.yml.
+# Pilot scope is grafana-cloud-config only; Atlantis keeps owning the remaining
+# infra/ units until the pilot verdict (see atlantis.yaml).
+# SOPS_AGE_KEY is read straight from the age-key env var (sops >= 3.9 supports
+# it), injected here from the GitHub Actions secret of the same name.
+projects:
+  - name: grafana-cloud-config
+    dir: infra/grafana-cloud-config
+    terragrunt: true
+    workflow: terragrunt-sops
+workflows:
+  terragrunt-sops:
+    env_vars:
+      commands:
+        - name: SOPS_AGE_KEY
+          value_from: SOPS_AGE_KEY
+    plan:
+      steps:
+        - init
+        - plan
+    apply:
+      steps:
+        - init
+        - apply

@@ -1,0 +1,49 @@
+# Digger dispatch target for the OpenTaco pilot: the self-hosted orchestrator
+# (opentaco.icaninto.space) hits this workflow per PR event with a serialized
+# job spec; the digger Action executes terragrunt/tofu on the self-hosted
+# runner pool (LAN access to the SeaweedFS backend + Proxmox API, matching how
+# Atlantis runs today). File name is part of the contract.
+name: Digger Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      spec:
+        required: true
+      run_name:
+        required: false
+
+run-name: "${{ inputs.run_name }}"
+
+permissions:
+  contents: write
+  actions: write
+  id-token: write
+  pull-requests: write
+  issues: read
+  statuses: write
+
+jobs:
+  digger:
+    runs-on: homelab-runner
+    steps:
+      # Same pin set as the Atlantis initConfig and the CI workflows (terragrunt
+      # 1.2.1, tofu 1.13.2, sops 3.13.3) so all three apply paths share a toolchain.
+      - name: Install sops
+        run: |
+          wget -q -O /usr/local/bin/sops \
+            https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
+          chmod 755 /usr/local/bin/sops
+      - uses: actions/checkout@v4
+      - uses: diggerhq/digger@v0.6.154
+        with:
+          digger-spec: ${{ inputs.spec }}
+          digger-hostname: https://opentaco.icaninto.space
+          setup-terragrunt: true
+          terragrunt-version: 1.2.1
+          setup-opentofu: true
+          opentofu-version: 1.13.2
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
