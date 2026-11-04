@@ -50,7 +50,7 @@
       "managerFilePatterns": [
         "/^\\.github\\/workflows\\/(pre-commit|warm-tool-cache)\\.ya?ml$/",
         "/^atlantis\\.ya?ml$/",
-        "/^platform\/atlantis\/application\.ya?ml$/"
+        "/^platform\/atlantis\/application\\.ya?ml$/"
       ],
       "matchStrings": [
         "tofu_version:\\s*(?<currentValue>[^\\s]+)",
