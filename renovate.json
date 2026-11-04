@@ -49,11 +49,13 @@
       "description": "OpenTofu CLI version pinned in the pre-commit/tool-cache workflows and for the Atlantis projects",
       "managerFilePatterns": [
         "/^\\.github\\/workflows\\/(pre-commit|warm-tool-cache)\\.ya?ml$/",
-        "/^atlantis\\.ya?ml$/"
+        "/^atlantis\\.ya?ml$/",
+        "/^platform\/atlantis\/application\.ya?ml$/"
       ],
       "matchStrings": [
         "tofu_version:\\s*(?<currentValue>[^\\s]+)",
-        "terraform_version:\\s*\"?(?<currentValue>[0-9.]+)\"?"
+        "terraform_version:\\s*\"?(?<currentValue>[0-9.]+)\"?",
+        "defaultTFVersion:\\s*\"?(?<currentValue>[0-9.]+)\"?"
       ],
       "depNameTemplate": "opentofu/opentofu",
       "datasourceTemplate": "github-tags",
