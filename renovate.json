@@ -58,7 +58,7 @@
         "defaultTFVersion:\\s*\"?(?<currentValue>[0-9.]+)\"?"
       ],
       "depNameTemplate": "opentofu/opentofu",
-      "datasourceTemplate": "github-tags",
+      "datasourceTemplate": "github-releases",
       "versioningTemplate": "semver"
     },
     {
