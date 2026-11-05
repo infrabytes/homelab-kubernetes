@@ -10,13 +10,14 @@ spec:
   storage:
     size: 5Gi
     storageClass: longhorn
-  # Initial estimate (2026-10-25), no usage history; re-measure after two weeks.
+  # 2026-10-25..2026-11-05 (11d, first data): mem p95 400.4Mi, peak 467Mi -> 448Mi/704Mi.
+  # The 2026-11-05 OOMKilled hit the old 512Mi limit during the 02:30 scheduled backup.
   resources:
     requests:
       cpu: 50m
-      memory: 256Mi
+      memory: 448Mi
     limits:
-      memory: 512Mi
+      memory: 704Mi
   monitoring:
     enablePodMonitor: true
   bootstrap:
