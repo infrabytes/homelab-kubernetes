@@ -5,7 +5,7 @@
   any_errors_fatal: true
   gather_facts: true
   vars:
-    k3s_version: "v1.37.1+k3s1"
+    k3s_version: "v1.37.2+k3s1"
     # SWAG owns 80/443 on the host, so the packaged ingress cannot bind and is disabled.
     k3s_exec: server --disable traefik
     windrunner_api: https://192.168.0.23:6443
