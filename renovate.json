@@ -46,7 +46,7 @@
     },
     {
       "customType": "regex",
-      "description": "OpenTofu CLI version pinned in the pre-commit/tool-cache workflows and for the Atlantis projects",
+      "description": "OpenTofu CLI version pinned in the pre-commit/tool-cache workflows, for the Atlantis projects and for the tofu the Atlantis initConfig installs",
       "managerFilePatterns": [
         "/^\\.github\\/workflows\\/(pre-commit|warm-tool-cache)\\.ya?ml$/",
         "/^atlantis\\.ya?ml$/",
@@ -55,7 +55,8 @@
       "matchStrings": [
         "tofu_version:\\s*(?<currentValue>[^\\s]+)",
         "terraform_version:\\s*\"?(?<currentValue>[0-9.]+)\"?",
-        "defaultTFVersion:\\s*\"?(?<currentValue>[0-9.]+)\"?"
+        "defaultTFVersion:\\s*\"?(?<currentValue>[0-9.]+)\"?",
+        "TOFU_VERSION=(?<currentValue>[0-9.]+)"
       ],
       "depNameTemplate": "opentofu/opentofu",
       "datasourceTemplate": "github-releases",
