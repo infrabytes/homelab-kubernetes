@@ -13,7 +13,10 @@ spec:
       releaseName: atlantis
       values: |
         orgAllowlist: github.com/infrabytes/homelab-kubernetes
-        # v0.49.0 images ship no tofu binary; without these the server starts on Terraform from HashiCorp. Version matches atlantis.yaml's terraform_version, not the workflows' tofu_version.
+        # v0.49.0 images ship no terraform/tofu binary, so these are what make the
+        # server start and every project plan. The version must match
+        # atlantis.yaml's terraform_version; it also drives Atlantis's own copy
+        # (/atlantis-data/bin/tofu<version>), which the terragrunt workflow never uses.
         defaultTFDistribution: opentofu
         defaultTFVersion: "1.13.2"
         atlantisUrl: https://atlantis.icaninto.space
@@ -40,20 +43,27 @@ spec:
             - id: github.com/infrabytes/homelab-kubernetes
               allowed_overrides: [workflow, apply_requirements]
               allow_custom_workflows: true
-        # PATH-injected toolchain: terragrunt (workflow), sops (env.hcl), kubectl (converge local-exec); tofu is Atlantis's own download.
+        # PATH-injected toolchain: terragrunt (workflow), sops (env.hcl), kubectl
+        # (converge local-exec), tofu. tofu has to sit here under its plain name
+        # because terragrunt resolves the binary as `tofu` from PATH: Atlantis's
+        # own download is named `tofu<version>`, which terragrunt never looks for.
         initConfig:
           enabled: true
           image: alpine:3.24
           script: |
             #!/bin/sh
             set -eu
+            TOFU_VERSION=1.13.2
             wget -q -O "$INIT_SHARED_DIR/terragrunt" \
               https://github.com/gruntwork-io/terragrunt/releases/download/v1.2.1/terragrunt_linux_amd64
             wget -q -O "$INIT_SHARED_DIR/sops" \
               https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
             wget -q -O "$INIT_SHARED_DIR/kubectl" \
               https://dl.k8s.io/release/v1.37.2/bin/linux/amd64/kubectl
-            chmod 755 "$INIT_SHARED_DIR/terragrunt" "$INIT_SHARED_DIR/sops" "$INIT_SHARED_DIR/kubectl"
+            wget -q -O /tmp/tofu.zip \
+              "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip"
+            unzip -qo /tmp/tofu.zip tofu -d "$INIT_SHARED_DIR"
+            chmod 755 "$INIT_SHARED_DIR/terragrunt" "$INIT_SHARED_DIR/sops" "$INIT_SHARED_DIR/kubectl" "$INIT_SHARED_DIR/tofu"
         # Sizing: one docker stats sample (604MiB RSS, 2026-10-23); the host kept no history for a p95, so the 2Gi limit is headroom for tofu/terragrunt peaks, not a derivation.
         resources:
           requests:

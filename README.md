@@ -425,10 +425,12 @@ is the only Application whose destination is not the Talos cluster.
 
 What lives where:
 
-- The chart's `initConfig` fetches terragrunt, sops and kubectl into `/plugins`
-  (first on PATH) at every pod start; tofu is Atlantis's own download per
-  `atlantis.yaml`. The server-side repo settings (formerly `repos.yaml` on the
-  VM) are the chart's `repoConfig` value.
+- The chart's `initConfig` fetches terragrunt, sops, kubectl and tofu into
+  `/plugins` (first on PATH) at every pod start. tofu is the one that has to be
+  there by name: terragrunt resolves `tofu` from PATH, and chart 7's images ship
+  no terraform/tofu. The pin also feeds `defaultTFVersion`/`atlantis.yaml`'s
+  `terraform_version`, so all three stay on one version. The server-side repo
+  settings (formerly `repos.yaml` on the VM) are the chart's `repoConfig` value.
 - `kubeconfig`/`talosconfig` and the two rendered inline manifests reach each
   checkout from the state bucket
   (`infra/scripts/sync-artifacts.sh`, run by the Terragrunt hooks), so the old

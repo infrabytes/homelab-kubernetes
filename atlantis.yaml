@@ -7,8 +7,9 @@ abort_on_execution_order_fail: true
 # for *Terraform*, re-resolves the newest release allowed by each unit's
 # `required_version` on every plan, and fails the whole plan when its downloader
 # rejects HashiCorp's content-type (`unexpected content-type: binary/octet-stream`).
-# The version must match the tofu the atlantis-homelab image ships (it is
-# installed there from this same pin); bump both together.
+# The version must match the tofu the chart's initConfig installs into /plugins
+# (platform/atlantis/application.yaml) and its defaultTFVersion; bump all three
+# together.
 #
 # execution_order_group mirrors the Terragrunt DAG (cluster -> viewer-kubeconfig
 # /addons -> argocd-config); Atlantis sorts plans AND applies by it, which is the
