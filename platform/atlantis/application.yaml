@@ -50,6 +50,9 @@ spec:
         initConfig:
           enabled: true
           image: alpine:3.24
+          # The four binaries total 305MiB; the chart's 300Mi default evicts the pod
+          # ("Usage of EmptyDir volume init-shared-path exceeds the limit 300Mi").
+          sizeLimit: 512Mi
           script: |
             #!/bin/sh
             set -eu
