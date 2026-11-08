@@ -18,7 +18,7 @@ spec:
         # atlantis.yaml's terraform_version; it also drives Atlantis's own copy
         # (/atlantis-data/bin/tofu<version>), which the terragrunt workflow never uses.
         defaultTFDistribution: opentofu
-        defaultTFVersion: "1.13.2"
+        defaultTFVersion: "1.13.8"
         atlantisUrl: https://atlantis.icaninto.space
         # SWAG terminates TLS on the host and proxies to this NodePort.
         service:
@@ -56,7 +56,7 @@ spec:
           script: |
             #!/bin/sh
             set -eu
-            TOFU_VERSION=1.13.2
+            TOFU_VERSION=1.13.8
             wget -q -O "$INIT_SHARED_DIR/terragrunt" \
               https://github.com/gruntwork-io/terragrunt/releases/download/v1.2.1/terragrunt_linux_amd64
             wget -q -O "$INIT_SHARED_DIR/sops" \
