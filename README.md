@@ -194,8 +194,10 @@ whose diff touches hook config (`.pre-commit-config.yaml`, `.yamllint.yaml`,
 `.secrets.baseline`, `infra/cluster/.tflint.hcl`, the local hook scripts). One
 exception: kubeconform — `bmuschko/setup-kubeconform` cannot use the tool
 cache (it always downloads), and we deliberately do not hand-download
-binaries into the cache, so it stays uncached (~5 MB per run, same cost as
-before on `ubuntu-latest`).
+binaries into the cache, so its binary stays per-run (~5 MB, same cost as
+on `ubuntu-latest`) — only its CRD schema downloads are cached
+(`kubeconform.sh` passes `-cache` into `RUNNER_TOOL_CACHE/kubeconform`, the
+nightly warm wipe is the schema refresh).
 
 The seed volume uses a dedicated StorageClass (`longhorn-rwx-cache`, see
 `platform/arc/storage-class.yaml`) that tunes the NFS mount

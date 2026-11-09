@@ -61,6 +61,8 @@ jobs:
             fi
           fi
           echo "args=$args" >> "$GITHUB_OUTPUT"
-      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
-        with:
-          extra_args: ${{ steps.range.outputs.args }}
+      # Not pre-commit/action: its ~/.cache/pre-commit cache is dead weight (PRE_COMMIT_HOME lives in the seed-hydrated tool cache).
+      - name: pre-commit
+        run: |
+          python3 -m pip install --quiet pre-commit
+          pre-commit run --show-diff-on-failure --color=always ${{ steps.range.outputs.args }}
