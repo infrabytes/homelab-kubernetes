@@ -53,21 +53,16 @@ jobs:
         with:
           tflint_version: v0.65.0
 
-      # tg_command omitted: the action acts as a pure tool installer.
-      - uses: gruntwork-io/terragrunt-action@8c1d96b76d445fd2e41475a3f0b63dcd1d9cc077 # v3.4.1
+      # Same action as pre-commit.yaml; cache: false keeps the seed a pure function of these pins.
+      - uses: jdx/mise-action@c1ecc8f748cd28cdeabf76dab3cccde4ce692fe4 # v4
         with:
-          tg_version: 1.2.1
-          tofu_version: 1.13.9
-
-      # The terragrunt-action restores a GitHub-cache snapshot of the mise
-      # tree (jdx/mise-action cache, not exposed as an input), which can
-      # resurrect versions from before the wipe. Rebuild the installs from
-      # the pins so the seed carries exactly the current versions.
-      - name: Rebuild mise installs without cache
-        run: |
-          sudo rm -rf /opt/tool-cache/local/mise/installs
-          cd "$GITHUB_WORKSPACE" # .tool-versions written by the terragrunt-action
-          /opt/tool-cache/local/mise/bin/mise install
+          version: 2026.7.7
+          cache: false
+          tool_versions: |
+            terragrunt 1.2.1
+            opentofu 1.13.9
+        env:
+          MISE_GITHUB_TOKEN: ${{ github.token }}
 
       - name: Verify cached tools
         run: |
