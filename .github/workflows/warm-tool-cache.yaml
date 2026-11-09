@@ -56,10 +56,13 @@ jobs:
       # Same action as pre-commit.yaml; cache: false keeps the seed a pure function of these pins.
       - uses: jdx/mise-action@c1ecc8f748cd28cdeabf76dab3cccde4ce692fe4 # v4
         with:
+          version: 2026.7.7
           cache: false
           tool_versions: |
             terragrunt 1.2.1
             opentofu 1.13.9
+        env:
+          MISE_GITHUB_TOKEN: ${{ github.token }}
 
       - name: Verify cached tools
         run: |

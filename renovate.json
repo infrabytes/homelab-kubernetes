@@ -33,6 +33,20 @@
   "customManagers": [
     {
       "customType": "regex",
+      "description": "mise version pinned via jdx/mise-action's version input in the pre-commit and tool-cache workflows (the four-digit year distinguishes it from the helm/kubectl/python version inputs in the same files)",
+      "managerFilePatterns": [
+        "/^\\.github\\/workflows\\/(pre-commit|warm-tool-cache)\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "\\n\\s*version:\\s*(?<currentValue>\\d{4}\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "jdx/mise",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^v(?<version>.*)$",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
       "description": "Terragrunt CLI version pinned via the mise tool_versions blocks in the pre-commit and tool-cache workflows",
       "managerFilePatterns": [
         "/^\\.github\\/workflows\\/(pre-commit|warm-tool-cache)\\.ya?ml$/"
