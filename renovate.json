@@ -33,12 +33,12 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Terragrunt CLI version pinned in the pre-commit and tool-cache workflows",
+      "description": "Terragrunt CLI version pinned via the mise tool_versions blocks in the pre-commit and tool-cache workflows",
       "managerFilePatterns": [
         "/^\\.github\\/workflows\\/(pre-commit|warm-tool-cache)\\.ya?ml$/"
       ],
       "matchStrings": [
-        "tg_version:\\s*(?<currentValue>[^\\s]+)"
+        "\\n\\s*terragrunt\\s+(?<currentValue>[0-9.]+)"
       ],
       "depNameTemplate": "gruntwork-io/terragrunt",
       "datasourceTemplate": "github-tags",
@@ -46,14 +46,14 @@
     },
     {
       "customType": "regex",
-      "description": "OpenTofu CLI version pinned in the pre-commit/tool-cache workflows, for the Atlantis projects and for the tofu the Atlantis initConfig installs",
+      "description": "OpenTofu CLI version pinned in the pre-commit/tool-cache workflows (mise tool_versions blocks), for the Atlantis projects and for the tofu the Atlantis initConfig installs",
       "managerFilePatterns": [
         "/^\\.github\\/workflows\\/(pre-commit|warm-tool-cache)\\.ya?ml$/",
         "/^atlantis\\.ya?ml$/",
         "/^platform\/atlantis\/application\\.ya?ml$/"
       ],
       "matchStrings": [
-        "tofu_version:\\s*(?<currentValue>[^\\s]+)",
+        "\\n\\s*opentofu\\s+(?<currentValue>[0-9.]+)",
         "terraform_version:\\s*\"?(?<currentValue>[0-9.]+)\"?",
         "defaultTFVersion:\\s*\"?(?<currentValue>[0-9.]+)\"?",
         "TOFU_VERSION=(?<currentValue>[0-9.]+)"

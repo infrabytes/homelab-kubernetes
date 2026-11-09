@@ -152,7 +152,7 @@ Longhorn RWX seed volume (`gha-runner-tool-cache` PVC in `arc-runners`, from
   (`RUNNER_TOOL_CACHE` for `Azure/setup-kubectl`, `Azure/setup-helm`,
   `actions/setup-python` and `terraform-linters/setup-tflint`; kubectl must
   match `kubernetes_version` in `env.hcl`), `mise/` (`MISE_DATA_DIR` for
-  `gruntwork-io/terragrunt-action`'s terragrunt/tofu installs) and
+  the pre-commit workflow's `jdx/mise-action` terragrunt/tofu installs) and
   `pre-commit/` (`PRE_COMMIT_HOME` hook environments).
 - `seed/` (RWX volume) — tarballs of the warmed `runner`, `mise` and
   `pre-commit` (hook environments) trees, published by the
@@ -161,10 +161,10 @@ Longhorn RWX seed volume (`gha-runner-tool-cache` PVC in `arc-runners`, from
   rebuilding, so the seed is a pure function of the repo's current pins —
   setup actions and pre-commit never prune old versions, and without the
   wipe every Renovate pin/rev bump would accumulate in the seed forever
-  (measured: 5.5 GB of dead hook envs, 1.45 GB seed). The terragrunt-action
-  restores its own GitHub-cache snapshot of the mise tree (jdx/mise-action
-  cache, not exposed as an input), so the warm workflow additionally rebuilds
-  the mise installs from the pins after the action runs. At every pod start
+  (measured: 5.5 GB of dead hook envs, 1.45 GB seed). mise runs with
+  `cache: false` (the pod-local cache replaces it; a GitHub-cache restore
+  would cost ~200 MB per job and could resurrect pre-wipe versions). At
+  every pod start
   the runner command extracts them into the emptyDir (best-effort: a missing
   or torn archive means a cold start with downloads).
 
