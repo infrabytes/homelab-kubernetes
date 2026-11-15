@@ -16,7 +16,7 @@ repos:
       - id: check-case-conflict
 
   - repo: https://github.com/antonbabenko/pre-commit-terraform
-    rev: v1.109.4
+    rev: v1.109.5
     hooks:
       - id: terragrunt_fmt
       - id: terraform_tflint
