@@ -59,7 +59,7 @@ jobs:
           version: 2026.11.6
           cache: false
           tool_versions: |
-            terragrunt 1.2.1
+            terragrunt 1.2.2
             opentofu 1.13.9
         env:
           MISE_GITHUB_TOKEN: ${{ github.token }}
