@@ -87,8 +87,8 @@ resource "helm_release" "argo_cd" {
         # p95 58.1Mi and peaked at 63.7Mi — 0.995 of the old 64Mi limit, which the
         # RSS-derived 32Mi/64Mi under-sized. Limit = max(1.5x request, 1.25x peak 79.6Mi).
         resources = {
-          requests = { cpu = "10m", memory = "64Mi" }
-          limits   = { memory = "96Mi" }
+          requests = { cpu = "10m", memory = "128Mi" }
+          limits   = { memory = "192Mi" }
         }
       }
       redis = {
