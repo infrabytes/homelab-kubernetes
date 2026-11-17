@@ -43,7 +43,7 @@ jobs:
 
       - uses: Azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
         with:
-          version: v4.3.1
+          version: v4.3.2
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -56,7 +56,7 @@ jobs:
       # Same action as pre-commit.yaml; cache: false keeps the seed a pure function of these pins.
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5
         with:
-          version: 2026.11.6
+          version: 2026.11.8
           cache: false
           tool_versions: |
             terragrunt 1.2.2
