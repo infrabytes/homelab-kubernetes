@@ -38,6 +38,8 @@ spec:
           ATLANTIS_AUTOMERGE_METHOD: squash
           ATLANTIS_ENABLE_DIFF_MARKDOWN_FORMAT: "true"
           ATLANTIS_HIDE_PREV_PLAN_COMMENTS: "true"
+          # Pod rolls wipe the default ephemeral $XDG_CACHE_HOME/terragrunt provider cache and dangle the PVC working dirs' symlinks.
+          XDG_CACHE_HOME: /atlantis-data/xdg-cache
         repoConfig: |
           repos:
             - id: github.com/infrabytes/homelab-kubernetes
