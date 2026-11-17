@@ -15,6 +15,15 @@ terraform {
     commands  = ["apply"]
     arguments = ["-parallelism=1"]
   }
+
+  # The provider's upgrade drain is capped at 5 minutes and fails the apply when
+  # a worker's drain chain (Longhorn PDB teardown, slow pod termination) exceeds
+  # it, so drain ahead of the apply where there is no deadline. Nodes stay
+  # cordoned when the apply fails afterwards; re-plan and re-apply to resume.
+  before_hook "pre_upgrade_drain" {
+    commands = ["apply"]
+    execute  = ["bash", "${get_parent_terragrunt_dir()}/scripts/pre-drain-talos-upgrade.sh"]
+  }
 }
 
 inputs = local.env.locals.cluster

@@ -197,6 +197,17 @@ automatically on version bumps).
   first, then workers one at a time (`-parallelism=1` is injected into `apply`
   by the unit's `terragrunt.hcl`: parallel worker reboots would take all
   Longhorn replicas down at once).
+  The provider's cordon+drain is capped at a hardcoded 5 minutes, and this
+  cluster's drain chains can exceed it (Longhorn deletes a worker's
+  instance-manager PDB only after every volume detaches; single-replica pods
+  can stall past their grace period on NFS teardown). A `before_hook` in the
+  unit's `terragrunt.hcl` therefore runs
+  `infra/scripts/pre-drain-talos-upgrade.sh` before every apply: it cordons
+  and drains each worker whose running OS is not `talos_version` (direct pod
+  deletes, so no PDB can block it), leaving the apply's own drain empty. The
+  nodes stay cordoned if the apply then fails for another reason; re-plan and
+  re-apply to resume, the hook is idempotent. `PRE_DRAIN_DRY_RUN=1` runs its
+  node detection without touching the cluster.
 - **Kubernetes** — `talos_cluster.kubernetes_version` runs Talos's
   `upgrade-k8s` procedure: sequential control-plane component upgrades with
   health gating, kubelet node-by-node, CoreDNS/kube-proxy manifests.
