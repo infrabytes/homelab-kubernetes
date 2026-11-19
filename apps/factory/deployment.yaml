@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: server
-          image: ghcr.io/bbayrakt/factory-server:0.1.1
+          image: ghcr.io/bbayrakt/factory-server:0.1.2
           imagePullPolicy: IfNotPresent
           # uid 1000 is the image's `node` user; the sandbox PVC is mounted at
           # its home. Root filesystem stays writable: git checkouts need it.
