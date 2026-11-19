@@ -109,6 +109,19 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: factory-https
+      hostname: factory.icaninto.space
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: factory-tls
+            group: ""
+            kind: Secret
+      allowedRoutes:
+        namespaces:
+          from: All
     - name: grafana-mcp-https
       hostname: grafana-mcp.icaninto.space
       port: 443

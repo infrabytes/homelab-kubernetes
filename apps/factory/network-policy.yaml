@@ -1,0 +1,101 @@
+# Namespace default-deny ingress; the two allows below make the server and the
+# CNPG pods reachable where they must be.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: factory
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# The Cilium Gateway envoy is a host-network hop carrying the reserved ingress
+# identity; a namespaceSelector cannot match it, and cross-node deliveries show
+# up as remote-node (see docs/network-policies.md).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: factory-allow-gateway-ingress
+  namespace: factory
+spec:
+  endpointSelector:
+    matchLabels:
+      app: factory-server
+  ingress:
+    - fromEntities:
+        - ingress
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+---
+# CNPG pods accept connections from the server on their container port.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: factory-pg-allow-server-ingress
+  namespace: factory
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: factory-pg
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              app: factory-server
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+# Egress for the server pod only (CNPG pods stay unrestricted — they talk to
+# their own ClusterIP services): cluster DNS, the in-namespace Postgres, and
+# public HTTPS (Authentik at the Cloudflare edge, GitHub, model providers).
+# RFC1918 stays excluded so the server cannot reach LAN hosts; if a future
+# integration needs an internal endpoint, add an explicit rule here.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: factory-allow-egress
+  namespace: factory
+spec:
+  podSelector:
+    matchLabels:
+      app: factory-server
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: factory-pg
+      ports:
+        - port: 5432
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP

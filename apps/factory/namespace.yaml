@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: factory
+  labels:
+    # TODO: confirm the pod-security label tier before first sync; server runs
+    # as non-root but local sandboxes exec arbitrary commands.
+    pod-security.kubernetes.io/enforce: baseline

@@ -1,0 +1,19 @@
+# Gateway-listener certificate, Let's Encrypt via DNS-01 (same issuer as the
+# hand-made certs for the other hostnames; this one is managed in Git so the
+# listener and its secret ship together).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: factory-tls
+  namespace: gateway
+spec:
+  secretName: factory-tls
+  dnsNames:
+    - factory.icaninto.space
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt-dns01
+  usages:
+    - digital signature
+    - key encipherment
