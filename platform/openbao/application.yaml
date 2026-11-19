@@ -302,6 +302,19 @@ spec:
                   bound_service_account_namespaces=velero \
                   policies=eso-velero \
                   ttl=1h
+                bao policy write eso-factory - <<'EOF'
+                path "secret/data/factory" {
+                  capabilities = ["read"]
+                }
+                path "sys/mounts/secret" {
+                  capabilities = ["read"]
+                }
+                EOF
+                bao write auth/kubernetes/role/eso-factory \
+                  bound_service_account_names=factory-env \
+                  bound_service_account_namespaces=factory \
+                  policies=eso-factory \
+                  ttl=1h
                 bao policy write eso-alert-triage - <<'EOF'
                 path "secret/data/alert-triage" {
                   capabilities = ["read"]

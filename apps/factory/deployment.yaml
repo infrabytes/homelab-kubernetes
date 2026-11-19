@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: factory-server
+  namespace: factory
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: factory-server
+  template:
+    metadata:
+      labels:
+        app: factory-server
+    spec:
+      containers:
+        - name: server
+          image: ghcr.io/bbayrakt/factory-server:0.1.0
+          imagePullPolicy: IfNotPresent
+          # uid 1000 is the image's `node` user; the sandbox PVC is mounted at
+          # its home. Root filesystem stays writable: git checkouts need it.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: PORT
+              value: "3000"
+            # Public origin: auth callback (Authentik redirect URI) and the
+            # GitHub App webhook target are built from this value.
+            - name: MASTRACODE_PUBLIC_URL
+              value: https://factory.icaninto.space
+            # Public issuer: authentik.icaninto.space resolves to the Cloudflare
+            # edge from in-cluster, so discovery + authorize use the same URLs
+            # the browser sees.
+            - name: AUTHENTIK_URL
+              value: https://authentik.icaninto.space
+            - name: AUTHENTIK_APP_SLUG
+              value: factory
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  # CNPG-generated app connection string (includes the uri key).
+                  name: factory-pg-app
+                  key: uri
+            - name: BETTER_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: factory-env
+                  key: BETTER_AUTH_SECRET
+            - name: FACTORY_CREDENTIAL_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: factory-env
+                  key: FACTORY_CREDENTIAL_ENCRYPTION_KEY
+            - name: AUTHENTIK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: factory-env
+                  key: AUTHENTIK_CLIENT_SECRET
+          # Initial estimate (2026-11-19); re-measure after two weeks.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              memory: 2Gi
+          ports:
+            - containerPort: 3000
+              name: http
+          # readOnlyRootFilesystem would break git checkouts; omitted deliberately.
+          volumeMounts:
+            # LocalFactorySandbox root ($HOME/.mastracode/web/sandboxes): agent
+            # session checkouts and installed dependencies survive pod rolls.
+            # WARNING (template README): local sandboxes run agent commands as
+            # the server user inside this pod. Acceptable for a homelab; swap
+            # for an isolated provider (e.g. E2B) if this becomes multi-tenant.
+            - name: sandboxes
+              mountPath: /home/node/.mastracode
+      volumes:
+        - name: sandboxes
+          persistentVolumeClaim:
+            claimName: factory-sandboxes
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: factory-sandboxes
+  namespace: factory
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 10Gi

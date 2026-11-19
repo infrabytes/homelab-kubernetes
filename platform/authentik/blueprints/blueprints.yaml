@@ -280,6 +280,31 @@ data:
               url: https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback
             - matching_mode: strict
               url: http://localhost:8250/oidc/callback
+      # Mastra Factory (apps/factory) signs in through Better Auth's generic-OAuth
+      # plugin: provider slug 'factory' is the discovery path, the callback is
+      # <publicUrl>/auth/api/callback/authentik. The localhost URI covers local dev.
+      - model: authentik_providers_oauth2.oauth2provider
+        identifiers:
+          name: factory
+        attrs:
+          client_type: confidential
+          client_id: factory
+          client_secret: !Env BLUEPRINT_OIDC_FACTORY_SECRET
+          grant_types: [authorization_code, refresh_token]
+          include_claims_in_id_token: true
+          sub_mode: user_username
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+          signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+          property_mappings:
+            - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
+            - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'email'"]]
+            - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'profile'"]]
+          redirect_uris:
+            - matching_mode: strict
+              url: https://factory.icaninto.space/auth/api/callback/authentik
+            - matching_mode: strict
+              url: http://localhost:4111/auth/api/callback/authentik
       # The slug is the issuer path (/application/o/<slug>/) and the client the provider serves.
       - model: authentik_core.application
         identifiers:
@@ -305,6 +330,12 @@ data:
         attrs:
           name: OpenBao
           provider: !Find [authentik_providers_oauth2.oauth2provider, [name, openbao]]
+      - model: authentik_core.application
+        identifiers:
+          slug: factory
+        attrs:
+          name: Factory
+          provider: !Find [authentik_providers_oauth2.oauth2provider, [name, factory]]
   forward-auth.yaml: |-
     version: 1
     metadata:

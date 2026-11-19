@@ -1,0 +1,30 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: factory-pg
+  namespace: factory
+spec:
+  instances: 1
+  # One instance: the operator PDB (minAvailable 1) can never allow an eviction, it only blocks node drains.
+  enablePDB: false
+  # The official CNPG image ships the pgvector extension; enabled by postInitSQL below.
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.9
+  storage:
+    size: 5Gi
+    storageClass: longhorn
+  # Initial estimate (2026-11-19); re-measure after two weeks. Holds Factory work items,
+  # sessions and the vector store — sized like the other single-purpose CNPG clusters.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  monitoring:
+    enablePodMonitor: true
+  bootstrap:
+    initdb:
+      owner: factory
+      database: factory
+      postInitSQL:
+        - CREATE EXTENSION IF NOT EXISTS vector;
