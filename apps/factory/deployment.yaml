@@ -71,6 +71,38 @@ spec:
                 secretKeyRef:
                   name: factory-env
                   key: AUTHENTIK_CLIENT_SECRET
+            # Self-created GitHub App: the integration activates only when all
+            # six values are present (githubAppConfigured in the entry).
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: factory-env
+                  key: GITHUB_APP_ID
+            - name: GITHUB_APP_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: factory-env
+                  key: GITHUB_APP_PRIVATE_KEY
+            - name: GITHUB_APP_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: factory-env
+                  key: GITHUB_APP_CLIENT_ID
+            - name: GITHUB_APP_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: factory-env
+                  key: GITHUB_APP_CLIENT_SECRET
+            - name: GITHUB_APP_SLUG
+              valueFrom:
+                secretKeyRef:
+                  name: factory-env
+                  key: GITHUB_APP_SLUG
+            - name: GITHUB_APP_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: factory-env
+                  key: GITHUB_APP_WEBHOOK_SECRET
           # Initial estimate (2026-11-19); re-measure after two weeks.
           resources:
             requests:
