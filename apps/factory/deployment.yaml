@@ -41,6 +41,9 @@ spec:
               value: https://authentik.icaninto.space
             - name: AUTHENTIK_APP_SLUG
               value: factory
+            # The Blueprint-managed provider's client_id (platform/authentik).
+            - name: AUTHENTIK_CLIENT_ID
+              value: factory
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
