@@ -9,6 +9,10 @@ spec:
   # RWO volume while the old one still runs. Recreate frees it first.
   strategy:
     type: Recreate
+    # Server-side apply kept the API-defaulted rollingUpdate from the previous
+    # RollingUpdate strategy; with type Recreate that combination is Forbidden.
+    # Explicit null deletes the field per SSA semantics.
+    rollingUpdate: null
   selector:
     matchLabels:
       app: factory-server
