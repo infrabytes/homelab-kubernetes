@@ -1,16 +1,14 @@
-# Internal-only for now: the manual-dns annotation opts the record out of
-# external-dns so no public Cloudflare entry is published. LAN clients reach the
-# gateway VIP (192.168.0.200) via a router DNS override for
-# factory.icaninto.space. When this goes public, the edge SWAG host forwards to
-# the http listener and the annotation moves to the public-path pattern used by
-# argocd.
+# Internal-only, served from the gateway VIP like grafana/bao: no manual-dns
+# annotation, so external-dns publishes factory.icaninto.space to the gateway
+# VIP — LAN clients resolve it via the public record, tailnet clients reach the
+# VIP through the lan-subnet-router's 192.168.0.200/32 advertisement. When this
+# goes public, the edge SWAG host takes over TLS and the route moves to the
+# public-path pattern used by argocd (manual-dns + both listeners).
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: factory
   namespace: factory
-  annotations:
-    external-dns.kubernetes.io/controller: "manual-dns"
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io
