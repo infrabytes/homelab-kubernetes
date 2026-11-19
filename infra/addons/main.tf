@@ -130,6 +130,32 @@ resource "helm_release" "argo_cd" {
               enablePKCEAuthentication: true
             EOT
           },
+          # ArgoCD's built-in health check for kind Cluster (any provider) reads
+          # status.conditions and stays Unknown on CNPG Clusters, which report
+          # phase instead — the apps appset sat at Unknown for
+          # postgresql.cnpg.io/Cluster:factory/factory-pg. Map phase to ArgoCD
+          # health per the CNPG docs' recommended customization.
+          {
+            "resource.customizations.health.postgresql.cnpg.io_Cluster" = <<-EOT
+              hs = {}
+              if obj.status ~= nil then
+                if obj.status.phase ~= nil then
+                  if obj.status.phase == "Healthy" then
+                    hs.status = "Healthy"
+                    hs.message = obj.status.phase
+                    return hs
+                  elseif obj.status.phase == "Unhealthy" then
+                    hs.status = "Degraded"
+                    hs.message = obj.status.phase
+                    return hs
+                  end
+                end
+              end
+              hs.status = "Progressing"
+              hs.message = "Waiting for CNPG Cluster status.phase"
+              return hs
+            EOT
+          },
         )
         secret = {
           createSecret = true
