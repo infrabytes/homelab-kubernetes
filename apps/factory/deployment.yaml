@@ -5,6 +5,10 @@ metadata:
   namespace: factory
 spec:
   replicas: 1
+  # Rolling updates deadlock on the sandboxes PVC: a new pod cannot attach the
+  # RWO volume while the old one still runs. Recreate frees it first.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: factory-server

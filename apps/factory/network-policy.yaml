@@ -53,6 +53,54 @@ spec:
         - port: 5432
           protocol: TCP
 ---
+# The CNPG operator polls each instance's status endpoint on the instance
+# manager port; without this, the cluster phase stuck at "Instance Status
+# Extraction Error: HTTP communication issue" and the ArgoCD app showed
+# Unknown ("Caused by postgresql.cnpg.io/Cluster:factory/factory-pg").
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: factory-pg-allow-operator-status
+  namespace: factory
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: factory-pg
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+      ports:
+        - port: 8000
+          protocol: TCP
+---
+# k8s-monitoring's alloy-metrics scrapes the CNPG PodMonitor.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: factory-pg-allow-metrics
+  namespace: factory
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: factory-pg
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: k8s-monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alloy-metrics
+      ports:
+        - port: 9187
+          protocol: TCP
+---
 # Egress for the server pod only (CNPG pods stay unrestricted — they talk to
 # their own ClusterIP services): cluster DNS, the in-namespace Postgres, and
 # public HTTPS (Authentik at the Cloudflare edge, GitHub, model providers).
