@@ -7,7 +7,8 @@ spec:
   instances: 1
   # One instance: the operator PDB (minAvailable 1) can never allow an eviction, it only blocks node drains.
   enablePDB: false
-  # The official CNPG image ships the pgvector extension; enabled by postInitSQL below.
+  # The official CNPG image ships the pgvector extension; enabled by
+  # postInitApplicationSQL below.
   imageName: ghcr.io/cloudnative-pg/postgresql:17.9
   storage:
     size: 5Gi
@@ -26,5 +27,7 @@ spec:
     initdb:
       owner: factory
       database: factory
-      postInitSQL:
+      # postInitSQL runs in the postgres database (measured on the first
+      # bootstrap); the application database needs postInitApplicationSQL.
+      postInitApplicationSQL:
         - CREATE EXTENSION IF NOT EXISTS vector;
