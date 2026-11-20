@@ -9,7 +9,7 @@ spec:
   project: default
   sources:
     - repoURL: oci://ghcr.io/goauthentik/helm-charts/authentik
-      targetRevision: 2026.8.5
+      targetRevision: 2026.8.6
       path: .
       helm:
         releaseName: authentik
