@@ -25,7 +25,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: server
-          image: ghcr.io/bbayrakt/factory-server:0.1.4
+          image: ghcr.io/bbayrakt/factory-server:0.1.5
           imagePullPolicy: IfNotPresent
           # uid 1000 is the image's `node` user; the sandbox PVC is mounted at
           # its home. Root filesystem stays writable: git checkouts need it.
