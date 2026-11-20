@@ -109,6 +109,12 @@ spec:
                 secretKeyRef:
                   name: factory-env
                   key: GITHUB_APP_WEBHOOK_SECRET
+            # Read-only viewer kubeconfig for the cluster_kubectl session tool.
+            - name: VIEWER_KUBECONFIG
+              valueFrom:
+                secretKeyRef:
+                  name: factory-env
+                  key: VIEWER_KUBECONFIG
           # 2h since deploy (2026-11-19..2026-11-20): mem p95 1780Mi, peak 1993Mi
           # -> 1792Mi/2688Mi. The peak is the fastembed/ONNX embedding footprint;
           # the 1.25x-peak floor (2492Mi) is below 1.5x request, so the latter wins.

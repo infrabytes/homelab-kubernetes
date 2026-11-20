@@ -315,6 +315,46 @@ spec:
                   bound_service_account_namespaces=factory \
                   policies=eso-factory \
                   ttl=1h
+                # Factory's app-secret KV store: the factory-server pod writes
+                # here (kubernetes auth), ESO reads for the ClusterSecretStore.
+                # Enable is idempotent-guarded: postStart reruns on pod restart.
+                if bao secrets list -format=json | grep -q '"factory-apps/'; then
+                  echo 'factory-apps mount already enabled'
+                else
+                  bao secrets enable -path=factory-apps -version=2
+                fi
+                bao policy write factory-app-writer - <<'EOF'
+                path "factory-apps/data/*" {
+                  capabilities = ["create", "update", "read", "delete", "patch"]
+                }
+                path "factory-apps/metadata/*" {
+                  capabilities = ["list", "read", "delete"]
+                }
+                path "factory-apps/metadata" {
+                  capabilities = ["list"]
+                }
+                EOF
+                bao write auth/kubernetes/role/factory-app-writer \
+                  bound_service_account_names=factory-server \
+                  bound_service_account_namespaces=factory \
+                  policies=factory-app-writer \
+                  ttl=1h
+                bao policy write eso-factory-apps - <<'EOF'
+                path "factory-apps/data/*" {
+                  capabilities = ["read"]
+                }
+                path "factory-apps/metadata/*" {
+                  capabilities = ["read", "list"]
+                }
+                path "factory-apps/metadata" {
+                  capabilities = ["list"]
+                }
+                EOF
+                bao write auth/kubernetes/role/eso-factory-apps \
+                  bound_service_account_names=factory-apps-eso \
+                  bound_service_account_namespaces=external-secrets \
+                  policies=eso-factory-apps \
+                  ttl=1h
                 bao policy write eso-alert-triage - <<'EOF'
                 path "secret/data/alert-triage" {
                   capabilities = ["read"]
