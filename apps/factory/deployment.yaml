@@ -17,6 +17,12 @@ spec:
       labels:
         app: factory-server
     spec:
+      # CSI mounts the sandboxes PVC root-owned; fsGroup hands it to the
+      # server's uid 1000 group (kubelet chowns on mount). OnRootMismatch
+      # skips the recursive walk on warm mounts.
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: server
           image: ghcr.io/bbayrakt/factory-server:0.1.2
