@@ -102,10 +102,12 @@ spec:
           protocol: TCP
 ---
 # Egress for the server pod only (CNPG pods stay unrestricted — they talk to
-# their own ClusterIP services): cluster DNS, the in-namespace Postgres, and
-# public HTTPS (Authentik at the Cloudflare edge, GitHub, model providers).
-# RFC1918 stays excluded so the server cannot reach LAN hosts; if a future
-# integration needs an internal endpoint, add an explicit rule here.
+# their own ClusterIP services): cluster DNS, the in-namespace Postgres,
+# OpenBao (bao login + factory-apps KV), the Kubernetes API (viewer kubeconfig,
+# control-plane node from ansible/inventory.json), and public HTTPS (Authentik
+# at the Cloudflare edge, GitHub, model providers). RFC1918 stays excluded so
+# the server cannot reach arbitrary LAN hosts; every internal endpoint gets an
+# explicit rule here.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -136,6 +138,24 @@ spec:
               cnpg.io/cluster: factory-pg
       ports:
         - port: 5432
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openbao
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openbao
+      ports:
+        - port: 8200
+          protocol: TCP
+    # The kubeconfig's API server: 192.168.0.67 = talos-cp-1. Re-derive from
+    # ansible/inventory.json if the control-plane set changes.
+    - to:
+        - ipBlock:
+            cidr: 192.168.0.67/32
+      ports:
+        - port: 6443
           protocol: TCP
     - to:
         - ipBlock:
