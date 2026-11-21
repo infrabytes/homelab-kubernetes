@@ -11,7 +11,7 @@ cluster — see the consumer table at the end.
   backup to the SeaweedFS bucket). The chart's bundled Postgres stays disabled.
 - Secrets: OpenBao path `secret/authentik`, synced by ESO through the namespaced store
   `openbao-authentik` (`service-account.yaml`, `secret-store.yaml`, `external-secrets.yaml`).
-  The OpenBao policy/role `eso-authentik` is written by the OpenBao chart's `postStart`.
+  The OpenBao policy/role `eso-authentik` is Terraform-managed (`infra/openbao-config`).
   The Postgres app-user password is not in OpenBao — CNPG generates it in `authentik-pg-app`.
 - Exposure: one issuer, https://authentik.icaninto.space, for LAN, tailnet and internet. `route.yaml`
   serves it on the `authentik-https` gateway listener with the `authentik-tls` cert-manager DNS-01
@@ -146,7 +146,7 @@ secrets their providers always had, and the ArgoCD one is written into `argocd-s
 `bao kv patch` — because Terraform renders the consumer's copy from that same SOPS key, and a
 half-write is a login failure.
 
-The `eso-authentik` role the store logs in with is written by the OpenBao chart's `postStart`, so it
+The `eso-authentik` role the store logs in with is Terraform-managed (`infra/openbao-config`), so it
 only exists once this change is applied and the OpenBao StatefulSet has rolled. Seeding earlier is
 harmless. `external-secrets.yaml` then templates the values into `authentik-secret` (the
 `AUTHENTIK_*` keys, the two `BLUEPRINT_EMAIL_*` ones and the four `BLUEPRINT_OIDC_*_SECRET` ones)
@@ -339,6 +339,6 @@ demands a TOTP device.
 | ArgoCD | OIDC (`oidc.config`), groups claim for RBAC; the chart's embedded Dex stays disabled (upstream JWKS-rewrite bug, see `infra/addons/README.md`) |
 | Grafana | `auth.generic_oauth` → authentik; tailnet path keeps `auth.proxy` |
 | Headlamp | OIDC + Talos `KubeAuthenticationConfig` JWT authenticator on this issuer, `rbac.yaml` identities |
-| OpenBao | `auth/oidc` config in the chart `postStart` + the tenant `sso-<tenant>` roles |
+| OpenBao | `auth/oidc` config in the OpenBaoCluster self-init + the tenant `sso-<tenant>` roles |
 | Longhorn, Hubble UI, CF2CNP | proxy provider + Gateway `ExternalAuth` filter → embedded outpost |
 | Atlantis, SeaweedFS admin | proxy provider + `auth_request` in SWAG (host-side nginx) |

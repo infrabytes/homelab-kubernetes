@@ -116,7 +116,7 @@ admin session (OIDC SSO or root), never the ESO identity.
 
 A rotation takes effect on the next sandbox; nothing needs restarting inside the cluster.
 The OpenBao policy (`eso-alert-triage`, read-only on that path) and its Kubernetes auth
-role are configured by the openbao postStart script, so they are re-applied on every
+role are Terraform-managed (`infra/openbao-config`), so they are re-applied on every
 OpenBao pod start.
 
 The fourth credential, the webhook bearer token the Grafana contact point sends, is
@@ -135,7 +135,7 @@ read -rs GH_PAT
 bao kv put secret/memory-rightsize github_token="$GH_PAT"
 ```
 
-Its policy (`eso-memory-rightsize`) and role are in the same openbao postStart script, so a
+Its policy (`eso-memory-rightsize`) and role are in the same `openbao-config` unit, so a
 fresh value lands after the next OpenBao pod restart. The agent uses the models' key from
 `secret/alert-triage`; rotating it rotates both agents.
 

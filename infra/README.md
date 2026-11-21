@@ -50,6 +50,8 @@ infra/
     terragrunt.hcl    # logic only: inputs = local.env.locals.argocd_config
   grafana-cloud-config/ # unit: Grafana Cloud watchdog (grafana/grafana provider)
     terragrunt.hcl    # logic only: inputs = local.env.locals.grafana_cloud
+  openbao-config/     # unit: everything inside OpenBao (hashicorp/vault provider)
+    terragrunt.hcl    # logic only: inputs = local.env.locals.openbao_config
 ```
 
 ## Secrets (SOPS + AGE)

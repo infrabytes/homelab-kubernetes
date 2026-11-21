@@ -1,0 +1,204 @@
+---
+# The kubebao operator renders the StatefulSet, Services, NetworkPolicy, TLS
+# certs, HTTPRoute + BackendTLSPolicy and the ServiceMonitor from this CR;
+# everything inside OpenBao (auth methods, policies, roles, mounts, secret
+# data) is Terraform (infra/openbao-config). Validated end-to-end in kind
+# against operator 0.6.3 + OpenBao 2.7.2.
+apiVersion: openbao.org/v1alpha1
+kind: OpenBaoCluster
+metadata:
+  name: openbao
+  namespace: openbao
+spec:
+  # Renovate: openbao-version custom manager (github-releases on openbao/openbao).
+  version: "2.7.2"
+  replicas: 3
+  # Hardened requires an external unseal provider (KMS/HSM); none exists on
+  # this cluster. Development still demands Target + self-init OIDC and
+  # matches today's trust model (seal key in etcd, SOPS as the external
+  # source of truth for everything else).
+  profile: Development
+  controllerJWTMode: Target
+  deletionPolicy: Retain
+  storage:
+    size: 5Gi
+    storageClassName: longhorn
+  # 36d (2026-09-16..10-22, local VM): ws p95 172.5Mi → request 192Mi, limit 288Mi;
+  # cpu p95 160m. The old 192Mi limit pinned ws at 0.99 (RSS only 55Mi).
+  resources:
+    requests:
+      cpu: 160m
+      memory: 192Mi
+    limits:
+      memory: 288Mi
+  tls:
+    # In-cluster HTTPS with an operator-generated CA. The operator 0.6.3
+    # assumes TLS everywhere (hardcoded https probes, https api/cluster
+    # addrs, unconditional TLS Secret mount) — tls.enabled: false does not
+    # boot. rotationPeriod must outlive the per-namespace CA copies the ESO
+    # SecretStores reference; rotating it means re-copying those Secrets.
+    enabled: true
+    mode: OperatorManaged
+    rotationPeriod: 87600h
+  unseal:
+    # Operator generates an immutable Secret (openbao-unseal-key); same
+    # in-cluster trust model as the old static seal.
+    type: static
+  # The operator creates the HTTPRoute (bao.icaninto.space → openbao-https
+  # listener, like the old route.yaml) and its BackendTLSPolicy; the Gateway
+  # terminates client TLS with the cert-manager DNS-01 cert.
+  gateway:
+    enabled: true
+    listenerName: openbao-https
+    hostname: bao.icaninto.space
+    gatewayRef:
+      name: homelab
+      namespace: gateway
+  network:
+    # TokenReview / service_registration egress as a Cilium entity (a plain
+    # NetworkPolicy cannot name the API server).
+    apiServerEgress:
+      mode: Cilium
+      port: 6443
+    apiServerEndpointIPs:
+      - 192.168.0.67
+    ingressRules:
+      # ESO syncs secrets from the per-namespace SecretStores (public 8200).
+      - from:
+          - namespaceSelector:
+              matchExpressions:
+                - key: kubernetes.io/metadata.name
+                  operator: In
+                  values:
+                    - arc-runners
+                    - tailscale
+                    - authentik
+                    - velero
+                    - alert-triage
+                    - external-secrets-demo
+                    - pdeu
+        ports:
+          - port: 8200
+            protocol: TCP
+      # VictoriaMetrics scrape of the metrics-only listener (8202).
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: observability
+        ports:
+          - port: 8202
+            protocol: TCP
+    # Gateway → 8200 is a companion CiliumNetworkPolicy (openbao-allow-gateway-ingress.yaml):
+    # the Cilium Gateway's envoy is host-network, so a namespaceSelector peer cannot match it.
+    egressRules:
+      # OIDC issuer hairpin: the operator CR has no hostAliases, so OpenBao
+      # resolves authentik.icaninto.space publicly (WAN → SWAG → Authentik).
+      # Accepted tradeoff: human OIDC logins and the operator's lifecycle
+      # calls need WAN + SWAG up; ESO/TF k8s-auth paths are unaffected.
+      - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+        ports:
+          - port: 443
+            protocol: TCP
+  observability:
+    metrics:
+      enabled: true
+      # Dedicated metrics-only listener (8202) with unauthenticated access —
+      # the operator cannot make the main listener unauthenticated.
+      metricsOnlyListener:
+        enabled: true
+        unauthenticatedMetricsAccess: true
+      serviceMonitor:
+        enabled: true
+        tlsConfig:
+          caSecret:
+            name: openbao-tls-ca
+        labels:
+          # k8s-monitoring's ServiceMonitor discovery selects this label.
+          release: prometheus
+  telemetry:
+    prometheusRetentionTime: 15m
+    disableHostname: true
+  selfInit:
+    # Kubernetes ServiceAccount JWT auth for the operator (no Authentik
+    # involved); the bootstrap root token is revoked after the requests run.
+    enabled: true
+    oidc:
+      enabled: true
+    requests:
+      # Root-equivalent policy for the SSO admin and (later) the Terraform
+      # AppRole; content moved verbatim from the old bootstrap.
+      - name: openbao-admin-policy
+        operation: update
+        path: sys/policies/acl/openbao-admin
+        policy:
+          policy: |
+            path "*" { capabilities = ["create", "read", "update", "delete", "list", "patch", "sudo"] }
+      # Human SSO via Authentik. dataFrom feeds the client credentials from
+      # the addons-created openbao-oidc Secret — never stored in the CR/etcd.
+      - name: enable-oidc
+        operation: update
+        path: sys/auth/oidc
+        authMethod:
+          type: oidc
+      - name: configure-oidc
+        operation: update
+        path: auth/oidc/config
+        dataFrom:
+          oidc_client_id:
+            secretKeyRef:
+              name: openbao-oidc
+              key: client-id
+          oidc_client_secret:
+            secretKeyRef:
+              name: openbao-oidc
+              key: client-secret
+        data:
+          oidc_discovery_url: https://authentik.icaninto.space/application/o/openbao/
+          default_role: sso-user
+      - name: sso-admin-role
+        operation: update
+        path: auth/oidc/role/sso-admin
+        data:
+          user_claim: preferred_username
+          oidc_scopes:
+            - profile
+          allowed_redirect_uris:
+            - https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback
+            - https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback
+            - http://localhost:8250/oidc/callback
+          bound_claims:
+            preferred_username: bbayrakt
+          token_policies:
+            - openbao-admin
+          ttl: 1h
+      - name: sso-user-role
+        operation: update
+        path: auth/oidc/role/sso-user
+        data:
+          user_claim: preferred_username
+          oidc_scopes:
+            - profile
+          allowed_redirect_uris:
+            - https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback
+            - https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback
+            - http://localhost:8250/oidc/callback
+          ttl: 1h
+      # Kubernetes auth for ESO (and the pod's own SA before Terraform takes
+      # over). No token_reviewer_jwt: OpenBao re-reads the pod SA token file,
+      # so auth keeps working across StatefulSet rolls.
+      - name: enable-kubernetes-auth
+        operation: update
+        path: sys/auth/kubernetes
+        authMethod:
+          type: kubernetes
+      - name: configure-kubernetes-auth
+        operation: update
+        path: auth/kubernetes/config
+        data:
+          kubernetes_host: https://kubernetes.default.svc
+      # The secret/ kv-v2 mount is NOT here: infra/openbao-config owns it
+      # (vault_mount.secret); a self-init enable would collide with the TF
+      # create at cutover ("path already in use"). Self-init stays limited to
+      # the human login path.

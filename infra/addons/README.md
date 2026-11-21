@@ -93,7 +93,7 @@ Terraform owns the namespaces and Secrets that must exist before ArgoCD (or
 before a chart that reads them) can run: a from-scratch bootstrap applies this
 unit before ArgoCD exists, so an ArgoCD-owned namespace would fail the apply.
 
-- `openbao` — namespace + the `openbao-seal` Secret (static seal key).
+- `openbao` — namespace + the `openbao-oidc` Secret (the OpenBaoCluster self-init reads its client credentials via dataFrom).
 - `headlamp` — namespace + the `headlamp-oidc` Secret
   (`OIDC_CLIENT_ID`/`_CLIENT_SECRET`/`_ISSUER_URL`/`_SCOPES`, client secret from
   SOPS) that the Headlamp chart reads via `config.oidc.externalSecret`. See

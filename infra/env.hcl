@@ -136,13 +136,10 @@ locals {
     grafana_cloud_loki_username = local.secrets.grafana_cloud_loki_username
     grafana_cloud_loki_token    = local.secrets.grafana_cloud_loki_token
 
-    # OpenBao static seal key (32 random bytes, base64) and the root token
-    # (filled in once, after the one-time `bao operator init` bootstrap).
-    openbao_seal_key   = local.secrets.openbao_seal_key
-    openbao_root_token = local.secrets.openbao_root_token
-
     # OpenBao oidc auth method (Authentik provider "openbao"): the client secret
-    # rendered into the openbao-oidc Secret.
+    # rendered into the openbao-oidc Secret (the OpenBaoCluster self-init reads
+    # its dataFrom). The old openbao_seal_key/openbao_root_token wiring is gone
+    # with the Helm chart; the SOPS values stay for a full revert.
     openbao_oidc_client_secret = local.secrets.openbao_oidc_client_secret
 
     # Headlamp OIDC client (platform/headlamp): Authentik provider "headlamp"
@@ -197,5 +194,29 @@ locals {
     artifacts_dir = local.credentials_dir
     cluster_name  = "talos-cluster"
     user_name     = "viewer@talos-cluster"
+  }
+
+  # OpenBao in-cluster configuration (infra/openbao-config): auth roles,
+  # policies, mounts and secret data via the hashicorp/vault provider. The
+  # provider logs in with the AppRole created once by OIDC login after
+  # self-init (the only manual step in the new bootstrap flow).
+  openbao_config = {
+    bao_address           = "https://bao.icaninto.space"
+    bao_approle_role_id   = try(local.secrets.openbao_approle_role_id, "")
+    bao_approle_secret_id = try(local.secrets.openbao_approle_secret_id, "")
+
+    # argocd/tenants/tenants.json is the single tenant source of truth (the
+    # TENANTS marker in the old postStart script is gone).
+    tenants = jsondecode(file(abspath("${local.infra_dir}/../argocd/tenants/tenants.json")))
+
+    # Consumer secret values, lifted from the pre-cutover OpenBao into SOPS
+    # (openbao_kv.*). `mount` is the kv-v2 mount the record lands in (shared
+    # `secret` or a tenant mount).
+    kv_secrets = {
+      for name, entry in try(local.secrets.openbao_kv, {}) : name => {
+        mount = try(entry.mount, "secret")
+        data  = entry.data
+      }
+    }
   }
 }

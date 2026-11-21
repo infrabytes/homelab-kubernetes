@@ -1,0 +1,1232 @@
+{
+  "properties": {
+    "apiVersion": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "properties": {
+        "cleanupAfterSeconds": {
+          "format": "int32",
+          "maximum": 86400,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "cluster": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "clusterTemplate": {
+          "properties": {
+            "configuration": {
+              "properties": {
+                "plugin": {
+                  "properties": {
+                    "autoDownload": {
+                      "type": "boolean"
+                    },
+                    "autoRegister": {
+                      "type": "boolean"
+                    },
+                    "downloadBehavior": {
+                      "enum": [
+                        "fail",
+                        "continue"
+                      ],
+                      "type": "string"
+                    },
+                    "filePermissions": {
+                      "type": "string"
+                    },
+                    "fileUID": {
+                      "format": "int64",
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "image": {
+              "type": "string"
+            },
+            "imagePullSecrets": {
+              "items": {
+                "properties": {
+                  "name": {
+                    "default": "",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "maxItems": 2,
+              "type": "array"
+            },
+            "initContainer": {
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "type": "boolean"
+                },
+                "image": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "plugins": {
+              "items": {
+                "properties": {
+                  "args": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "binaryName": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "command": {
+                    "type": "string"
+                  },
+                  "env": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "image": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "sha256sum": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-fA-F]{64}$",
+                    "type": "string"
+                  },
+                  "type": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "version": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "podMetadata": {
+              "properties": {
+                "annotations": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "labels": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "probes": {
+              "properties": {
+                "startup": {
+                  "properties": {
+                    "failureThreshold": {
+                      "default": 60,
+                      "format": "int32",
+                      "maximum": 720,
+                      "minimum": 60,
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "resources": {
+              "properties": {
+                "claims": {
+                  "items": {
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "request": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "limits": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
+                  },
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "service": {
+              "properties": {
+                "ipFamilies": {
+                  "items": {
+                    "enum": [
+                      "IPv4",
+                      "IPv6"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 2,
+                  "type": "array"
+                },
+                "ipFamilyPolicy": {
+                  "enum": [
+                    "SingleStack",
+                    "PreferDualStack",
+                    "RequireDualStack"
+                  ],
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "serviceAccount": {
+              "properties": {
+                "annotations": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "storage": {
+              "properties": {
+                "size": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "storageClassName": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "size"
+              ],
+              "type": "object"
+            },
+            "tls": {
+              "properties": {
+                "acme": {
+                  "properties": {
+                    "directoryURL": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "domains": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "sharedCache": {
+                      "properties": {
+                        "existingClaimName": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "mode": {
+                          "enum": [
+                            "ManagedPVC",
+                            "ExistingPVC"
+                          ],
+                          "type": "string"
+                        },
+                        "size": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "storageClassName": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "mode"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "directoryURL"
+                  ],
+                  "type": "object"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "extraSANs": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "mode": {
+                  "allOf": [
+                    {
+                      "enum": [
+                        "OperatorManaged",
+                        "External",
+                        "ACME"
+                      ]
+                    },
+                    {
+                      "enum": [
+                        "OperatorManaged",
+                        "External",
+                        "ACME"
+                      ]
+                    }
+                  ],
+                  "default": "OperatorManaged",
+                  "type": "string"
+                },
+                "rotationPeriod": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "enabled"
+              ],
+              "type": "object"
+            },
+            "unseal": {
+              "properties": {
+                "awskms": {
+                  "properties": {
+                    "accessKey": {
+                      "type": "string"
+                    },
+                    "endpoint": {
+                      "type": "string"
+                    },
+                    "kmsKeyID": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "region": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "secretKey": {
+                      "type": "string"
+                    },
+                    "sessionToken": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kmsKeyID",
+                    "region"
+                  ],
+                  "type": "object"
+                },
+                "azureKeyVault": {
+                  "properties": {
+                    "authMethod": {
+                      "enum": [
+                        "workload_identity",
+                        "managed_identity",
+                        "client_secret",
+                        "environment",
+                        "default"
+                      ],
+                      "type": "string"
+                    },
+                    "clientID": {
+                      "type": "string"
+                    },
+                    "clientSecret": {
+                      "type": "string"
+                    },
+                    "environment": {
+                      "type": "string"
+                    },
+                    "keyName": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "resource": {
+                      "type": "string"
+                    },
+                    "tenantID": {
+                      "type": "string"
+                    },
+                    "vaultName": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "workloadIdentity": {
+                      "properties": {
+                        "clientID": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "clientID"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "keyName",
+                    "vaultName"
+                  ],
+                  "type": "object"
+                },
+                "credentialsSecretRef": {
+                  "properties": {
+                    "name": {
+                      "default": "",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "gcpCloudKMS": {
+                  "properties": {
+                    "credentials": {
+                      "type": "string"
+                    },
+                    "cryptoKey": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "keyRing": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "project": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "region": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "cryptoKey",
+                    "keyRing",
+                    "project",
+                    "region"
+                  ],
+                  "type": "object"
+                },
+                "kmip": {
+                  "properties": {
+                    "caCert": {
+                      "type": "string"
+                    },
+                    "clientCert": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "clientKey": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "disabled": {
+                      "type": "boolean"
+                    },
+                    "encryptAlg": {
+                      "enum": [
+                        "AES_GCM",
+                        "RSA_OAEP_SHA256",
+                        "RSA_OAEP_SHA384",
+                        "RSA_OAEP_SHA512"
+                      ],
+                      "type": "string"
+                    },
+                    "endpoint": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "kmsKeyID": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "serverName": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "format": "int32",
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "tls12Ciphers": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "clientCert",
+                    "clientKey",
+                    "endpoint",
+                    "kmsKeyID"
+                  ],
+                  "type": "object"
+                },
+                "kms": {
+                  "properties": {
+                    "config": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "maxProperties": 64,
+                      "type": "object"
+                    },
+                    "pluginName": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "pluginName"
+                  ],
+                  "type": "object"
+                },
+                "ocikms": {
+                  "properties": {
+                    "authTypeAPIKey": {
+                      "type": "boolean"
+                    },
+                    "cryptoEndpoint": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "disabled": {
+                      "type": "boolean"
+                    },
+                    "keyID": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "managementEndpoint": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "cryptoEndpoint",
+                    "keyID",
+                    "managementEndpoint"
+                  ],
+                  "type": "object"
+                },
+                "pkcs11": {
+                  "properties": {
+                    "disableSoftwareEncryption": {
+                      "type": "boolean"
+                    },
+                    "disabled": {
+                      "type": "boolean"
+                    },
+                    "keyID": {
+                      "type": "string"
+                    },
+                    "keyLabel": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "lib": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "mechanism": {
+                      "type": "string"
+                    },
+                    "pin": {
+                      "type": "string"
+                    },
+                    "rsaOAEPHash": {
+                      "enum": [
+                        "sha1",
+                        "sha224",
+                        "sha256",
+                        "sha384",
+                        "sha512"
+                      ],
+                      "type": "string"
+                    },
+                    "runtime": {
+                      "properties": {
+                        "env": {
+                          "items": {
+                            "properties": {
+                              "name": {
+                                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                                "type": "string"
+                              },
+                              "secretKey": {
+                                "minLength": 1,
+                                "pattern": "^[-._A-Za-z0-9]+$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "secretKey"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 16,
+                          "type": "array"
+                        },
+                        "fileEnv": {
+                          "items": {
+                            "properties": {
+                              "name": {
+                                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                                "type": "string"
+                              },
+                              "secretKey": {
+                                "minLength": 1,
+                                "pattern": "^[-._A-Za-z0-9]+$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "secretKey"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 16,
+                          "type": "array"
+                        },
+                        "libraryPath": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "slot": {
+                      "type": "string"
+                    },
+                    "tokenLabel": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "keyLabel",
+                    "lib"
+                  ],
+                  "type": "object"
+                },
+                "static": {
+                  "properties": {
+                    "currentKey": {
+                      "type": "string"
+                    },
+                    "currentKeyID": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "transit": {
+                  "properties": {
+                    "address": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "disableRenewal": {
+                      "type": "boolean"
+                    },
+                    "keyName": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "mountPath": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "type": "string"
+                    },
+                    "tlsCACert": {
+                      "type": "string"
+                    },
+                    "tlsClientCert": {
+                      "type": "string"
+                    },
+                    "tlsClientKey": {
+                      "type": "string"
+                    },
+                    "tlsServerName": {
+                      "type": "string"
+                    },
+                    "tlsSkipVerify": {
+                      "type": "boolean"
+                    },
+                    "token": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "address",
+                    "keyName",
+                    "mountPath"
+                  ],
+                  "type": "object"
+                },
+                "type": {
+                  "default": "static",
+                  "enum": [
+                    "static",
+                    "awskms",
+                    "gcpckms",
+                    "azurekeyvault",
+                    "transit",
+                    "kmip",
+                    "kms",
+                    "ocikms",
+                    "pkcs11"
+                  ],
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "version": {
+              "maxLength": 64,
+              "pattern": "^((2\\.([7-9]|[1-9][0-9]+))|(([3-9]|[1-9][0-9]+)\\.(0|[1-9][0-9]*)))\\.(0|[1-9][0-9]*)(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "storage",
+            "tls",
+            "unseal"
+          ],
+          "type": "object"
+        },
+        "force": {
+          "default": false,
+          "type": "boolean"
+        },
+        "image": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "jwtAuthRole": {
+          "type": "string"
+        },
+        "overrideOperationLock": {
+          "default": false,
+          "type": "boolean"
+        },
+        "serviceAccountName": {
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$",
+          "type": "string"
+        },
+        "source": {
+          "properties": {
+            "expectedClusterID": {
+              "maxLength": 128,
+              "type": "string"
+            },
+            "expectedDigest": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "expectedSize": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "expectedVersion": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "key": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxSnapshotSizeBytes": {
+              "default": 8589934592,
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "target": {
+              "properties": {
+                "azure": {
+                  "properties": {
+                    "container": {
+                      "type": "string"
+                    },
+                    "storageAccount": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "bucket": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "concurrency": {
+                  "default": 3,
+                  "format": "int32",
+                  "maximum": 10,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "credentialsSecretRef": {
+                  "properties": {
+                    "name": {
+                      "default": "",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "endpoint": {
+                  "type": "string"
+                },
+                "gcs": {
+                  "properties": {
+                    "project": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "insecureSkipVerify": {
+                  "type": "boolean"
+                },
+                "partSize": {
+                  "default": 10485760,
+                  "format": "int64",
+                  "minimum": 5242880,
+                  "type": "integer"
+                },
+                "pathPrefix": {
+                  "type": "string"
+                },
+                "provider": {
+                  "default": "s3",
+                  "enum": [
+                    "s3",
+                    "gcs",
+                    "azure"
+                  ],
+                  "type": "string"
+                },
+                "region": {
+                  "default": "us-east-1",
+                  "type": "string"
+                },
+                "roleArn": {
+                  "type": "string"
+                },
+                "s3": {
+                  "properties": {
+                    "region": {
+                      "type": "string"
+                    },
+                    "roleArn": {
+                      "type": "string"
+                    },
+                    "usePathStyle": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "usePathStyle": {
+                  "default": false,
+                  "type": "boolean"
+                },
+                "workloadIdentity": {
+                  "properties": {
+                    "podLabels": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    },
+                    "serviceAccountAnnotations": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "required": [
+                "bucket"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "key",
+            "target"
+          ],
+          "type": "object"
+        },
+        "targetLifecycle": {
+          "enum": [
+            "Retain",
+            "Disposable"
+          ],
+          "type": "string"
+        },
+        "tokenSecretRef": {
+          "properties": {
+            "name": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "cluster",
+        "source"
+      ],
+      "type": "object"
+    },
+    "status": {
+      "properties": {
+        "administratorDisposition": {
+          "enum": [
+            "Resume",
+            "Abandon"
+          ],
+          "type": "string"
+        },
+        "completionTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "conditions": {
+          "items": {
+            "properties": {
+              "lastTransitionTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "message": {
+                "maxLength": 32768,
+                "type": "string"
+              },
+              "observedGeneration": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reason": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "execution": {
+          "properties": {
+            "committedAt": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "createdAt": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "followThroughCompletedAt": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "jobName": {
+              "type": "string"
+            },
+            "jobUID": {
+              "type": "string"
+            },
+            "operationID": {
+              "type": "string"
+            },
+            "preparedAt": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "stage": {
+              "enum": [
+                "Prepared",
+                "Committed",
+                "Created",
+                "TerminalObserved",
+                "FollowThroughComplete",
+                "Unknown"
+              ],
+              "type": "string"
+            },
+            "targetUID": {
+              "type": "string"
+            },
+            "terminalObservedAt": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "terminalResult": {
+              "enum": [
+                "Succeeded",
+                "Failed"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "jobName",
+            "operationID",
+            "stage"
+          ],
+          "type": "object"
+        },
+        "message": {
+          "type": "string"
+        },
+        "phase": {
+          "default": "Pending",
+          "enum": [
+            "Pending",
+            "Validating",
+            "Running",
+            "Completed",
+            "Failed",
+            "Unknown"
+          ],
+          "type": "string"
+        },
+        "restart": {
+          "properties": {
+            "completedAt": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "pods": {
+              "items": {
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "statefulSetUID": {
+                    "type": "string"
+                  },
+                  "uid": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "statefulSetUID",
+                  "uid"
+                ],
+                "type": "object"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "pods"
+          ],
+          "type": "object"
+        },
+        "snapshotKey": {
+          "type": "string"
+        },
+        "snapshotSize": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "startTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "submissionClaim": {
+          "properties": {
+            "claimedAt": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "digest": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "podUID": {
+              "type": "string"
+            },
+            "size": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "targetContainerID": {
+              "type": "string"
+            },
+            "targetPodIP": {
+              "type": "string"
+            },
+            "targetPodName": {
+              "type": "string"
+            },
+            "targetPodUID": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "claimedAt",
+            "digest",
+            "podUID",
+            "size",
+            "targetContainerID",
+            "targetPodIP",
+            "targetPodName",
+            "targetPodUID"
+          ],
+          "type": "object"
+        },
+        "target": {
+          "properties": {
+            "appliedAt": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "bootstrapClusterID": {
+              "type": "string"
+            },
+            "cleanup": {
+              "enum": [
+                "Pending",
+                "Complete",
+                "Failed"
+              ],
+              "type": "string"
+            },
+            "dataPVCUID": {
+              "type": "string"
+            },
+            "reservedAt": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "uid": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "reservedAt"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "spec"
+  ],
+  "type": "object"
+}

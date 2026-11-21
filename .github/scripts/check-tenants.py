@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""check-tenants.py - keep the tenant list, tenant chart and OpenBao config in lockstep.
+"""check-tenants.py - validate the tenant list and its chart render.
 
 Validates argocd/tenants/tenants.json (complete, unique entries; members with an
-explicit tailnet identity and optional GitHub login), the postStart TENANTS
-marker in the OpenBao chart app (same logins, script passes `sh -n`), and the
-per-tenant render of charts/tenant-access (RoleBinding, ClusterRoleBinding,
-ServiceAccount, SecretStore; binding subjects == member identities).
+explicit tailnet identity and optional GitHub login) and the per-tenant render
+of charts/tenant-access (RoleBinding, ClusterRoleBinding, ServiceAccount,
+SecretStore; binding subjects == member identities). The OpenBao side (mounts,
+policies, SSO roles) reads the same file directly via infra/openbao-config, so
+there is no marker to compare against any more.
 """
 
 import json
@@ -23,9 +24,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[2]
 TENANTS_FILE = ROOT / "argocd" / "tenants" / "tenants.json"
-OPENBAO_APP = ROOT / "platform" / "openbao" / "application.yaml"
 TENANT_CHART = ROOT / "charts" / "tenant-access"
-MARKER = re.compile(r'^[ \t]*TENANTS="([^"]*)"[ \t]*$', re.MULTILINE)
 DNS_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
 GITHUB_USER = re.compile(r"^[A-Za-z0-9-]+$")
 IDENTITY = re.compile(r"^[A-Za-z0-9._@-]+$")
@@ -119,82 +118,8 @@ def load_tenants(errors: list) -> list:
     return tenants
 
 
-def openbao_text(errors: list) -> str:
-    rel = OPENBAO_APP.relative_to(ROOT)
-    try:
-        return OPENBAO_APP.read_text()
-    except OSError as err:
-        errors.append(f"{rel}: cannot read: {err}")
-        return ""
-
-
-def poststart_script(raw: str, errors: list) -> str:
-    rel = OPENBAO_APP.relative_to(ROOT)
-    try:
-        app = yaml.safe_load(raw)
-        spec = app["spec"]
-        sources = spec.get("sources") or [spec["source"]]
-        values = next(
-            yaml.safe_load(source["helm"]["values"])
-            for source in sources
-            if (source.get("helm") or {}).get("values")
-        )
-        command = values["server"]["postStart"]
-        return command[command.index("-c") + 1]
-    except Exception as err:  # noqa: BLE001
-        errors.append(f"{rel}: cannot read the postStart script: {err}")
-        return ""
-
-
-def marker_triples(text: str, errors: list) -> set:
-    match = MARKER.search(text)
-    if not match:
-        errors.append('postStart has no TENANTS="<tenant>:<namespace>[:<login>[|<login>]]" marker')
-        return set()
-    triples = set()
-    for entry in match.group(1).split(","):
-        parts = entry.strip().split(":")
-        if len(parts) == 2:
-            parts.append("")
-        if len(parts) != 3 or not parts[0] or not parts[1]:
-            errors.append(f"TENANTS entry {entry.strip()!r} is not <tenant>:<namespace>[:<login>[|<login>]]")
-            continue
-        tenant, namespace, logins = parts
-        if not logins:
-            triples.add((tenant, namespace, ""))
-            continue
-        for login in logins.split("|"):
-            if not GITHUB_USER.match(login):
-                errors.append(f"TENANTS login {login!r} is not a GitHub login")
-                continue
-            triples.add((tenant, namespace, login))
-    return triples
-
-
-def check_parity(tenants: list, triples: set, errors: list) -> None:
-    want = set()
-    for tenant in tenants:
-        users = [m["user"] for m in tenant["members"] if m["user"]]
-        if users:
-            want |= {(tenant["tenant"], tenant["namespace"], user) for user in users}
-        else:
-            want.add((tenant["tenant"], tenant["namespace"], ""))
-    for triple in sorted(want - triples):
-        errors.append("TENANTS marker is missing " + ":".join(triple).rstrip(":"))
-    for triple in sorted(triples - want):
-        errors.append("TENANTS marker has no tenant-list member for " + ":".join(triple).rstrip(":"))
-
-
-def check_shell(script: str, errors: list) -> None:
-    if not shutil.which("sh"):
-        log("WARN sh not found, skipping the postStart syntax check")
-        return
-    res = subprocess.run(["sh", "-n"], input=script, text=True, capture_output=True, check=False)
-    if res.returncode != 0:
-        errors.append(f"postStart script fails sh -n:\n{res.stderr.strip()}")
-
-
 def check_chart(tenants: list, errors: list) -> None:
+    assert yaml is not None  # guarded by the caller; keeps Pyright quiet
     if not shutil.which("helm"):
         log("WARN helm not found, skipping the tenant chart render")
         return
@@ -256,14 +181,9 @@ def check_chart(tenants: list, errors: list) -> None:
 def main() -> int:
     errors: list = []
     tenants = load_tenants(errors)
-    raw = openbao_text(errors)
-    if raw:
-        check_parity(tenants, marker_triples(raw, errors), errors)
-        if yaml is None:
-            log("WARN PyYAML not found, skipping the postStart syntax check and the chart render")
-        elif script := poststart_script(raw, errors):
-            check_shell(script, errors)
-    if tenants and yaml is not None:
+    if yaml is None:
+        log("WARN PyYAML not found, skipping the tenant chart render")
+    elif tenants:
         check_chart(tenants, errors)
 
     for error in errors:

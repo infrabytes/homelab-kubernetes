@@ -1,5 +1,9 @@
 ---
-# The chart's ingress rule selects pods by namespace, which the Cilium Gateway's envoy cannot match: it is host-network and carries the reserved `ingress` identity. Without this, the Gateway → 8200 path (bao.icaninto.space) is dropped.
+# The operator's NetworkPolicy cannot name the Cilium Gateway's envoy: it is
+# host-network and carries the reserved `ingress` identity, which no
+# namespaceSelector peer can match. Without this CNP, the Gateway → 8200 path
+# (bao.icaninto.space) is dropped. Everything else is spec.network in
+# openbaocluster.yaml.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:

@@ -76,22 +76,8 @@ variable "grafana_cloud_loki_token" {
   sensitive   = true
 }
 
-variable "openbao_seal_key" {
-  description = "OpenBao static seal key (32 random bytes, base64-encoded). Written into the openbao-seal Secret (binary_data current.key) mounted at /openbao/seal/current.key; OpenBao auto-unseals by reading it at startup."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "openbao_root_token" {
-  description = "OpenBao root token, captured from the one-time `bao operator init` bootstrap and kept in SOPS only. Not consumed by Terraform today; reserved so the value stays available for recovery/rotation workflows."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 variable "openbao_oidc_client_secret" {
-  description = "Authentik OIDC client secret for the OpenBao oidc auth method (provider \"openbao\"), written into the openbao-oidc Secret (OIDC_CLIENT_SECRET env for the openbao chart)."
+  description = "Authentik OIDC client secret for the OpenBao oidc auth method (provider \"openbao\"), written into the openbao-oidc Secret (dataFrom source of the OpenBaoCluster self-init)."
   type        = string
   default     = ""
   sensitive   = true
