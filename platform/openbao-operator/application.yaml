@@ -12,6 +12,9 @@ spec:
   sources:
     - repoURL: oci://ghcr.io/kubebao/charts/openbao-operator
       targetRevision: 0.6.3
+      # Multi-source OCI sources need path or chart set (Argo CD validation);
+      # the repo's convention is path: . (authentik does the same).
+      path: .
       helm:
         releaseName: openbao-operator
         values: |
