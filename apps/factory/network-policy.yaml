@@ -149,14 +149,9 @@ spec:
       ports:
         - port: 8200
           protocol: TCP
-    # The kubeconfig's API server: 192.168.0.67 = talos-cp-1. Re-derive from
-    # ansible/inventory.json if the control-plane set changes.
-    - to:
-        - ipBlock:
-            cidr: 192.168.0.67/32
-      ports:
-        - port: 6443
-          protocol: TCP
+    # The kube-apiserver edge is NOT reachable via an ipBlock rule: node-IP
+    # traffic carries Cilium's reserved kube-apiserver identity (same audited
+    # pattern as external-secrets-allow-apiserver-egress).
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
@@ -167,3 +162,27 @@ spec:
       ports:
         - port: 443
           protocol: TCP
+---
+# Pod → kube-apiserver (viewer kubeconfig kubectl): node-IP traffic carries
+# Cilium's reserved kube-apiserver identity, which plain NetworkPolicy ipBlock
+# rules cannot match — same audited pattern as
+# external-secrets-allow-apiserver-egress.yaml. The ipBlock form was verified
+# dead (dial 192.168.0.67:6443 timeout with the rule present).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: factory-allow-apiserver-egress
+  namespace: factory
+spec:
+  endpointSelector:
+    matchLabels:
+      app: factory-server
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
