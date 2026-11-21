@@ -166,7 +166,6 @@ spec:
             - profile
           allowed_redirect_uris:
             - https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback
-            - https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback
             - http://localhost:8250/oidc/callback
           bound_claims:
             preferred_username: bbayrakt
@@ -182,7 +181,6 @@ spec:
             - profile
           allowed_redirect_uris:
             - https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback
-            - https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback
             - http://localhost:8250/oidc/callback
           ttl: 1h
       # Kubernetes auth for ESO (and the pod's own SA before Terraform takes

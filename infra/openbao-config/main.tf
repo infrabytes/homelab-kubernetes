@@ -25,7 +25,6 @@ locals {
   # the retired postStart script).
   oidc_redirect_uris = [
     "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
-    "https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback",
     "http://localhost:8250/oidc/callback",
   ]
 

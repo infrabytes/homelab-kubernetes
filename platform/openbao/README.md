@@ -52,7 +52,10 @@ instead of the Helm chart.
 - LAN: https://bao.icaninto.space/ui → oidc (Gateway `openbao-https` listener;
   the operator renders the HTTPRoute; TLS terminated at the Gateway with the
   cert-manager DNS-01 cert, BackendTLSPolicy verifies the in-cluster backend).
-- Tailnet: https://openbao.<tailnet>.ts.net/ui (L7 Ingress → `openbao-public`).
+- Tailnet: no dedicated hostname — tailnet devices reach
+  https://bao.icaninto.space through the subnet router (the Connector
+  advertises the gateway VIP). The old ts.net L7 Ingress was dropped: the
+  operator reserves the `openbao` Ingress name for its own edge resources.
 - ESO: `https://openbao-public.openbao.svc:8200` (the operator names the
   client Service `<cluster>-public`; the headless Service keeps `openbao`).
 - Terraform/Atlantis: `https://bao.icaninto.space`.
