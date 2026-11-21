@@ -17,6 +17,8 @@ spec:
       labels:
         app: factory-server
     spec:
+      # The OpenBao factory-app-writer kubernetes role is bound to this SA.
+      serviceAccountName: factory-server
       # CSI mounts the sandboxes PVC root-owned; fsGroup hands it to the
       # server's uid 1000 group (kubelet chowns on mount). OnRootMismatch
       # skips the recursive walk on warm mounts.
