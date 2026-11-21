@@ -198,11 +198,7 @@ spec:
         path: auth/kubernetes/config
         data:
           kubernetes_host: https://kubernetes.default.svc
-      # Shared kv-v2 mount for the platform consumers.
-      - name: secret-kv-mount
-        operation: update
-        path: sys/mounts/secret
-        secretEngine:
-          type: kv
-          options:
-            version: "2"
+      # The secret/ kv-v2 mount is NOT here: infra/openbao-config owns it
+      # (vault_mount.secret); a self-init enable would collide with the TF
+      # create at cutover ("path already in use"). Self-init stays limited to
+      # the human login path.

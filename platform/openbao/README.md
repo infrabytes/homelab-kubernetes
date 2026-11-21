@@ -20,9 +20,12 @@ instead of the Helm chart.
 
 - Self-init bootstrap: OpenBao initializes itself from the `selfInit.requests`
   list (admin policy, oidc auth + config via `dataFrom` of the `openbao-oidc`
-  Secret, `sso-admin`/`sso-user` roles, kubernetes auth, `secret/` kv-v2 mount)
-  and **revokes the bootstrap root token**. There is no root token anywhere;
-  the one-time `bao operator init` + manual policy bootstrap is gone.
+  Secret, `sso-admin`/`sso-user` roles, kubernetes auth) and **revokes the
+  bootstrap root token**. It stays limited to the human login path; the
+  `secret/` kv-v2 mount and everything else inside Bao belongs to
+  `infra/openbao-config` (a self-init enable would collide with the TF create
+  at cutover). There is no root token anywhere; the one-time `bao operator
+  init` + manual policy bootstrap is gone.
 - Lifecycle: RollingUpdate rolls (Ready-gated, raft quorum kept — the old
   values-hack is now operator behavior), cert rotation, upgrade orchestration,
   immutable operator-generated seal key.
