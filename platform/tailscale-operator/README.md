@@ -31,8 +31,9 @@ MagicDNS name + Let's Encrypt certificate declaratively — no Service
 annotations, no manual `tailscale serve`.
 
 - `openbao.<tailnet>.ts.net` — OpenBao UI/API
-  (`platform/openbao/openbao-tailnet-ingress.yaml` → `openbao-active:8200`,
-  plain HTTP backend; TLS terminates at the proxy).
+  (`platform/openbao/openbao-tailnet-ingress.yaml` → `openbao-public:8200`,
+  HTTPS backend with the operator-generated in-cluster CA; TLS terminates at
+  the proxy).
 - `tailscale-operator.<tailnet>.ts.net` — API server proxy for kubectl.
 - `headlamp.<tailnet>.ts.net` — Headlamp dashboard
   (`platform/headlamp/tailnet-ingress.yaml` → `headlamp:80`).
