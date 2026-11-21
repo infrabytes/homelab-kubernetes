@@ -1,8 +1,8 @@
 #!/bin/bash
-# kubeconform over the datreeio CRD catalog, with repo-vendored
-# external-secrets.io schemas first: the catalog's SecretStore schemas
-# predate the OpenBao provider, so the vendored copies (generated from the
-# ESO chart CRDs) win for those kinds and everything else falls through.
+# kubeconform over the datreeio CRD catalog, with repo-vendored schemas
+# first: external-secrets.io (the catalog's SecretStore schemas predate the
+# OpenBao provider) and openbao.org (no catalog entry; generated from the
+# kubebao operator chart CRDs). Everything else falls through.
 set -euo pipefail
 command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not found, please install it from https://github.com/yannh/kubeconform/releases/latest" >&2; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -64,7 +64,7 @@
       "managerFilePatterns": [
         "/^\\.github\\/workflows\\/(pre-commit|warm-tool-cache)\\.ya?ml$/",
         "/^atlantis\\.ya?ml$/",
-        "/^platform\/atlantis\/application\\.ya?ml$/"
+        "/^platform/atlantis/application\\.ya?ml$/"
       ],
       "matchStrings": [
         "\\n\\s*opentofu\\s+(?<currentValue>[0-9.]+)",
@@ -395,6 +395,20 @@
       "depNameTemplate": "ghcr.io/renovatebot/renovate",
       "datasourceTemplate": "docker",
       "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "description": "OpenBao server version deployed by the OpenBaoCluster CR (github-releases carries published_at, so the 3-day age gate applies; tags are v-prefixed semver)",
+      "managerFilePatterns": [
+        "/^platform\\/openbao\\/openbaocluster\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "\\n  version:\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "openbao/openbao",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$",
+      "versioningTemplate": "semver"
     }
   ],
   "packageRules": [
@@ -435,8 +449,12 @@
     },
     {
       "description": "The folder sources of the platform Applications point at this repo: a git-tags dep with targetRevision main that can never update, so it would only sit in the dashboard as invalid-value",
-      "matchDatasources": ["git-tags"],
-      "matchPackageNames": ["https://github.com/infrabytes/homelab-kubernetes"],
+      "matchDatasources": [
+        "git-tags"
+      ],
+      "matchPackageNames": [
+        "https://github.com/infrabytes/homelab-kubernetes"
+      ],
       "enabled": false
     },
     {
@@ -480,11 +498,15 @@
       "sourceUrl": "https://github.com/spegel-org/spegel"
     },
     {
-      "description": "A sourceUrl rule cannot fetch the seaweedfs chart's release notes: upstream (same repo as the chart) tags releases 4.51, and Renovate matches release notes to the new version by exact tag string, which never equals the chart index 4.51.0. Track the releases instead, as agent-sandbox does, and the tag is the version: the release notes and the rewrite value both come out of the release list. loose versioning is required because the semver scheme rejects two-segment tags (isVersion 4.51 is false under it); loose compares them fine (4.49.0 -> 4.51). Renovate then rewrites the pin to the release tag, e.g. 4.49.0 -> 4.51; the chart is published within a day of each release, so the 3-day minimumReleaseAge gate sees chart versions that exist. Never override the depName: branch-time auto-replace re-extracts the file with the raw manager depName (see the agent-sandbox rule). registryUrls is required because the dep inherits the chart index URL (seaweedfs.github.io) from the argocd extract and overrideDatasource does not clear it — the github-releases GraphQL then POSTs to .../helm/api/graphql and 405s (agent-sandbox never saw this because git-tags carries no registryUrls). Tag inventory verified: modern releases are all 4.NN; the two lettered ancient tags version below the current pin and can never be proposed.",
-      "matchPackageNames": ["seaweedfs"],
+      "description": "A sourceUrl rule cannot fetch the seaweedfs chart's release notes: upstream (same repo as the chart) tags releases 4.51, and Renovate matches release notes to the new version by exact tag string, which never equals the chart index 4.51.0. Track the releases instead, as agent-sandbox does, and the tag is the version: the release notes and the rewrite value both come out of the release list. loose versioning is required because the semver scheme rejects two-segment tags (isVersion 4.51 is false under it); loose compares them fine (4.49.0 -> 4.51). Renovate then rewrites the pin to the release tag, e.g. 4.49.0 -> 4.51; the chart is published within a day of each release, so the 3-day minimumReleaseAge gate sees chart versions that exist. Never override the depName: branch-time auto-replace re-extracts the file with the raw manager depName (see the agent-sandbox rule). registryUrls is required because the dep inherits the chart index URL (seaweedfs.github.io) from the argocd extract and overrideDatasource does not clear it \u2014 the github-releases GraphQL then POSTs to .../helm/api/graphql and 405s (agent-sandbox never saw this because git-tags carries no registryUrls). Tag inventory verified: modern releases are all 4.NN; the two lettered ancient tags version below the current pin and can never be proposed.",
+      "matchPackageNames": [
+        "seaweedfs"
+      ],
       "overrideDatasource": "github-releases",
       "overridePackageName": "SeaweedFS/seaweedfs",
-      "registryUrls": ["https://github.com"],
+      "registryUrls": [
+        "https://github.com"
+      ],
       "versioning": "loose"
     },
     {

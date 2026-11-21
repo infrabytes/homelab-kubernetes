@@ -1,0 +1,50 @@
+# OpenBao Operator (kubebao) — pre-GA third-party lifecycle manager for the
+# OpenBaoCluster CR in platform/openbao. Single-tenant mode: controller-only
+# runtime watching the openbao namespace (no provisioner). Install docs:
+# https://docs.kubebao.org/docs/get-started/install/
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openbao-operator
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: oci://ghcr.io/kubebao/charts/openbao-operator
+      targetRevision: 0.6.3
+      helm:
+        releaseName: openbao-operator
+        values: |
+          tenancy:
+            # One cluster on this homelab: controller-only runtime, no provisioner.
+            mode: single
+            targetNamespace: openbao
+          metrics:
+            serviceMonitor:
+              enabled: true
+              labels:
+                release: prometheus
+          # First pass (2026-11-21), no usage history yet; re-measure.
+          controller:
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 256Mi
+    - repoURL: https://github.com/infrabytes/homelab-kubernetes
+      targetRevision: main
+      path: platform/openbao-operator
+      directory:
+        recurse: true
+        exclude: "application*.yaml"
+  destination:
+    namespace: openbao-operator-system
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
