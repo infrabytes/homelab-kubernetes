@@ -166,6 +166,76 @@ resource "vault_kubernetes_auth_backend_role" "tenant_eso" {
   token_ttl                        = 3600
 }
 
+# Factory's app-secret store: the factory-server pod writes per-session
+# (role factory-app-writer), ESO's ClusterSecretStore reads via
+# eso-factory-apps. Ported from the retired postStart script (#654/#658).
+resource "vault_mount" "factory_apps" {
+  path        = "factory-apps"
+  type        = "kv"
+  options     = { version = "2" }
+  description = "Factory-written app secrets, read by the openbao-factory-apps ClusterSecretStore"
+}
+
+resource "vault_policy" "factory_app_writer" {
+  name = "factory-app-writer"
+
+  policy = <<-EOT
+    path "factory-apps/data/*" {
+      capabilities = ["create", "update", "read", "delete", "patch"]
+    }
+    path "factory-apps/metadata/*" {
+      capabilities = ["list", "read", "delete"]
+    }
+    path "factory-apps/metadata" {
+      capabilities = ["list"]
+    }
+    # ESO store validation reads the mount config; bao kv resolves
+    # the mount type through it too.
+    path "sys/mounts/factory-apps" {
+      capabilities = ["read"]
+    }
+  EOT
+}
+
+resource "vault_policy" "eso_factory_apps" {
+  name = "eso-factory-apps"
+
+  policy = <<-EOT
+    path "factory-apps/data/*" {
+      capabilities = ["read"]
+    }
+    path "factory-apps/metadata/*" {
+      capabilities = ["read", "list"]
+    }
+    path "factory-apps/metadata" {
+      capabilities = ["list"]
+    }
+    # ESO's store validation GETs sys/mounts/<mount>; without read
+    # the ClusterSecretStore stays 'unable to validate store'.
+    path "sys/mounts/factory-apps" {
+      capabilities = ["read"]
+    }
+  EOT
+}
+
+resource "vault_kubernetes_auth_backend_role" "factory_app_writer" {
+  backend                          = "kubernetes"
+  role_name                        = "factory-app-writer"
+  bound_service_account_names      = ["factory-server"]
+  bound_service_account_namespaces = ["factory"]
+  token_policies                   = [vault_policy.factory_app_writer.name]
+  token_ttl                        = 3600
+}
+
+resource "vault_kubernetes_auth_backend_role" "eso_factory_apps" {
+  backend                          = "kubernetes"
+  role_name                        = "eso-factory-apps"
+  bound_service_account_names      = ["factory-apps-eso"]
+  bound_service_account_namespaces = ["external-secrets"]
+  token_policies                   = [vault_policy.eso_factory_apps.name]
+  token_ttl                        = 3600
+}
+
 # ---------------------------------------------------------------------------
 # OIDC roles for tenant SSO (one per tenant with GitHub logins)
 # ---------------------------------------------------------------------------

@@ -60,7 +60,7 @@ The operator's CA lives in `openbao/openbao-tls-ca` (Secret, key `ca.crt`).
 Every consumer namespace's SecretStore references a same-namespace copy:
 
 ```sh
-for ns in arc-runners tailscale authentik velero alert-triage external-secrets-demo pdeu; do
+for ns in arc-runners tailscale authentik velero alert-triage external-secrets-demo external-secrets pdeu factory; do
   kubectl -n openbao get secret openbao-tls-ca -o json \
     | jq '{apiVersion:"v1",kind:"Secret",metadata:{name:"openbao-tls-ca",namespace:"'"$ns"'"},type,type_:."type",data:.data}' \
     > /tmp/ca-copy.json
