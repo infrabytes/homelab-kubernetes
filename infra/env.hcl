@@ -58,7 +58,7 @@ locals {
     # kubernetes_version also pins the windrunner k3s management cluster (ansible/windrunner-k3s.yml).
     talos_version            = "v1.14.6"
     kubernetes_version       = "1.37.2"
-    cilium_chart_version     = "1.20.4"
+    cilium_chart_version     = "1.20.5"
     gateway_api_crds_version = "v1.7.0"
 
     # Image Factory (standard, non-secureboot metal ISO)
