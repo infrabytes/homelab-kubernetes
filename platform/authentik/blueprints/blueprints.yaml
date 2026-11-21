@@ -277,8 +277,6 @@ data:
             - matching_mode: strict
               url: https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback
             - matching_mode: strict
-              url: https://openbao.taile70903.ts.net/ui/vault/auth/oidc/oidc/callback
-            - matching_mode: strict
               url: http://localhost:8250/oidc/callback
       # Mastra Factory (apps/factory) signs in through Better Auth's generic-OAuth
       # plugin: provider slug 'factory' is the discovery path, the callback is
