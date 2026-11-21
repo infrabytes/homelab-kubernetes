@@ -333,6 +333,11 @@ spec:
                 path "factory-apps/metadata" {
                   capabilities = ["list"]
                 }
+                # ESO store validation reads the mount config; bao kv resolves
+                # the mount type through it too.
+                path "sys/mounts/factory-apps" {
+                  capabilities = ["read"]
+                }
                 EOF
                 bao write auth/kubernetes/role/factory-app-writer \
                   bound_service_account_names=factory-server \
@@ -348,6 +353,11 @@ spec:
                 }
                 path "factory-apps/metadata" {
                   capabilities = ["list"]
+                }
+                # ESO's store validation GETs sys/mounts/<mount>; without read
+                # the ClusterSecretStore stays 'unable to validate store'.
+                path "sys/mounts/factory-apps" {
+                  capabilities = ["read"]
                 }
                 EOF
                 bao write auth/kubernetes/role/eso-factory-apps \
