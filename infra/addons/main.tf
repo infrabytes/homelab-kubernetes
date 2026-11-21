@@ -202,31 +202,9 @@ resource "kubernetes_namespace_v1" "openbao" {
   metadata { name = "openbao" }
 }
 
-# Static seal key for the built-in auto-unseal (seal "static" stanza, read via
-# file:// from the pod). The value in the Secret is the raw 32-byte key; the
-# openbao chart (platform/openbao) mounts it at
-# /openbao/seal/current.key read-only. Key rotation: write the new key as
-# current.key with a previous_key/previous_key_id stanza (see the app README).
-resource "kubernetes_secret_v1" "openbao_seal" {
-  metadata {
-    name      = "openbao-seal"
-    namespace = kubernetes_namespace_v1.openbao.metadata[0].name
-  }
-  binary_data = {
-    "current.key" = var.openbao_seal_key
-  }
-}
-
-# State-held copy of the bootstrap root token (SOPS -> env.hcl -> addons
-# inputs). Nothing in the cluster consumes it; the value is kept so recovery/
-# rotation workflows never need the token re-typed.
-resource "terraform_data" "openbao_root_token" {
-  input = var.openbao_root_token
-}
-
 # OIDC client credentials for the OpenBao oidc auth method (Authentik provider
-# "openbao"). Injected into the OpenBao pods by the chart's
-# server.extraSecretEnvironmentVars (OIDC_CLIENT_ID/OIDC_CLIENT_SECRET).
+# "openbao"). The OpenBaoCluster's self-init feeds auth/oidc/config from it via
+# dataFrom — the CR/etcd never sees the secret.
 resource "kubernetes_secret_v1" "openbao_oidc" {
   metadata {
     name      = "openbao-oidc"

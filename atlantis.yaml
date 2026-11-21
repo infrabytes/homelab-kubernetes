@@ -59,6 +59,19 @@ projects:
     autoplan:
       when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl"]
       enabled: true
+  # After addons (group 2): needs the OpenBaoCluster ArgoCD synced (self-init
+  # finished + the AppRole created by OIDC login). On a cold bootstrap the
+  # first plan fails until that happened; `atlantis plan` again.
+  - name: openbao-config
+    dir: infra/openbao-config
+    workflow: terragrunt
+    apply_requirements: [mergeable]
+    terraform_distribution: opentofu
+    terraform_version: 1.13.2
+    execution_order_group: 3
+    autoplan:
+      when_modified: ["../env.hcl", "../root.hcl", "*.tf", "*.hcl", "../argocd/tenants/tenants.json"]
+      enabled: true
   # Order-independent (Grafana Cloud API, no cluster dependency): last group so
   # its failure cannot abort the cluster units.
   - name: grafana-cloud-config
