@@ -217,6 +217,21 @@ resource "vault_policy" "eso_factory_apps" {
   EOT
 }
 
+# Break-glass admin path: exec into a pod and log in with its own SA token
+# (kubectl exec -n openbao openbao-0 -- bao login -method=kubernetes
+# role=openbao-admin). This is what the old postStart used; it keeps an
+# authenticated admin session available even when the gateway or Authentik
+# are down. The role existed pre-cutover; the TF create is the first write
+# after it (self-init does not manage kubernetes-auth roles).
+resource "vault_kubernetes_auth_backend_role" "openbao_admin" {
+  backend                          = "kubernetes"
+  role_name                        = "openbao-admin"
+  bound_service_account_names      = ["openbao"]
+  bound_service_account_namespaces = ["openbao"]
+  token_policies                   = ["openbao-admin"]
+  token_ttl                        = 3600
+}
+
 resource "vault_kubernetes_auth_backend_role" "factory_app_writer" {
   backend                          = "kubernetes"
   role_name                        = "factory-app-writer"
