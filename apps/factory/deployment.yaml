@@ -30,7 +30,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: server
-          image: ghcr.io/bbayrakt/factory-server:0.1.5
+          image: ghcr.io/bbayrakt/factory-server:0.1.6
           imagePullPolicy: IfNotPresent
           # uid 1000 is the image's `node` user; the sandbox PVC is mounted at
           # its home. Root filesystem stays writable: git checkouts need it.
@@ -58,6 +58,12 @@ spec:
               value: https://authentik.icaninto.space
             - name: AUTHENTIK_APP_SLUG
               value: factory
+            # OpenBao (operator TLS): the session sandbox's bao CLI picks both
+            # up ambient — the skill no longer tells sessions to fetch a CA.
+            - name: BAO_ADDR
+              value: https://openbao-public.openbao.svc:8200
+            - name: BAO_CACERT
+              value: /etc/openbao-tls/ca.crt
             # The Blueprint-managed provider's client_id (platform/authentik).
             - name: AUTHENTIK_CLIENT_ID
               value: factory
@@ -145,10 +151,18 @@ spec:
             # for an isolated provider (e.g. E2B) if this becomes multi-tenant.
             - name: sandboxes
               mountPath: /home/node/.mastracode
+            - name: openbao-ca
+              mountPath: /etc/openbao-tls
+              readOnly: true
       volumes:
         - name: sandboxes
           persistentVolumeClaim:
             claimName: factory-sandboxes
+        # The operator-generated OpenBao CA, copied into this namespace by the
+        # platform/openbao runbook step (rotation period 10y).
+        - name: openbao-ca
+          secret:
+            secretName: openbao-tls-ca
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
