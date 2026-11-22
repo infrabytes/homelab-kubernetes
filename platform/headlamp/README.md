@@ -14,7 +14,7 @@ credential — and RBAC decides what each user sees.
   (`OIDC_CLIENT_ID`/`_CLIENT_SECRET`/`_ISSUER_URL`/`_SCOPES`, client secret
   from SOPS). `config.oidc.externalSecret` points the chart at it.
 - Authentik: the `headlamp` OAuth2 provider in
-  [`platform/authentik/blueprints`](../authentik/README.md), client id
+  [`platform/authentik/blueprint-manifests`](../authentik/README.md), client id
   `headlamp`, `sub_mode: user_username` (so `preferred_username` is the login
   and therefore the subject), redirect URIs for both public hostnames —
   Headlamp derives the callback from the request host. The issuer is
@@ -79,7 +79,7 @@ Approve that route in the Tailscale admin console (and grant the tag ACL) once
 
 - **Provider changes live in the Authentik blueprint.** The `headlamp` client
   (id, secret, redirect URIs, `sub_mode`) is owned by
-  [`platform/authentik/blueprints`](../authentik/README.md); editing it rolls
+  [`platform/authentik/blueprint-manifests`](../authentik/README.md); editing it rolls
   the Authentik worker through the ConfigMap checksum, and the provider is
   re-applied on the next blueprint run. Manual edits in the admin UI are
   reverted.
