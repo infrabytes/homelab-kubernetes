@@ -272,19 +272,7 @@
       "datasourceTemplate": "docker",
       "versioningTemplate": "semver"
     },
-    {
-      "customType": "regex",
-      "description": "Factory Server image tag in the deployment (private GHCR image built by the infrabytes/factory docker-build workflow on a semver tag push; docker datasource only moves when the matching tag is published, and needs the ghcr hostRule in the renovate workflow to see the private package)",
-      "managerFilePatterns": [
-        "/^apps\\/factory\\/deployment\\.ya?ml$/"
-      ],
-      "matchStrings": [
-        "image:\\s*ghcr\\.io/infrabytes/factory-server:(?<currentValue>\\d+\\.\\d+\\.\\d+)"
-      ],
-      "depNameTemplate": "ghcr.io/infrabytes/factory-server",
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "semver"
-    },
+
     {
       "customType": "regex",
       "description": "sops binary version pinned in the windrunner setup script",

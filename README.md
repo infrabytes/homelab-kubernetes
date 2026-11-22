@@ -21,7 +21,7 @@ GitOps-driven homelab Kubernetes cluster. A Talos Linux cluster (1 controlplane,
 | external-dns                 | Creates/updates Cloudflare DNS records from Gateways/HTTPRoutes      |
 | OpenBao                      | Cluster secrets manager (Vault fork), managed by the kubebao **OpenBao Operator** (HA raft 3 replicas, Longhorn, operator-generated static seal, in-cluster TLS, Gateway exposure): self-init bootstrap revokes the root token; everything inside OpenBao (auth methods, policies, roles, mounts, secret values) is Terraform (`infra/openbao-config`, hashicorp/vault provider, AppRole from SOPS); ESO syncs per-namespace stores (k8s auth + operator CA); SSO via Authentik (`sso-admin`/`sso-user`); UI at bao.icaninto.space (LAN + tailnet via the subnet router) |
 | Authentik                    | Identity provider (`platform/authentik/`, namespace `authentik`) for every SSO client in the cluster: local accounts only (no external OAuth source), TOTP enforced at first login, password reset by a Blueprint recovery flow over an SMTP relay, config-as-code from Blueprint ConfigMaps; own CloudNativePG database, secrets synced by ESO from OpenBao. Public issuer at authentik.icaninto.space (SWAG forwards to the gateway VIP); LAN clients reach the VIP through a router DNS override, tailnet clients take the public path. OIDC for the apps that speak it, forward auth on the embedded outpost for the ones that do not (Longhorn, CF2CNP, Hubble UI at the Gateway; Atlantis and the SeaweedFS admin UI at SWAG) |
-| Mastra Factory               | Agent-powered software delivery environment (`apps/factory/`, namespace `factory`): Factory Server from a locally built GHCR image (`ghcr.io/bbayrakt/factory-server`), sign-in via Authentik OIDC (Better Auth + generic OAuth, Blueprint-managed provider), CloudNativePG Postgres with pgvector, local sandboxes on a Longhorn PVC; own secrets seeded in OpenBao at `secret/factory`. Internal-only for now at factory.icaninto.space (external-dns publishes the gateway VIP; tailnet via the 192.168.0.200/32 advertisement) — GitHub webhooks wait for the public SWAG host |
+| Mastra Factory               | Agent-powered software delivery environment (`apps/factory/`, namespace `factory`): Factory Server from a GHCR image built by `infrabytes/factory` CI (`ghcr.io/infrabytes/factory-server`), sign-in via Authentik OIDC (Better Auth + generic OAuth, Blueprint-managed provider), CloudNativePG Postgres with pgvector, local sandboxes on a Longhorn PVC; own secrets seeded in OpenBao at `secret/factory`. Internal-only for now at factory.icaninto.space (external-dns publishes the gateway VIP; tailnet via the 192.168.0.200/32 advertisement) — GitHub webhooks wait for the public SWAG host |
 | Headlamp                     | Kubernetes SIGs dashboard in its own `headlamp` namespace with **native OIDC login** against Authentik: the API server trusts that issuer (Talos `KubeAuthenticationConfig`, issuer `https://authentik.icaninto.space/application/o/headlamp/`), so every request carries the user's own `oidc:<login>` identity and the per-user bindings in `platform/headlamp/rbac.yaml` decide access; the pod's ServiceAccount is read-only `cluster-viewer` instead of the chart's cluster-admin. LAN at headlamp.icaninto.space, tailnet via `headlamp.<tailnet>.ts.net` |
 | Tailscale Operator            | Exposes cluster services on the tailnet (Headlamp) and provides in-process API server proxy for kubectl from tailnet devices; the `lan-subnet-router` Connector advertises only the gateway VIP (`192.168.0.200/32`, never the LAN subnet) so tailnet devices reach the LAN-only UIs behind the gateway |
 | External Secrets Operator   | Syncs Secrets from OpenBao through per-consumer namespaced stores (k8s auth, one read-only role scoped to a single secret path each); e.g. the ARC runner PAT (`arc-runner-auth`) |
@@ -329,23 +329,24 @@ gh secret set RENOVATE_APP_PRIVATE_KEY < renovate-app.private-key.pem
 gh workflow run renovate.yaml && gh run list -w renovate.yaml
 ```
 
-Two extras outside this repo's own run:
+One extra outside this repo's own run: `infrabytes/factory` runs its own
+copy of `renovate.yaml` (same App, same engine pin; its Dockerfile pins —
+base images, kubectl, OpenBao, gh — are Renovate-managed there). The App is
+installed on that repo and it holds its own
+`RENOVATE_CLIENT_ID`/`RENOVATE_APP_PRIVATE_KEY` (secrets cannot be shared
+across repos).
 
-- `infrabytes/factory` runs its own copy of `renovate.yaml` (same App, same
-  engine pin; its Dockerfile pins — base images, kubectl, OpenBao, gh — are
-  Renovate-managed there). The App must be installed on that repo and it
-  holds its own `RENOVATE_CLIENT_ID`/`RENOVATE_APP_PRIVATE_KEY` (secrets
-  cannot be shared across repos).
-- A classic PAT with `read:packages` in `RENOVATE_GHCR_TOKEN`: the docker
-  datasource reads the private `ghcr.io/infrabytes/factory-server` image tags
-  (published by that repo's `docker-build` workflow) to bump the
-  `apps/factory` deployment tag. Fine-grained PATs have no packages scope.
-
-The Factory Server flow end to end: push a `vX.Y.Z` tag in
-`infrabytes/factory` → `docker-build` publishes `ghcr.io/infrabytes/factory-server:X.Y.Z` →
-Renovate bumps `apps/factory/deployment.yaml` → ArgoCD auto-syncs. (The old
-`ghcr.io/bbayrakt/factory-server` path is retired; the OpenBao
-`secret/factory` registry credential must be updated to the new path.)
+The Factory Server flow end to end is event-driven: push a `vX.Y.Z` tag in
+`infrabytes/factory` → `docker-build` publishes
+`ghcr.io/infrabytes/factory-server:X.Y.Z` and immediately cuts the release
+PR here itself — it mints this repo's `infrabytes-renovate` installation
+token, bumps `apps/factory/deployment.yaml` on a `factory-release/*`
+branch, opens the PR and merges it once pre-commit/PR Preview/Atlantis are
+green. Renovate does not track the deployment image tag (the workflow owns
+it, and a path-qualified hostRule can never match Renovate's /v2/ auth
+probe anyway). The old `ghcr.io/bbayrakt/factory-server` path is retired;
+the OpenBao `secret/factory` registry credential works for both paths (it
+is host-level).
 
 The run needs no `GITHUB_TOKEN` permission: the App token does the writing, and
 because it is an installation token the PRs it opens do trigger `pre-commit`

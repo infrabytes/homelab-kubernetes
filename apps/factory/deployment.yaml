@@ -30,9 +30,10 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: server
-          # Image built by GH Actions in infrabytes/factory from a semver tag
-          # push (v0.1.8 -> 0.1.8); Renovate tracks the tag via the docker
-          # datasource and bumps this line (see renovate.json).
+          # Built and published by infrabytes/factory's docker-build workflow
+          # on a semver tag push (v0.1.9 -> 0.1.9); that workflow's release
+          # step cuts and merges the factory-release/* PR bumping this line
+          # (event-driven; Renovate does not track this image).
           image: ghcr.io/infrabytes/factory-server:0.1.9
           imagePullPolicy: Always
           # uid 1000 is the image's `node` user; the sandbox PVC is mounted at
