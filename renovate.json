@@ -272,7 +272,6 @@
       "datasourceTemplate": "docker",
       "versioningTemplate": "semver"
     },
-
     {
       "customType": "regex",
       "description": "sops binary version pinned in the windrunner setup script",
@@ -413,6 +412,16 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "The Factory Server deployment image is bumped by the factory repo's event-driven release workflow, not by Renovate: the built-in kubernetes manager picks the image line up from apps/factory/deployment.yaml and would 401 on the private-registry lookup (no hostRule \u2014 a path-qualified one can never match the /v2/ auth probe).",
+      "matchManagers": [
+        "kubernetes"
+      ],
+      "matchDepNames": [
+        "ghcr.io/infrabytes/factory-server"
+      ],
+      "enabled": false
+    },
     {
       "matchFileNames": [
         ".github/**"
