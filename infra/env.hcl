@@ -186,6 +186,10 @@ locals {
     # Used by the argocd provider when the local admin login is disabled
     # (SSO-only mode). Falls back to admin password while empty (bootstrap).
     argocd_tf_token = try(local.secrets.argocd_tf_token, "")
+    # Private Factory-managed app repo: URL + PAT both live in SOPS so the
+    # public repo never names it (gurkerl project/appset, see README).
+    gurkerl_repo_url = try(local.secrets.gurkerl_repo_url, "")
+    gurkerl_pat      = try(local.secrets.gurkerl_pat, "")
   }
 
   viewer_kubeconfig = {
