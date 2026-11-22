@@ -32,14 +32,14 @@ locals {
   # ns is the namespace the store's ServiceAccount lives in (not always the
   # map key: the memory-rightsize store is the second alert-triage store).
   consumers = {
-    arc-runners           = { sa = "arc-runners-eso", ns = "arc-runners", path = "arc-runner-auth" }
-    tailscale             = { sa = "tailscale-eso", ns = "tailscale", path = "tailscale-operator" }
-    external-secrets-demo = { sa = "eso-demo", ns = "external-secrets-demo", path = "demo" }
-    authentik             = { sa = "authentik-eso", ns = "authentik", path = "authentik" }
-    velero                = { sa = "velero-eso", ns = "velero", path = "velero" }
-    alert-triage          = { sa = "alert-triage-eso", ns = "alert-triage", path = "alert-triage" }
-    memory-rightsize      = { sa = "memory-rightsize-eso", ns = "alert-triage", path = "memory-rightsize" }
-    factory               = { sa = "factory-env", ns = "factory", path = "factory" }
+    arc-runners      = { sa = "arc-runners-eso", ns = "arc-runners", path = "arc-runner-auth" }
+    tailscale        = { sa = "tailscale-eso", ns = "tailscale", path = "tailscale-operator" }
+    demo             = { sa = "eso-demo", ns = "external-secrets-demo", path = "demo" }
+    authentik        = { sa = "authentik-eso", ns = "authentik", path = "authentik" }
+    velero           = { sa = "velero-eso", ns = "velero", path = "velero" }
+    alert-triage     = { sa = "alert-triage-eso", ns = "alert-triage", path = "alert-triage" }
+    memory-rightsize = { sa = "memory-rightsize-eso", ns = "alert-triage", path = "memory-rightsize" }
+    factory          = { sa = "factory-env", ns = "factory", path = "factory" }
   }
 }
 
