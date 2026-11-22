@@ -60,6 +60,15 @@ spec:
               value: factory
             # OpenBao (operator TLS): the session sandbox's bao CLI picks both
             # up ambient — the skill no longer tells sessions to fetch a CA.
+            # Server-side card automation (board workflows) resolves the
+            # Factory default model from the environment; tenant credential
+            # resolution fails closed in webhook-run contexts, so the key must
+            # be ambient. Value via OpenBao secret/factory (SOPS-managed).
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: factory-env
+                  key: OPENROUTER_API_KEY
             - name: BAO_ADDR
               value: https://openbao-public.openbao.svc:8200
             - name: BAO_CACERT
