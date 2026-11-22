@@ -53,4 +53,14 @@ jobs:
           LOG_LEVEL: info
           RENOVATE_PLATFORM: github
           # Env-only global config: renovate.json stays the repository config instead of doubling as global config.
+          # The Factory Server app repo (infrabytes/factory) runs its own copy
+          # of this workflow with the same App — one engine per repo, never
+          # both, or they fight over the same renovate/* branches.
           RENOVATE_REPOSITORIES: ${{ github.repository }}
+          # Registry auth for private-image lookups: the Factory Server image
+          # (ghcr.io/infrabytes/factory-server) is private, so the docker
+          # datasource needs a PAT with read:packages for that org to see its
+          # tags (fine-grained PATs have no packages scope yet — classic only).
+          RENOVATE_HOST_RULES: >-
+            [{"hostType":"docker","matchHost":"ghcr.io/infrabytes/factory-server",
+            "username":"x-access-token","password":"${{ secrets.RENOVATE_GHCR_TOKEN }}"}]

@@ -329,6 +329,24 @@ gh secret set RENOVATE_APP_PRIVATE_KEY < renovate-app.private-key.pem
 gh workflow run renovate.yaml && gh run list -w renovate.yaml
 ```
 
+Two extras outside this repo's own run:
+
+- `infrabytes/factory` runs its own copy of `renovate.yaml` (same App, same
+  engine pin; its Dockerfile pins — base images, kubectl, OpenBao, gh — are
+  Renovate-managed there). The App must be installed on that repo and it
+  holds its own `RENOVATE_CLIENT_ID`/`RENOVATE_APP_PRIVATE_KEY` (secrets
+  cannot be shared across repos).
+- A classic PAT with `read:packages` in `RENOVATE_GHCR_TOKEN`: the docker
+  datasource reads the private `ghcr.io/infrabytes/factory-server` image tags
+  (published by that repo's `docker-build` workflow) to bump the
+  `apps/factory` deployment tag. Fine-grained PATs have no packages scope.
+
+The Factory Server flow end to end: push a `vX.Y.Z` tag in
+`infrabytes/factory` → `docker-build` publishes `ghcr.io/infrabytes/factory-server:X.Y.Z` →
+Renovate bumps `apps/factory/deployment.yaml` → ArgoCD auto-syncs. (The old
+`ghcr.io/bbayrakt/factory-server` path is retired; the OpenBao
+`secret/factory` registry credential must be updated to the new path.)
+
 The run needs no `GITHUB_TOKEN` permission: the App token does the writing, and
 because it is an installation token the PRs it opens do trigger `pre-commit`
 and `preview`, which a `GITHUB_TOKEN` PR would not. Uninstall the Mend
