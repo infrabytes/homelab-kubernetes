@@ -303,6 +303,28 @@ data:
               url: https://factory.icaninto.space/auth/api/callback/authentik
             - matching_mode: strict
               url: http://localhost:4111/auth/api/callback/authentik
+      # Gurkerl Shopper (apps/gurkerl-shopper style deployment): in-app OIDC, so this is a plain
+      # OAuth2 provider — no proxy provider, no outpost. The redirect is APP_URL + /api/auth/callback.
+      - model: authentik_providers_oauth2.oauth2provider
+        identifiers:
+          name: gurkerl-shopper
+        attrs:
+          client_type: confidential
+          client_id: gurkerl-shopper
+          client_secret: !Env BLUEPRINT_OIDC_GURKERL_SHIPPER_SECRET
+          grant_types: [authorization_code, refresh_token]
+          include_claims_in_id_token: true
+          sub_mode: user_username
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+          signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+          property_mappings:
+            - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
+            - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'email'"]]
+            - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'profile'"]]
+          redirect_uris:
+            - matching_mode: strict
+              url: https://gurkerl.icaninto.space/api/auth/callback
       # The slug is the issuer path (/application/o/<slug>/) and the client the provider serves.
       - model: authentik_core.application
         identifiers:
@@ -334,6 +356,12 @@ data:
         attrs:
           name: Factory
           provider: !Find [authentik_providers_oauth2.oauth2provider, [name, factory]]
+      - model: authentik_core.application
+        identifiers:
+          slug: gurkerl-shopper
+        attrs:
+          name: Gurkerl Shopper
+          provider: !Find [authentik_providers_oauth2.oauth2provider, [name, gurkerl-shopper]]
   forward-auth.yaml: |-
     version: 1
     metadata:
