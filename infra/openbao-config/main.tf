@@ -29,15 +29,17 @@ locals {
   ]
 
   # Platform consumers: namespace → SecretStore SA → read-scoped path.
+  # ns is the namespace the store's ServiceAccount lives in (not always the
+  # map key: the memory-rightsize store is the second alert-triage store).
   consumers = {
-    arc-runners           = { sa = "arc-runners-eso", path = "arc-runner-auth" }
-    tailscale             = { sa = "tailscale-eso", path = "tailscale-operator" }
-    external-secrets-demo = { sa = "eso-demo", path = "demo" }
-    authentik             = { sa = "authentik-eso", path = "authentik" }
-    velero                = { sa = "velero-eso", path = "velero" }
-    alert-triage          = { sa = "alert-triage-eso", path = "alert-triage" }
-    memory-rightsize      = { sa = "memory-rightsize-eso", path = "memory-rightsize" }
-    factory               = { sa = "factory-env", path = "factory" }
+    arc-runners           = { sa = "arc-runners-eso", ns = "arc-runners", path = "arc-runner-auth" }
+    tailscale             = { sa = "tailscale-eso", ns = "tailscale", path = "tailscale-operator" }
+    external-secrets-demo = { sa = "eso-demo", ns = "external-secrets-demo", path = "demo" }
+    authentik             = { sa = "authentik-eso", ns = "authentik", path = "authentik" }
+    velero                = { sa = "velero-eso", ns = "velero", path = "velero" }
+    alert-triage          = { sa = "alert-triage-eso", ns = "alert-triage", path = "alert-triage" }
+    memory-rightsize      = { sa = "memory-rightsize-eso", ns = "alert-triage", path = "memory-rightsize" }
+    factory               = { sa = "factory-env", ns = "factory", path = "factory" }
   }
 }
 
@@ -155,7 +157,7 @@ resource "vault_kubernetes_auth_backend_role" "consumer_eso" {
   backend                          = "kubernetes"
   role_name                        = "eso-${each.key}"
   bound_service_account_names      = [each.value.sa]
-  bound_service_account_namespaces = [each.key]
+  bound_service_account_namespaces = [each.value.ns]
   token_policies                   = [vault_policy.consumer_eso[each.key].name]
   token_ttl                        = 3600
 }
@@ -231,7 +233,7 @@ resource "vault_policy" "eso_factory_apps" {
 resource "vault_kubernetes_auth_backend_role" "openbao_admin" {
   backend                          = "kubernetes"
   role_name                        = "openbao-admin"
-  bound_service_account_names      = ["openbao"]
+  bound_service_account_names      = ["openbao-serviceaccount"]
   bound_service_account_namespaces = ["openbao"]
   token_policies                   = ["openbao-admin"]
   token_ttl                        = 3600
