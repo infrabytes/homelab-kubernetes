@@ -135,10 +135,15 @@ resource "vault_mount" "tenant" {
 # ---------------------------------------------------------------------------
 
 resource "vault_kv_secret_v2" "consumer" {
-  for_each  = var.kv_secrets
-  mount     = each.value.mount == "secret" ? vault_mount.secret.path : vault_mount.tenant[each.value.mount].path
-  name      = each.key
-  data_json = jsonencode(each.value.data)
+  for_each = var.kv_secrets
+  mount    = each.value.mount == "secret" ? vault_mount.secret.path : vault_mount.tenant[each.value.mount].path
+  name     = each.key
+
+  # Write-only: secret values stay out of tfstate and plan output. The version
+  # is derived from the SOPS data, so a rotation rewrites the record without a
+  # manual bump (vault provider >= 5; out-of-band edits are no longer detected).
+  data_json_wo         = jsonencode(each.value.data)
+  data_json_wo_version = parseint(substr(sha256(jsonencode(each.value.data)), 0, 8), 16)
 }
 
 # ---------------------------------------------------------------------------

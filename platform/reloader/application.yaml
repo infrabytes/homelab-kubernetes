@@ -16,14 +16,15 @@ spec:
         reloader:
           podMonitor:
             enabled: true
-          # New component (2026-10-24): initial estimate; re-measure after two weeks.
+          # 14d (2026-11-08..2026-11-22): mem p95 58.7Mi, peak 93.5Mi -> 64Mi/128Mi; request = p95
+          # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
           deployment:
             resources:
               requests:
                 cpu: 10m
                 memory: 64Mi
               limits:
-                memory: 96Mi
+                memory: 128Mi
   destination:
     namespace: reloader
     server: https://kubernetes.default.svc
