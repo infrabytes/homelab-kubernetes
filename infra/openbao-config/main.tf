@@ -23,8 +23,11 @@ provider "vault" {
 locals {
   # OIDC roles register the LAN, tailnet and CLI redirect URIs (verbatim from
   # the retired postStart script).
+  # The ":/v1/..." entry (empty port, double slash) is the CLI direct-mode
+  # callback generated from BAO_ADDR — registered verbatim.
   oidc_redirect_uris = [
     "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
+    "https://bao.icaninto.space:/v1/auth/oidc//oidc/callback",
     "http://localhost:8250/oidc/callback",
   ]
 
@@ -274,19 +277,26 @@ locals {
   }
 }
 
-resource "vault_jwt_auth_backend_role" "tenant_sso" {
-  for_each              = local.tenant_sso
-  backend               = "oidc"
-  role_name             = "sso-${each.key}"
-  role_type             = "oidc"
-  user_claim            = "preferred_username"
-  oidc_scopes           = ["profile"]
-  allowed_redirect_uris = local.oidc_redirect_uris
-  token_policies        = [vault_policy.tenant[each.key].name]
-  token_ttl             = 3600
+# vault_generic_endpoint instead of vault_jwt_auth_backend_role: the
+# provider resource has no callback_mode field, and direct mode needs it.
+# Switched in place: terraform import
+# 'vault_generic_endpoint.tenant_sso["<tenant>"]' auth/oidc/role/sso-<tenant>
+# (one-time per tenant, done at cutover).
+resource "vault_generic_endpoint" "tenant_sso" {
+  for_each     = local.tenant_sso
+  path         = "auth/oidc/role/sso-${each.key}"
+  disable_read = false
+  data_json = jsonencode({
+    role_type             = "oidc"
+    user_claim            = "preferred_username"
+    oidc_scopes           = ["profile"]
+    callback_mode         = "direct"
+    allowed_redirect_uris = local.oidc_redirect_uris
+    token_policies        = [vault_policy.tenant[each.key].name]
+    token_ttl             = 3600
+    bound_claims = {
+      preferred_username = join(",", each.value.logins)
+    }
+  })
 
-  # bound_claims is a map of comma-separated strings (provider docs).
-  bound_claims = {
-    preferred_username = join(",", each.value.logins)
-  }
 }

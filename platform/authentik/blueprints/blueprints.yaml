@@ -276,6 +276,9 @@ data:
           redirect_uris:
             - matching_mode: strict
               url: https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback
+            # CLI direct mode (bao login ... callbackmode=direct)
+            - matching_mode: strict
+              url: https://bao.icaninto.space:/v1/auth/oidc//oidc/callback
             - matching_mode: strict
               url: http://localhost:8250/oidc/callback
       # Mastra Factory (apps/factory) signs in through Better Auth's generic-OAuth
