@@ -17,6 +17,13 @@ variable "github_pat" {
   sensitive   = true
 }
 
+variable "gurkerl_pat" {
+  description = "GitHub PAT (bbayrakt account) for ArgoCD to clone the private bbayrakt/gurkerl-shopper repo. Fine-grained, contents:read on that repo only."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "cloudflare_api_token" {
   description = "Cloudflare API token (Zone read + DNS edit). Written into cert-manager and external-dns Secrets (DNS-01 / record management)."
   type        = string

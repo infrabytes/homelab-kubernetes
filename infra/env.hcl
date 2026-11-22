@@ -87,6 +87,7 @@ locals {
     kubeconfig_path       = local.kubeconfig_path
     gitops_repo_url       = local.gitops_repo_url
     github_pat            = local.secrets.github_pat
+    gurkerl_pat           = try(local.secrets.gurkerl_pat, "")
     cloudflare_api_token  = local.secrets.cloudflare_api_token
     argocd_admin_password = local.secrets.argocd_admin_password
     # ArgoCD RBAC (argocd-rbac-cm): policy.default, OIDC scopes, raw policy.csv

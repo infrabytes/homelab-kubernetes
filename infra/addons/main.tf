@@ -157,14 +157,26 @@ resource "helm_release" "argo_cd" {
           "policy.csv"     = join("\n", compact(concat(["p, tf-bot, *, *, *, allow"], var.argocd_rbac.policy_csv)))
           scopes           = var.argocd_rbac.scopes
         } : {}
-        repositories = var.github_pat != "" ? [
-          {
-            name     = "homelab-kubernetes"
-            url      = var.gitops_repo_url
-            username = "git"
-            password = var.github_pat
-          }
-        ] : []
+        repositories = concat(
+          var.github_pat != "" ? [
+            {
+              name     = "homelab-kubernetes"
+              url      = var.gitops_repo_url
+              username = "git"
+              password = var.github_pat
+            }
+          ] : [],
+          # The gurkerl-shopper repo is private (Factory-managed app
+          # deployments, AppProject gurkerl / ApplicationSet gurkerl).
+          var.gurkerl_pat != "" ? [
+            {
+              name     = "gurkerl-shopper"
+              url      = "https://github.com/bbayrakt/gurkerl-shopper"
+              username = "git"
+              password = var.gurkerl_pat
+            }
+          ] : [],
+        )
       }
     })
   ]
