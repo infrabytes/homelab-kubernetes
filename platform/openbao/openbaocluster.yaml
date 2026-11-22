@@ -176,8 +176,14 @@ spec:
           user_claim: preferred_username
           oidc_scopes:
             - profile
+          callback_mode: direct
           allowed_redirect_uris:
             - https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback
+            # CLI direct mode (bao login ... callbackmode=direct): the redirect
+            # goes back to the server, no localhost hop. The empty port and
+            # double slash are what the CLI generates from BAO_ADDR without a
+            # port — registered verbatim.
+            - https://bao.icaninto.space:/v1/auth/oidc//oidc/callback
             - http://localhost:8250/oidc/callback
           bound_claims:
             preferred_username: bbayrakt
@@ -191,8 +197,10 @@ spec:
           user_claim: preferred_username
           oidc_scopes:
             - profile
+          callback_mode: direct
           allowed_redirect_uris:
             - https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback
+            - https://bao.icaninto.space:/v1/auth/oidc//oidc/callback
             - http://localhost:8250/oidc/callback
           ttl: 1h
       # Kubernetes auth for ESO (and the pod's own SA before Terraform takes
