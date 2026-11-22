@@ -17,6 +17,9 @@ spec:
       labels:
         app: factory-server
     spec:
+      # ghcr.io is private: ESO composes the pull credential from OpenBao.
+      imagePullSecrets:
+        - name: factory-registry
       # The OpenBao factory-app-writer kubernetes role is bound to this SA.
       serviceAccountName: factory-server
       # CSI mounts the sandboxes PVC root-owned; fsGroup hands it to the
