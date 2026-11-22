@@ -59,8 +59,12 @@ jobs:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           # Registry auth for private-image lookups: the Factory Server image
           # (ghcr.io/infrabytes/factory-server) is private, so the docker
-          # datasource needs a PAT with read:packages for that org to see its
-          # tags (fine-grained PATs have no packages scope yet — classic only).
+          # datasource needs a PAT with read:packages from an account that can
+          # pull it (fine-grained PATs have no packages scope — classic only).
+          # matchHost must be the bare host: Renovate probes
+          # https://ghcr.io/v2/ for the auth challenge, and a path-qualified
+          # matchHost does not match that probe, so the credentials would
+          # never be applied (the lookup then 401s as anonymous).
           RENOVATE_HOST_RULES: >-
-            [{"hostType":"docker","matchHost":"ghcr.io/infrabytes/factory-server",
-            "username":"x-access-token","password":"${{ secrets.RENOVATE_GHCR_TOKEN }}"}]
+            [{"hostType":"docker","matchHost":"ghcr.io",
+            "username":"bbayrakt","password":"${{ secrets.RENOVATE_GHCR_TOKEN }}"}]
