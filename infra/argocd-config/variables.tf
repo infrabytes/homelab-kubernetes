@@ -20,3 +20,16 @@ variable "argocd_tf_token" {
   default     = ""
   sensitive   = true
 }
+
+variable "gurkerl_repo_url" {
+  description = "HTTPS URL of the private repo the Factory agent deploys from (gurkerl project). Value lives in SOPS; the URL never appears in public manifests."
+  type        = string
+  sensitive   = true
+}
+
+variable "gurkerl_pat" {
+  description = "Fine-grained GitHub PAT (bbayrakt account, contents:read on the gurkerl repo) for ArgoCD to clone it. Empty = repo credential not configured."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

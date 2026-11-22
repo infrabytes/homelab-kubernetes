@@ -63,3 +63,14 @@ Inputs come from `../env.hcl` (all unit inputs centralized there); no
 ```sh
 kubectl -n argocd get applicationset,application
 ```
+
+## Factory-managed app repo (gurkerl)
+
+The Factory agent deploys app manifests from a **private** repo. Its URL and
+credential live in SOPS (`gurkerl_repo_url`, `gurkerl_pat`) — the public
+homelab repo never names it. Terraform here creates the `gurkerl` AppProject
+(destinations `gurkerl-*`, namespaced resources only, Role/RoleBinding
+blacklisted), the repo credential, and the `gurkerl` ApplicationSet (one
+Application per `deploy/<app>/` directory → namespace `gurkerl-<app>`).
+The PAT is a fine-grained bbayrakt token: repository access limited to the
+app repo, permission Contents:read.
