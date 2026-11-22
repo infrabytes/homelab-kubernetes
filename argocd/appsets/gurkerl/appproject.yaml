@@ -1,0 +1,30 @@
+# Project for the gurkerl-shopper application repo (bbayrakt/gurkerl-shopper):
+# the Factory agent opens PRs there adding deploy/<app>/ manifests, and this
+# project pins what ArgoCD will accept — only its own namespaces, only
+# namespaced resources (no RBAC escalation), nothing cluster-scoped.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: gurkerl
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: gurkerl-shopper application deployments (Factory-managed)
+  sourceRepos:
+    - https://github.com/bbayrakt/gurkerl-shopper
+  destinations:
+    - name: in-cluster
+      server: https://kubernetes.default.svc
+      namespace: gurkerl-*
+  # Allow every *namespaced* resource …
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  # … which also denies every *cluster-scoped* resource.
+  # RBAC stays out: ArgoCD applies as cluster-admin, so a RoleBinding here would escalate.
+  namespaceResourceBlacklist:
+    - group: rbac.authorization.k8s.io
+      kind: Role
+    - group: rbac.authorization.k8s.io
+      kind: RoleBinding

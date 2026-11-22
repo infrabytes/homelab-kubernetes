@@ -1,0 +1,43 @@
+# One Application per deploy/<app>/ directory in the gurkerl-shopper repo,
+# each deploying into its own namespace gurkerl-<app> (AppProject gurkerl
+# restricts destinations to that pattern; CreateNamespace makes new app
+# namespaces self-serve).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: gurkerl
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/bbayrakt/gurkerl-shopper
+        revision: main
+        directories:
+          - path: deploy/*
+  template:
+    metadata:
+      name: "gurkerl-{{path.basename}}"
+    spec:
+      project: gurkerl
+      source:
+        repoURL: https://github.com/bbayrakt/gurkerl-shopper
+        targetRevision: main
+        path: "{{path}}"
+        directory:
+          recurse: true
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "gurkerl-{{path.basename}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - ServerSideApply=true
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 30s
+            maxDuration: 5m
+            factor: 2
