@@ -77,6 +77,33 @@ done
 The cert is public material; the copies are refreshed only if the operator CA
 rotates (`spec.tls.rotationPeriod`, currently 10y).
 
+## Gateway CA sync (kubebao × cilium workaround)
+
+The operator creates the `BackendTLSPolicy` with a **ConfigMap** CA reference
+(`openbao/openbao-tls-ca`). Cilium is the only Gateway implementation that
+syncs ConfigMap CAs, and it mirrors the ConfigMap into a
+`cilium-secrets/cilium-sync-cfgmap-<sha256(configmap,ns,name)>` Secret —
+**copying the source labels**, which include
+`app.kubernetes.io/managed-by=openbao-operator` + `openbao.org/cluster`. The
+kubebao admission policy then denies cilium's create/update of that mirror
+("Direct modification of OpenBao-managed resources is prohibited"), so envoy
+never receives the validation CA and every gateway → OpenBao request 503s
+(upstream connect error / TLS handshake EOF).
+
+Workaround applied 2026-11-22: the mirror Secret was hand-seeded without the
+kubebao labels:
+
+```sh
+SECRET=cilium-sync-cfgmap-$(python3 -c 'import hashlib;print(hashlib.sha256(b"configmap\x00openbao\x00openbao-tls-ca").hexdigest())')
+kubectl -n openbao get cm openbao-tls-ca -o jsonpath='{.data.ca\.crt}' \
+  | base64 -w0 | xargs -I{} kubectl -n cilium-secrets create secret generic $SECRET \
+  --from-literal=ca.crt={}
+```
+
+If the operator CA ever rotates (10y `rotationPeriod`), re-run that command.
+Upstream report to kubebao pending: the admission policy should not match
+other controllers' label-copied mirrors.
+
 ## Migration from the Helm chart (done once, 2026-11)
 
 1. Lifted all kv values into `infra/secrets.sops.yaml` (via a pod login with

@@ -76,6 +76,8 @@ spec:
                     - velero
                     - alert-triage
                     - external-secrets-demo
+                    - external-secrets
+                    - factory
                     - pdeu
         ports:
           - port: 8200
