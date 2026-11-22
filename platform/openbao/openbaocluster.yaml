@@ -35,11 +35,15 @@ spec:
     # In-cluster HTTPS with an operator-generated CA. The operator 0.6.3
     # assumes TLS everywhere (hardcoded https probes, https api/cluster
     # addrs, unconditional TLS Secret mount) — tls.enabled: false does not
-    # boot. rotationPeriod must outlive the per-namespace CA copies the ESO
-    # SecretStores reference; rotating it means re-copying those Secrets.
+    # boot. rotationPeriod is the remaining-lifetime threshold at which the
+    # operator reissues (rotate when remaining < period), NOT an interval:
+    # 720h with a 1-year cert = rotate in the last 30 days. (87600h here
+    # reissued the server cert every ~15s and reset every in-flight TLS
+    # handshake.) Rotating the SERVER cert does not touch the CA, so the
+    # per-namespace CA copies the ESO stores reference survive it.
     enabled: true
     mode: OperatorManaged
-    rotationPeriod: 87600h
+    rotationPeriod: 720h
   unseal:
     # Operator generates an immutable Secret (openbao-unseal-key); same
     # in-cluster trust model as the old static seal.
@@ -82,11 +86,17 @@ spec:
         ports:
           - port: 8200
             protocol: TCP
-      # VictoriaMetrics scrape of the metrics-only listener (8202).
+      # Metrics scrape of the metrics-only listener (8202): the collector
+      # pods live in k8s-monitoring (alloy-metrics), writing to VM in
+      # observability.
       - from:
           - namespaceSelector:
-              matchLabels:
-                kubernetes.io/metadata.name: observability
+              matchExpressions:
+                - key: kubernetes.io/metadata.name
+                  operator: In
+                  values:
+                    - k8s-monitoring
+                    - observability
         ports:
           - port: 8202
             protocol: TCP
