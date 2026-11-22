@@ -13,10 +13,11 @@ the argocd provider can only connect once the ArgoCD server exists.
   Application per subdir (`appset-{{path.basename}}`) that applies the
   ApplicationSet YAML committed there (app-of-appsets pattern).
 - The real `platform` Application (cluster admin-level resources) and the
-  `apps` ApplicationSet (regular applications) are therefore plain GitOps
-  manifests under `argocd/appsets/`, reviewable and diffable (e.g. by the Argo CD
-  diff preview workflow) instead of being defined in Terraform. Adding or
-  changing one is a normal repo PR that needs no Terraform change.
+  `apps` ApplicationSet (one Argo CD Application per folder under `apps/`) are
+  therefore plain GitOps manifests under `argocd/appsets/`, reviewable and
+  diffable (e.g. by the Argo CD diff preview workflow) instead of being defined
+  in Terraform. Adding or changing one is a normal repo PR that needs no
+  Terraform change.
 - ArgoCD reads GitOps content only from the git repo (`gitops_repo_url` from
   `env.hcl`).
 
@@ -24,6 +25,10 @@ ApplicationSet dirs may carry more than ApplicationSets: `argocd/appsets/pdeu/`
 (the first to do so) also contains the `pdeu` AppProject and `pdeu` Namespace,
 they are plain objects applied in the same operation by the generated
 `appset-pdeu` Application.
+
+The `apps` ApplicationSet matches `apps/*`, creating an Application named after
+each folder and recursively syncing that folder's manifests. Adding an
+`apps/<name>/` folder needs no registration.
 
 The `platform` Application is an app-of-apps: `directory.include:
 "*/application*.yaml"` restricts it to the per-component Application manifests.

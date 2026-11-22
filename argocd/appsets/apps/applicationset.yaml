@@ -4,15 +4,12 @@ metadata:
   name: apps
   namespace: argocd
 spec:
-  # Stage 1: remove the old Application's resource finalizer before replacing it.
-  syncPolicy:
-    preserveResourcesOnDeletion: true
   generators:
     - git:
         repoURL: https://github.com/infrabytes/homelab-kubernetes
         revision: main
         directories:
-          - path: apps
+          - path: apps/*
   template:
     metadata:
       name: "{{path.basename}}"
