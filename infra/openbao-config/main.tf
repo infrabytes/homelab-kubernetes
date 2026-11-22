@@ -21,13 +21,10 @@ provider "vault" {
 }
 
 locals {
-  # OIDC roles register the LAN, tailnet and CLI redirect URIs (verbatim from
-  # the retired postStart script).
-  # The ":/v1/..." entry (empty port, double slash) is the CLI direct-mode
-  # callback generated from BAO_ADDR — registered verbatim.
+  # OIDC roles register the LAN and CLI redirect URIs (verbatim from the
+  # retired postStart script).
   oidc_redirect_uris = [
     "https://bao.icaninto.space/ui/vault/auth/oidc/oidc/callback",
-    "https://bao.icaninto.space:/v1/auth/oidc//oidc/callback",
     "http://localhost:8250/oidc/callback",
   ]
 
@@ -277,11 +274,15 @@ locals {
   }
 }
 
-# vault_generic_endpoint instead of vault_jwt_auth_backend_role: the
-# provider resource has no callback_mode field, and direct mode needs it.
-# Switched in place: terraform import
+# vault_generic_endpoint instead of vault_jwt_auth_backend_role: the provider
+# resource has no callback_mode field, and the value has to be written
+# explicitly — role writes merge, so an omitted key leaves whatever the path
+# already holds. Switched in place: terraform import
 # 'vault_generic_endpoint.tenant_sso["<tenant>"]' auth/oidc/role/sso-<tenant>
 # (one-time per tenant, done at cutover).
+#
+# client, not direct: direct mode requires a client_nonce on auth_url that the
+# Web UI never sends, so the OIDC login form 400s ("Invalid role").
 resource "vault_generic_endpoint" "tenant_sso" {
   for_each     = local.tenant_sso
   path         = "auth/oidc/role/sso-${each.key}"
@@ -290,7 +291,7 @@ resource "vault_generic_endpoint" "tenant_sso" {
     role_type             = "oidc"
     user_claim            = "preferred_username"
     oidc_scopes           = ["profile"]
-    callback_mode         = "direct"
+    callback_mode         = "client"
     allowed_redirect_uris = local.oidc_redirect_uris
     token_policies        = [vault_policy.tenant[each.key].name]
     token_ttl             = 3600
