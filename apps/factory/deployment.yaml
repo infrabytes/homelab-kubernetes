@@ -30,7 +30,10 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: server
-          image: ghcr.io/bbayrakt/factory-server:0.1.7
+          # Image built by GH Actions in infrabytes/factory from a semver tag
+          # push (v0.1.8 -> 0.1.8); Renovate tracks the tag via the docker
+          # datasource and bumps this line (see renovate.json).
+          image: ghcr.io/infrabytes/factory-server:0.1.7
           imagePullPolicy: Always
           # uid 1000 is the image's `node` user; the sandbox PVC is mounted at
           # its home. Root filesystem stays writable: git checkouts need it.
