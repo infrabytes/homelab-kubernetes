@@ -1,4 +1,5 @@
 #!/bin/bash
+# kubeconform over the datreeio CRD catalog; .kubeconform/<group> dirs are vendored schemas for external-secrets.io and kubebao.org.
 set -euo pipefail
 command -v kubeconform >/dev/null 2>&1 || {
 	echo "kubeconform not found, please install it from https://github.com/yannh/kubeconform/releases/latest" >&2

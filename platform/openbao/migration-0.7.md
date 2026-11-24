@@ -11,13 +11,15 @@ Source: <https://docs.kubebao.org/docs/operate/api-group-migration/argocd/>
 (0.7.0 guide; keep this file and the guide in sync when touching the
 migration again, 0.8.0 removes the tool).
 
-State of this migration (2026-11-23): **not yet run against the live
-cluster**. Rehearsed end-to-end in kind (2026-11-24): operator 0.6.3 → 0.7.0
-with the `openbaocluster.yaml` CR (Cilium/Gateway/Longhorn specifics
-adapted to kind), `plan` → `migrate` → `commit` → `convert` → old-CRD
-deletion all green, and the converted CR validates against the vendored
-`.kubeconform/kubebao.org/` schemas. Before the live run: re-check the guide
-for changed commands, then update this file.
+State of this migration (2026-11-24): **executed against the live cluster**.
+`plan` → `migrate` (stopped/held checkpoints, rendered with helm and applied
+with `kubectl apply --server-side --force-conflicts` — the CRD dir is not in
+`helm template` output either) → `commit` → `convert --write` on this CR,
+then PRs #707 (converted CR) and #703 (chart 0.7.0, OpenBao 2.7.3) merged
+while the children were suspended; Argo CD then healed the 2.7.3 upgrade and
+the GitOps freeze was reverted. Old CRDs deleted; `.kubeconform/openbao.org`
+removed in the same commit. Rehearsed end-to-end in kind first (see the
+gotchas below, all of which fired live too).
 
 Gotchas from the kind rehearsal that apply to the live run:
 
