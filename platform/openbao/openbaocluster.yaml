@@ -4,7 +4,7 @@
 # everything inside OpenBao (auth methods, policies, roles, mounts, secret
 # data) is Terraform (infra/openbao-config). Validated end-to-end in kind
 # against operator 0.6.3 + OpenBao 2.7.2.
-apiVersion: openbao.org/v1alpha1
+apiVersion: kubebao.org/v1alpha1
 kind: OpenBaoCluster
 metadata:
   name: openbao
