@@ -1,0 +1,1663 @@
+{
+  "$schema": "http://json-schema.org/draft-06/schema#",
+  "description": "OpenBaoRestore represents a request to restore an OpenBao cluster from a snapshot.\nThis resource is immutable after creation - it acts as a \"job request\".",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "OpenBaoRestoreSpec defines the desired state for a restore operation.\nAn OpenBaoRestore acts as a \"job request\" - it is immutable after creation.",
+      "properties": {
+        "cleanupAfterSeconds": {
+          "description": "CleanupAfterSeconds delays disposable target cleanup after snapshot application is confirmed.",
+          "format": "int32",
+          "maximum": 86400,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "cluster": {
+          "description": "Cluster is the name of the OpenBaoCluster to restore INTO.\nMust be in the request namespace. ClusterTemplate requires a new name.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "clusterTemplate": {
+          "description": "ClusterTemplate creates a new single-voter target. Existing targets are rejected.",
+          "properties": {
+            "configuration": {
+              "description": "Configuration configures KMS plugin behavior for the target server.",
+              "properties": {
+                "plugin": {
+                  "description": "Plugin controls downloads, registration, and file ownership for Plugins.\nSet autoDownload to true to download declared OCI plugins on startup.",
+                  "properties": {
+                    "autoDownload": {
+                      "description": "AutoDownload controls automatic plugin downloads from OCI registries.",
+                      "type": "boolean"
+                    },
+                    "autoRegister": {
+                      "description": "AutoRegister controls automatic plugin registration.",
+                      "type": "boolean"
+                    },
+                    "downloadBehavior": {
+                      "description": "DownloadBehavior controls whether OpenBao startup fails or continues when\ndeclarative OCI plugin downloads fail. Valid values are \"fail\" and\n\"continue\"; OpenBao defaults to \"fail\" when unset.",
+                      "enum": [
+                        "fail",
+                        "continue"
+                      ],
+                      "type": "string"
+                    },
+                    "filePermissions": {
+                      "description": "FilePermissions are the file permissions for plugin files (e.g., \"0755\").",
+                      "type": "string"
+                    },
+                    "fileUID": {
+                      "description": "FileUID is the UID to use for plugin files.",
+                      "format": "int64",
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "image": {
+              "description": "Image defaults to the version-derived image. Versions with build metadata\nrequire an explicit matching image because '+' is not valid in an image tag.",
+              "type": "string"
+            },
+            "imagePullSecrets": {
+              "items": {
+                "description": "LocalObjectReference contains enough information to let you locate the\nreferenced object inside the same namespace.",
+                "properties": {
+                  "name": {
+                    "default": "",
+                    "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                    "type": "string"
+                  }
+                },
+                "type": "object",
+                "x-kubernetes-map-type": "atomic"
+              },
+              "maxItems": 2,
+              "type": "array"
+            },
+            "initContainer": {
+              "description": "InitContainerConfig configures the init container used to render OpenBao configuration.\nThe init container is responsible for rendering the final config.hcl from a template\nusing environment variables such as HOSTNAME and POD_IP.\n\nThe operator relies on this init container to render config.hcl at runtime. Disabling\nthe init container is not supported and will be rejected by validation.",
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "description": "Enabled controls whether the init container is used to render the configuration.\nThe operator requires the init container; disabling it is not supported.",
+                  "type": "boolean"
+                },
+                "image": {
+                  "description": "Image is the container image to use for the init container.\nIf not specified, OPERATOR_INIT_IMAGE can supply a complete image reference, including a digest.\nOtherwise, defaults to \"<repo>:X.Y.Z\" where <repo> is derived from OPERATOR_INIT_IMAGE_REPOSITORY\n(default: \"ghcr.io/kubebao/openbao-init\") and the tag matches OPERATOR_VERSION.",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "plugins": {
+              "description": "Plugins declares KMS seal plugins required by Unseal. OpenBao 2.7 requires\nplugins for AWS, Azure, GCP, OCI, and PKCS#11 seals.",
+              "items": {
+                "description": "Plugin defines a declarative plugin configuration.\nDeclarative plugins require OpenBao 2.5.0 or newer; KMS plugins require 2.6.0 or newer.\nDuring upgrades, declarations must also meet the recorded running version's requirements.\nSee: https://openbao.org/docs/configuration/plugins/",
+                "properties": {
+                  "args": {
+                    "description": "Args are arguments to pass to the running plugin.\nOnly used if plugin_auto_register=true is set.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "binaryName": {
+                    "description": "BinaryName is the name of the plugin binary file within the OCI image.\nOpenBao 2.7 and later can infer it from the image ENTRYPOINT or CMD.",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "command": {
+                    "description": "Command is the command name of a manually downloaded plugin.\nRequired if Image is not set. Conflicts with Image.",
+                    "type": "string"
+                  },
+                  "env": {
+                    "description": "Env are environment variables to pass to the running plugin.\nOnly used if plugin_auto_register=true is set.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "image": {
+                    "description": "Image is the OCI image URL including registry and repository.\nBefore OpenBao 2.7.0, use an untagged repository and set Version separately.\nRequired if Command is not set. Conflicts with Command.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Name is the name of the plugin.",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "sha256sum": {
+                    "description": "SHA256Sum is the expected SHA256 checksum of the plugin binary.\nMust be a 64-character hexadecimal string.\nOpenBao 2.7 and later allow omission for digest-pinned OCI images and\ncommand-based plugins. Earlier versions require this field.",
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-fA-F]{64}$",
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Type is the plugin type (e.g., \"secret\", \"auth\").",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "version": {
+                    "description": "Version is the plugin version and, when Image has no tag, the image tag.\nOpenBao 2.7 and later can infer it from the image tag. Command-based KMS\nplugins on OpenBao 2.7 and later do not require a version.",
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "podMetadata": {
+              "description": "PodMetadata supplies provider-specific workload identity metadata.",
+              "properties": {
+                "annotations": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Annotations are merged into the generated OpenBao Pod template annotations.\nOperator-managed annotations take precedence if the same key is specified here.",
+                  "type": "object"
+                },
+                "labels": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Labels are merged into the generated OpenBao Pod template labels.\nOperator-managed labels take precedence if the same key is specified here.",
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "probes": {
+              "description": "Probes configures health probes for the restored OpenBao container.",
+              "properties": {
+                "startup": {
+                  "description": "Startup extends the time allowed for OpenBao to start.",
+                  "properties": {
+                    "failureThreshold": {
+                      "default": 60,
+                      "description": "FailureThreshold is the number of consecutive failures allowed before the\nkubelet restarts the container. The probe runs every 5 seconds after an\ninitial 10-second delay. The default is 60 failures, approximately 5 minutes;\nthe maximum is 720 failures, approximately 1 hour. Only longer budgets are\nsupported. Changing this value updates the Pod template and can restart Pods.",
+                      "format": "int32",
+                      "maximum": 720,
+                      "minimum": 60,
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "resources": {
+              "description": "ResourceRequirements describes the compute resource requirements.",
+              "properties": {
+                "claims": {
+                  "description": "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis field depends on the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.",
+                  "items": {
+                    "description": "ResourceClaim references one entry in PodSpec.ResourceClaims.",
+                    "properties": {
+                      "name": {
+                        "description": "Name must match the name of one entry in pod.spec.resourceClaims of\nthe Pod where this field is used. It makes that resource available\ninside a container.",
+                        "type": "string"
+                      },
+                      "request": {
+                        "description": "Request is the name chosen for a request in the referenced claim.\nIf empty, everything from the claim is made available, otherwise\nonly the result of this request.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "x-kubernetes-list-map-keys": [
+                    "name"
+                  ],
+                  "x-kubernetes-list-type": "map"
+                },
+                "limits": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                    "x-kubernetes-int-or-string": true
+                  },
+                  "description": "Limits describes the maximum amount of compute resources allowed.\nMore info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "pattern": "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$",
+                    "x-kubernetes-int-or-string": true
+                  },
+                  "description": "Requests describes the minimum amount of compute resources required.\nIf Requests is omitted for a container, it defaults to Limits if that is explicitly specified,\notherwise to an implementation-defined value. Requests cannot exceed Limits.\nMore info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "service": {
+              "description": "Service configures an optional ClusterIP Service for the destination.\nWhen omitted, the target has only its internal headless Service.",
+              "properties": {
+                "ipFamilies": {
+                  "description": "IPFamilies selects the Service IP families in primary-first order.\nThe primary family cannot change after the Service is created.",
+                  "items": {
+                    "description": "IPFamily represents the IP Family (IPv4 or IPv6). This type is used\nto express the family of an IP expressed by a type (e.g. service.spec.ipFamilies).",
+                    "enum": [
+                      "IPv4",
+                      "IPv6"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 2,
+                  "type": "array",
+                  "x-kubernetes-list-type": "atomic"
+                },
+                "ipFamilyPolicy": {
+                  "description": "IPFamilyPolicy selects single-stack or dual-stack Service allocation.\nWhen omitted, Kubernetes uses its default Service policy.\nTwo IP families require PreferDualStack or RequireDualStack.",
+                  "enum": [
+                    "SingleStack",
+                    "PreferDualStack",
+                    "RequireDualStack"
+                  ],
+                  "type": "string"
+                }
+              },
+              "type": "object",
+              "x-kubernetes-validations": [
+                {
+                  "message": "ipFamilies must not contain duplicate families",
+                  "rule": "!has(self.ipFamilies) || size(self.ipFamilies) != 2 || self.ipFamilies[0] != self.ipFamilies[1]"
+                },
+                {
+                  "message": "Two IP families require PreferDualStack or RequireDualStack",
+                  "rule": "!has(self.ipFamilies) || size(self.ipFamilies) != 2 || (has(self.ipFamilyPolicy) && self.ipFamilyPolicy != 'SingleStack')"
+                }
+              ]
+            },
+            "serviceAccount": {
+              "description": "ServiceAccount configures credentials supplied through workload identity.",
+              "properties": {
+                "annotations": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Annotations to add to the ServiceAccount.\nUseful for cloud provider Workload Identity (e.g. eks.amazonaws.com/role-arn).",
+                  "type": "object"
+                },
+                "name": {
+                  "description": "Name overrides the generated ServiceAccount name.\nIf not specified, defaults to \"<cluster-name>-serviceaccount\".",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "storage": {
+              "description": "StorageConfig captures storage-related configuration for the StatefulSet.",
+              "properties": {
+                "size": {
+                  "description": "Size is the requested persistent volume size, for example \"10Gi\".",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "storageClassName": {
+                  "description": "StorageClassName is an optional StorageClass for the PVCs.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "size"
+              ],
+              "type": "object"
+            },
+            "tls": {
+              "description": "TLSConfig captures TLS configuration for an OpenBaoCluster.",
+              "properties": {
+                "acme": {
+                  "description": "ACME configures settings when Mode is 'ACME'.",
+                  "properties": {
+                    "directoryURL": {
+                      "description": "DirectoryURL is the ACME directory URL (e.g., \"https://acme-v02.api.letsencrypt.org/directory\").",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "domains": {
+                      "description": "Domains is the list of domain names for which to obtain the certificate.\nThis maps to OpenBao's listener `tls_acme_domains` field.\n\nWhen empty, the operator will default to an internal Service name suitable for\nprivate ACME CAs running inside the cluster (e.g., \"<cluster>-acme.<namespace>.svc\").",
+                      "items": {
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "email": {
+                      "description": "Email is the email address to use for ACME registration.",
+                      "type": "string"
+                    },
+                    "sharedCache": {
+                      "description": "SharedCache configures a filesystem cache shared across OpenBao replicas for ACME account\nand certificate state. This is required for HA ACME topologies where more than one Pod\ncan serve the same hostname concurrently.",
+                      "properties": {
+                        "existingClaimName": {
+                          "description": "ExistingClaimName is the name of a pre-created RWX PVC in the same namespace.\nRequired when Mode is ExistingPVC.",
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "mode": {
+                          "description": "Mode selects whether the operator creates a dedicated RWX PVC or mounts an existing one.",
+                          "enum": [
+                            "ManagedPVC",
+                            "ExistingPVC"
+                          ],
+                          "type": "string"
+                        },
+                        "size": {
+                          "description": "Size is the requested capacity for the managed ACME cache PVC.\nRequired when Mode is ManagedPVC.",
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "storageClassName": {
+                          "description": "StorageClassName is an optional StorageClass for the managed ACME cache PVC.",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "mode"
+                      ],
+                      "type": "object",
+                      "x-kubernetes-validations": [
+                        {
+                          "message": "tls.acme.sharedCache.existingClaimName is only supported when mode is ExistingPVC",
+                          "rule": "self.mode != 'ManagedPVC' || !has(self.existingClaimName) || size(self.existingClaimName) == 0"
+                        },
+                        {
+                          "message": "tls.acme.sharedCache.existingClaimName is required when mode is ExistingPVC",
+                          "rule": "self.mode != 'ExistingPVC' || size(self.existingClaimName) > 0"
+                        },
+                        {
+                          "message": "tls.acme.sharedCache.size is only supported when mode is ManagedPVC",
+                          "rule": "self.mode != 'ExistingPVC' || !has(self.size) || size(self.size) == 0"
+                        },
+                        {
+                          "message": "tls.acme.sharedCache.storageClassName is only supported when mode is ManagedPVC",
+                          "rule": "self.mode != 'ExistingPVC' || !has(self.storageClassName) || size(self.storageClassName) == 0"
+                        },
+                        {
+                          "message": "tls.acme.sharedCache.size is required when mode is ManagedPVC",
+                          "rule": "self.mode != 'ManagedPVC' || size(self.size) > 0"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "directoryURL"
+                  ],
+                  "type": "object"
+                },
+                "enabled": {
+                  "description": "Enabled controls whether TLS is enabled for the cluster.",
+                  "type": "boolean"
+                },
+                "extraSANs": {
+                  "description": "ExtraSANs lists additional subject alternative names for server certificates.\nIn OperatorManaged mode, the operator includes these names when issuing the certificate.\nIn External mode, the operator requires the supplied certificate to contain them.\nValues that parse as IP addresses are treated as IP SANs; all other values are DNS SANs.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "mode": {
+                  "allOf": [
+                    {
+                      "enum": [
+                        "OperatorManaged",
+                        "External",
+                        "ACME"
+                      ]
+                    },
+                    {
+                      "enum": [
+                        "OperatorManaged",
+                        "External",
+                        "ACME"
+                      ]
+                    }
+                  ],
+                  "default": "OperatorManaged",
+                  "description": "Mode controls who manages the certificate lifecycle.",
+                  "type": "string"
+                },
+                "rotationPeriod": {
+                  "description": "RotationPeriod is a duration string (for example, \"720h\") controlling certificate rotation.\nOnly used when Mode is OperatorManaged.",
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "enabled"
+              ],
+              "type": "object"
+            },
+            "unseal": {
+              "description": "Unseal uses the same provider configuration as OpenBaoCluster. The target\nmust be able to decrypt the snapshot with the original seal key material.",
+              "properties": {
+                "awskms": {
+                  "description": "AWSKMS configures the AWS KMS seal type.\nRequired when Type is \"awskms\".",
+                  "properties": {
+                    "accessKey": {
+                      "description": "AccessKey is the AWS access key ID to use.\nNote: It is strongly recommended to use CredentialsSecretRef or Workload Identity (IRSA) instead.",
+                      "type": "string"
+                    },
+                    "endpoint": {
+                      "description": "Endpoint is the KMS API endpoint to be used for AWS KMS requests.\nUseful when connecting to KMS over a VPC Endpoint.",
+                      "type": "string"
+                    },
+                    "kmsKeyID": {
+                      "description": "KMSKeyID is the AWS KMS key ID or ARN to use for encryption and decryption.\nAn alias in the format \"alias/key-alias-name\" may also be used.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "region": {
+                      "description": "Region is the AWS region where the encryption key lives.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "secretKey": {
+                      "description": "SecretKey is the AWS secret access key to use.\nNote: It is strongly recommended to use CredentialsSecretRef or Workload Identity (IRSA) instead.",
+                      "type": "string"
+                    },
+                    "sessionToken": {
+                      "description": "SessionToken specifies the AWS session token.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kmsKeyID",
+                    "region"
+                  ],
+                  "type": "object"
+                },
+                "azureKeyVault": {
+                  "description": "AzureKeyVault configures the Azure Key Vault seal type.\nRequired when Type is \"azurekeyvault\".",
+                  "properties": {
+                    "authMethod": {
+                      "description": "AuthMethod selects how the seal authenticates to Azure, rendered as the\nseal's auth_method. When empty, OpenBao chooses: a client ID without a\nclient secret selects managed_identity, which uses the instance metadata\nservice. Set workload_identity for Azure Workload Identity, where the\nworkload identity webhook also injects AZURE_CLIENT_ID.",
+                      "enum": [
+                        "workload_identity",
+                        "managed_identity",
+                        "client_secret",
+                        "environment",
+                        "default"
+                      ],
+                      "type": "string"
+                    },
+                    "clientID": {
+                      "description": "ClientID is the Azure client ID.",
+                      "type": "string"
+                    },
+                    "clientSecret": {
+                      "description": "ClientSecret is the Azure client secret.\nNote: It is strongly recommended to use CredentialsSecretRef or Managed Service Identity instead.",
+                      "type": "string"
+                    },
+                    "environment": {
+                      "description": "Environment is the Azure environment (e.g., \"AzurePublicCloud\", \"AzureUSGovernmentCloud\").",
+                      "type": "string"
+                    },
+                    "keyName": {
+                      "description": "KeyName is the name of the key in the Azure Key Vault.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "resource": {
+                      "description": "Resource is the Azure AD resource endpoint.\nFor Managed HSM, this should usually be \"managedhsm.azure.net\".",
+                      "type": "string"
+                    },
+                    "tenantID": {
+                      "description": "TenantID is the Azure tenant ID.",
+                      "type": "string"
+                    },
+                    "vaultName": {
+                      "description": "VaultName is the name of the Azure Key Vault.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "workloadIdentity": {
+                      "description": "WorkloadIdentity has the operator project an Azure workload identity token\ninto the OpenBao Pods, without the Azure Workload Identity webhook. Requires\ntenantID. The token is exchanged with the Azure public cloud.",
+                      "properties": {
+                        "clientID": {
+                          "description": "ClientID is the client ID of the identity holding the federated credential.",
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "clientID"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "keyName",
+                    "vaultName"
+                  ],
+                  "type": "object",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "spec.unseal.azureKeyVault.workloadIdentity requires tenantID",
+                      "rule": "!has(self.workloadIdentity) || (has(self.tenantID) && size(self.tenantID) > 0)"
+                    },
+                    {
+                      "message": "spec.unseal.azureKeyVault.workloadIdentity excludes clientID and clientSecret",
+                      "rule": "!has(self.workloadIdentity) || ((!has(self.clientID) || size(self.clientID) == 0) && (!has(self.clientSecret) || size(self.clientSecret) == 0))"
+                    },
+                    {
+                      "message": "spec.unseal.azureKeyVault.workloadIdentity requires authMethod workload_identity or unset",
+                      "rule": "!has(self.workloadIdentity) || !has(self.authMethod) || self.authMethod == 'workload_identity'"
+                    }
+                  ]
+                },
+                "credentialsSecretRef": {
+                  "description": "CredentialsSecretRef references a Secret containing provider credentials\n(for example AWS access keys, GCP credentials.json, Azure client-secret keys,\nOCI SDK config for authTypeAPIKey mode, or plugin-backed KMS runtime files).\nIf using Workload Identity (IRSA, GKE WI, Azure MSI), this can be omitted.\nFor static unseal, the Secret supplies the original key instead of an\noperator-generated key. Its files are mounted at /etc/bao/unseal; the\ndefault currentKey reads its \"key\" entry. The operator does not create,\nmodify, or take ownership of this Secret. A cluster that already owns an\noperator-generated unseal key keeps that key and ignores this reference.\nThe Secret must exist in the same namespace as the OpenBaoCluster.\nCross-namespace references are not allowed for security reasons.",
+                  "properties": {
+                    "name": {
+                      "default": "",
+                      "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object",
+                  "x-kubernetes-map-type": "atomic"
+                },
+                "gcpCloudKMS": {
+                  "description": "GCPCloudKMS configures the GCP Cloud KMS seal type.\nRequired when Type is \"gcpckms\".",
+                  "properties": {
+                    "credentials": {
+                      "description": "Credentials is the path to the GCP credentials JSON file.\nNote: It is strongly recommended to use CredentialsSecretRef or Workload Identity instead.",
+                      "type": "string"
+                    },
+                    "cryptoKey": {
+                      "description": "CryptoKey is the name of the GCP KMS crypto key.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "keyRing": {
+                      "description": "KeyRing is the name of the GCP KMS key ring.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "project": {
+                      "description": "Project is the GCP project ID.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "region": {
+                      "description": "Region is the GCP region where the key ring lives.",
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "cryptoKey",
+                    "keyRing",
+                    "project",
+                    "region"
+                  ],
+                  "type": "object"
+                },
+                "kmip": {
+                  "description": "KMIP configures the KMIP seal type.\nRequired when Type is \"kmip\".",
+                  "properties": {
+                    "caCert": {
+                      "description": "CACert is the path to the CA certificate for KMIP communication.",
+                      "type": "string"
+                    },
+                    "clientCert": {
+                      "description": "ClientCert is the path to the client certificate used for KMIP communication.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "clientKey": {
+                      "description": "ClientKey is the path to the private key used for KMIP communication.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "disabled": {
+                      "description": "Disabled disables this seal configuration, for example during seal migration.",
+                      "type": "boolean"
+                    },
+                    "encryptAlg": {
+                      "description": "EncryptAlg is the encryption algorithm used for KMIP requests.",
+                      "enum": [
+                        "AES_GCM",
+                        "RSA_OAEP_SHA256",
+                        "RSA_OAEP_SHA384",
+                        "RSA_OAEP_SHA512"
+                      ],
+                      "type": "string"
+                    },
+                    "endpoint": {
+                      "description": "Endpoint is the KMIP server endpoint.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "kmsKeyID": {
+                      "description": "KMSKeyID is the unique identifier of the KMIP key to use.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "serverName": {
+                      "description": "ServerName is the TLS server name to use when connecting to the KMIP endpoint.",
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "description": "Timeout is the timeout in seconds for KMIP requests.",
+                      "format": "int32",
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "tls12Ciphers": {
+                      "description": "TLS12Ciphers configures the TLS 1.2 cipher suites to use when connecting\nto the KMIP endpoint.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "clientCert",
+                    "clientKey",
+                    "endpoint",
+                    "kmsKeyID"
+                  ],
+                  "type": "object"
+                },
+                "kms": {
+                  "description": "KMS configures a plugin-backed KMS seal.\nRequired when Type is \"kms\".",
+                  "properties": {
+                    "config": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "description": "Config contains plugin-specific seal configuration rendered as string\nattributes inside seal \"<pluginName>\". Keys must be valid HCL identifiers.\nValues are stored in the OpenBaoCluster resource; use file paths to\ncredentialsSecretRef-mounted files for sensitive material instead of inline\nsecrets.",
+                      "maxProperties": 64,
+                      "type": "object"
+                    },
+                    "pluginName": {
+                      "description": "PluginName is the name of the plugin registered through a matching\nplugin \"kms\" stanza. OpenBao uses this value as the seal stanza label.",
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "pluginName"
+                  ],
+                  "type": "object"
+                },
+                "ocikms": {
+                  "description": "OCIKMS configures the OCI KMS seal type.\nRequired when Type is \"ocikms\".",
+                  "properties": {
+                    "authTypeAPIKey": {
+                      "description": "AuthTypeAPIKey enables OCI API key authentication through an OCI SDK config file.\nWhen false or omitted, OpenBao uses the default OCI principal flow for the runtime\nenvironment, such as instance principal.",
+                      "type": "boolean"
+                    },
+                    "cryptoEndpoint": {
+                      "description": "CryptoEndpoint is the OCI KMS crypto endpoint.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "disabled": {
+                      "description": "Disabled disables this seal configuration, for example during seal migration.",
+                      "type": "boolean"
+                    },
+                    "keyID": {
+                      "description": "KeyID is the OCID of the master encryption key.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "managementEndpoint": {
+                      "description": "ManagementEndpoint is the OCI KMS management endpoint.",
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "cryptoEndpoint",
+                    "keyID",
+                    "managementEndpoint"
+                  ],
+                  "type": "object"
+                },
+                "pkcs11": {
+                  "description": "PKCS11 configures the PKCS#11 seal type.\nRequired when Type is \"pkcs11\".",
+                  "properties": {
+                    "disableSoftwareEncryption": {
+                      "description": "DisableSoftwareEncryption disables the software encryption fallback.",
+                      "type": "boolean"
+                    },
+                    "disabled": {
+                      "description": "Disabled disables this seal configuration, for example during seal migration.",
+                      "type": "boolean"
+                    },
+                    "keyID": {
+                      "description": "KeyID is the PKCS#11 key identifier to use instead of KeyLabel.",
+                      "type": "string"
+                    },
+                    "keyLabel": {
+                      "description": "KeyLabel is the label for the encryption key used by OpenBao.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "lib": {
+                      "description": "Lib is the path to the PKCS#11 library provided by the HSM vendor.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "mechanism": {
+                      "description": "Mechanism overrides the PKCS#11 wrapping or encryption mechanism.",
+                      "type": "string"
+                    },
+                    "pin": {
+                      "description": "PIN is the PIN for accessing the HSM token.\nNote: It is strongly recommended to use CredentialsSecretRef instead of setting this directly.",
+                      "type": "string"
+                    },
+                    "rsaOAEPHash": {
+                      "description": "RSAOAEPHash specifies the hash algorithm to use for RSA with OAEP padding.\nValid values: sha1, sha224, sha256, sha384, sha512.",
+                      "enum": [
+                        "sha1",
+                        "sha224",
+                        "sha256",
+                        "sha384",
+                        "sha512"
+                      ],
+                      "type": "string"
+                    },
+                    "runtime": {
+                      "description": "Runtime configures local PKCS#11 vendor runtime wiring such as library\nlookup paths and environment variables sourced from credentialsSecretRef.",
+                      "properties": {
+                        "env": {
+                          "description": "Env exposes literal environment variables from keys in\nspec.unseal.credentialsSecretRef. Use this for vendor runtime settings\nsuch as HSM endpoints or authentication key references.",
+                          "items": {
+                            "description": "PKCS11RuntimeEnvVar maps a PKCS#11 runtime environment variable to a key in\nspec.unseal.credentialsSecretRef.",
+                            "properties": {
+                              "name": {
+                                "description": "Name is the environment variable name to expose to the OpenBao process.\nNames owned by OpenBao's PKCS#11 seal configuration, such as BAO_HSM_PIN,\nare managed by the operator and must not be configured here.",
+                                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                                "type": "string"
+                              },
+                              "secretKey": {
+                                "description": "SecretKey is the key in spec.unseal.credentialsSecretRef to source as the\nenvironment variable value.",
+                                "minLength": 1,
+                                "pattern": "^[-._A-Za-z0-9]+$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "secretKey"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 16,
+                          "type": "array"
+                        },
+                        "fileEnv": {
+                          "description": "FileEnv exposes environment variables whose values are paths to files\nmounted from keys in spec.unseal.credentialsSecretRef. Use this for vendor\nsettings that expect a config file path, for example SOFTHSM2_CONF or\nvendor-specific PKCS#11 client configuration variables.",
+                          "items": {
+                            "description": "PKCS11RuntimeFileEnvVar maps a PKCS#11 runtime environment variable to the\nmounted file path for a key in spec.unseal.credentialsSecretRef.",
+                            "properties": {
+                              "name": {
+                                "description": "Name is the environment variable name to expose to the OpenBao process.",
+                                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                                "type": "string"
+                              },
+                              "secretKey": {
+                                "description": "SecretKey is the key in spec.unseal.credentialsSecretRef whose mounted\nfile path should become the environment variable value.",
+                                "minLength": 1,
+                                "pattern": "^[-._A-Za-z0-9]+$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "secretKey"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 16,
+                          "type": "array"
+                        },
+                        "libraryPath": {
+                          "description": "LibraryPath sets LD_LIBRARY_PATH for the OpenBao process. Use this when\nthe configured PKCS#11 module depends on sibling vendor libraries that\nare not in the image's default dynamic linker search path.",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "slot": {
+                      "description": "Slot is the slot number where the HSM token is located.",
+                      "type": "string"
+                    },
+                    "tokenLabel": {
+                      "description": "TokenLabel is the token label of the HSM slot to use instead of Slot.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "keyLabel",
+                    "lib"
+                  ],
+                  "type": "object",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "spec.unseal.pkcs11.slot or spec.unseal.pkcs11.tokenLabel is required",
+                      "rule": "(has(self.slot) && size(self.slot) > 0) || (has(self.tokenLabel) && size(self.tokenLabel) > 0)"
+                    },
+                    {
+                      "message": "spec.unseal.pkcs11.slot and spec.unseal.pkcs11.tokenLabel are mutually exclusive",
+                      "rule": "!(has(self.slot) && size(self.slot) > 0 && has(self.tokenLabel) && size(self.tokenLabel) > 0)"
+                    }
+                  ]
+                },
+                "static": {
+                  "description": "Static configures the static seal type.\nOptional when Type is \"static\" (operator provides defaults if omitted).",
+                  "properties": {
+                    "currentKey": {
+                      "description": "CurrentKey is the path to the static unseal key file.\nDefaults to \"file:///etc/bao/unseal/key\" (operator-managed).",
+                      "type": "string"
+                    },
+                    "currentKeyID": {
+                      "description": "CurrentKeyID is the identifier for the current unseal key.\nDefaults to \"operator-generated-v1\" (operator-managed).",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "transit": {
+                  "description": "Transit configures the Transit seal type.\nRequired when Type is \"transit\".",
+                  "properties": {
+                    "address": {
+                      "description": "Address is the full HTTPS address to the OpenBao cluster providing the Transit seal.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "disableRenewal": {
+                      "description": "DisableRenewal disables automatic token renewal.\nSet to true if token lifecycle is managed externally (e.g., by OpenBao Agent).",
+                      "type": "boolean"
+                    },
+                    "keyName": {
+                      "description": "KeyName is the transit key to use for encryption and decryption.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "mountPath": {
+                      "description": "MountPath is the mount path to the transit secret engine.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "description": "Namespace is the namespace path to the transit secret engine.",
+                      "type": "string"
+                    },
+                    "tlsCACert": {
+                      "description": "TLSCACert is the path to the CA certificate file for TLS communication.",
+                      "type": "string"
+                    },
+                    "tlsClientCert": {
+                      "description": "TLSClientCert is the path to the client certificate for TLS communication.",
+                      "type": "string"
+                    },
+                    "tlsClientKey": {
+                      "description": "TLSClientKey is the path to the private key for TLS communication.",
+                      "type": "string"
+                    },
+                    "tlsServerName": {
+                      "description": "TLSServerName is the SNI host name to use when connecting via TLS.",
+                      "type": "string"
+                    },
+                    "tlsSkipVerify": {
+                      "description": "TLSSkipVerify disables verification of TLS certificates.\nUsing this option is highly discouraged and decreases security.",
+                      "type": "boolean"
+                    },
+                    "token": {
+                      "description": "Token is the OpenBao token to use for authentication.\nNote: It is strongly recommended to use CredentialsSecretRef instead of setting this directly.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "address",
+                    "keyName",
+                    "mountPath"
+                  ],
+                  "type": "object"
+                },
+                "type": {
+                  "default": "static",
+                  "description": "Type specifies the seal type.\nDefaults to \"static\".",
+                  "enum": [
+                    "static",
+                    "awskms",
+                    "gcpckms",
+                    "azurekeyvault",
+                    "transit",
+                    "kmip",
+                    "kms",
+                    "ocikms",
+                    "pkcs11"
+                  ],
+                  "type": "string"
+                }
+              },
+              "type": "object",
+              "x-kubernetes-validations": [
+                {
+                  "message": "the selected spec.unseal.type requires its matching configuration block",
+                  "rule": "self.type == 'static' || (self.type == 'transit' && has(self.transit)) || (self.type == 'awskms' && has(self.awskms)) || (self.type == 'azurekeyvault' && has(self.azureKeyVault)) || (self.type == 'gcpckms' && has(self.gcpCloudKMS)) || (self.type == 'kmip' && has(self.kmip)) || (self.type == 'kms' && has(self.kms)) || (self.type == 'ocikms' && has(self.ocikms)) || (self.type == 'pkcs11' && has(self.pkcs11))"
+                },
+                {
+                  "message": "spec.unseal.static is only supported when spec.unseal.type is static",
+                  "rule": "self.type == 'static' || !has(self.static)"
+                },
+                {
+                  "message": "spec.unseal.transit is only supported when spec.unseal.type is transit",
+                  "rule": "self.type == 'transit' || !has(self.transit)"
+                },
+                {
+                  "message": "spec.unseal.awskms is only supported when spec.unseal.type is awskms",
+                  "rule": "self.type == 'awskms' || !has(self.awskms)"
+                },
+                {
+                  "message": "spec.unseal.azureKeyVault is only supported when spec.unseal.type is azurekeyvault",
+                  "rule": "self.type == 'azurekeyvault' || !has(self.azureKeyVault)"
+                },
+                {
+                  "message": "spec.unseal.gcpCloudKMS is only supported when spec.unseal.type is gcpckms",
+                  "rule": "self.type == 'gcpckms' || !has(self.gcpCloudKMS)"
+                },
+                {
+                  "message": "spec.unseal.kmip is only supported when spec.unseal.type is kmip",
+                  "rule": "self.type == 'kmip' || !has(self.kmip)"
+                },
+                {
+                  "message": "spec.unseal.kms is only supported when spec.unseal.type is kms",
+                  "rule": "self.type == 'kms' || !has(self.kms)"
+                },
+                {
+                  "message": "spec.unseal.ocikms is only supported when spec.unseal.type is ocikms",
+                  "rule": "self.type == 'ocikms' || !has(self.ocikms)"
+                },
+                {
+                  "message": "spec.unseal.pkcs11 is only supported when spec.unseal.type is pkcs11",
+                  "rule": "self.type == 'pkcs11' || !has(self.pkcs11)"
+                }
+              ]
+            },
+            "version": {
+              "description": "Version accepts stable OpenBao releases from 2.7.0 onward and must match\nthe snapshot source version. Scheduled restore tests can omit this field\nto use the version recorded with each backup. Restore requests require it.",
+              "maxLength": 64,
+              "pattern": "^((2\\.([7-9]|[1-9][0-9]+))|(([3-9]|[1-9][0-9]+)\\.(0|[1-9][0-9]*)))\\.(0|[1-9][0-9]*)(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "storage",
+            "tls",
+            "unseal"
+          ],
+          "type": "object",
+          "x-kubernetes-validations": [
+            {
+              "message": "restore targets require OperatorManaged or External TLS",
+              "rule": "self.tls.enabled && self.tls.mode in ['OperatorManaged', 'External'] && !has(self.tls.acme)"
+            },
+            {
+              "message": "static restore targets require the snapshot's static key in credentialsSecretRef",
+              "rule": "self.unseal.type != 'static' || (has(self.unseal.credentialsSecretRef) && size(self.unseal.credentialsSecretRef.name) > 0)"
+            },
+            {
+              "message": "Transit restore targets require credential references and TLS verification",
+              "rule": "!has(self.unseal.transit) || (has(self.unseal.credentialsSecretRef) && size(self.unseal.credentialsSecretRef.name) > 0 && (!has(self.unseal.transit.token) || size(self.unseal.transit.token) == 0) && (!has(self.unseal.transit.tlsSkipVerify) || !self.unseal.transit.tlsSkipVerify))"
+            },
+            {
+              "message": "OpenBao 2.7 restore targets require a matching KMS plugin for external seal providers",
+              "rule": "self.unseal.type in ['static', 'transit', 'kmip', 'kms'] || (has(self.plugins) && self.plugins.exists(p, p.type == 'kms' && p.name == self.unseal.type))"
+            },
+            {
+              "message": "restore target plugins are limited to KMS seal plugins",
+              "rule": "!has(self.plugins) || self.plugins.all(p, p.type == 'kms')"
+            },
+            {
+              "message": "restore targets require the configuration init container",
+              "rule": "!has(self.initContainer) || self.initContainer.enabled"
+            },
+            {
+              "message": "restore versions with build metadata require an explicit matching image",
+              "rule": "!has(self.version) || !self.version.contains('+') || (has(self.image) && size(self.image.trim()) > 0)"
+            }
+          ]
+        },
+        "force": {
+          "default": false,
+          "description": "Force uses OpenBao's force-restore endpoint. This bypasses verification that\nthe snapshot is compatible with the target cluster's Shamir or auto-unseal\nconfiguration. It also skips the controller checks that require the target\ncluster to be initialized and not upgrading.\n\nUse this break-glass option only when the normal verified restore cannot run\nand the snapshot source and target seal compatibility have been validated by\nanother trusted process.",
+          "type": "boolean"
+        },
+        "image": {
+          "description": "Image is the container image to use for restore operations.\nDefaults to the same image used for backup operations if not specified.\nIf the target OpenBaoCluster has image verification enabled, the operator will verify this image and pin the restore Job to the verified digest.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "jwtAuthRole": {
+          "description": "JWTAuthRole is the name of the JWT Auth role configured in OpenBao\nfor restore operations. When set, the restore executor will use JWT Auth\n(projected ServiceAccount token) instead of a static token.\n\nThe role must be configured in OpenBao and must grant the \"update\" capability on\nsys/storage/raft/snapshot. To support force: true, it must also grant \"update\" on\nsys/storage/raft/snapshot-force. The role must bind to the restore ServiceAccount\nselected by serviceAccountName, or <cluster-name>-restore-serviceaccount\nwhen serviceAccountName is omitted, in the cluster namespace.\n\nIf this field is empty and the target OpenBaoCluster has OIDC enabled,\nthe operator will default to using the \"openbao-operator-restore\" role.",
+          "type": "string"
+        },
+        "overrideOperationLock": {
+          "default": false,
+          "description": "OverrideOperationLock allows the restore controller to clear an active cluster\noperation lock (upgrade/backup) and proceed with restore. This is a break-glass\nescape hatch intended for disaster recovery.\n\nFor safety, this requires force: true. When used, the controller emits a Warning\nevent and records a Condition on the OpenBaoRestore.",
+          "type": "boolean"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName selects an existing executor ServiceAccount in this\nnamespace. The operator does not create, modify, or delete this account.\nWhen omitted, it creates <cluster-name>-restore-serviceaccount.\nJWT authentication must authorize the selected account. Fresh targets add\nits subject to their generated restore role before snapshot submission.",
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$",
+          "type": "string"
+        },
+        "source": {
+          "description": "Source defines where the snapshot comes from.",
+          "properties": {
+            "expectedClusterID": {
+              "description": "ExpectedClusterID is the native ID observed on the snapshot source.\nRequired for a fresh target; supplied metadata is an administrator assertion.",
+              "maxLength": 128,
+              "type": "string"
+            },
+            "expectedDigest": {
+              "description": "ExpectedDigest pins the staged bytes before submission.",
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "expectedSize": {
+              "description": "ExpectedSize is the expected snapshot object size in bytes.\nIt must not exceed MaxSnapshotSizeBytes, which defaults to 8 GiB when omitted.",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "expectedVersion": {
+              "description": "ExpectedVersion is the source version observed when taking the snapshot.",
+              "maxLength": 64,
+              "type": "string"
+            },
+            "key": {
+              "description": "Key is the full path to the snapshot object in the bucket.\nFor example, \"clusters/prod/2025-10-14-120000.snap\".",
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxSnapshotSizeBytes": {
+              "default": 8589934592,
+              "description": "MaxSnapshotSizeBytes bounds the downloaded snapshot and reserves matching\ndisk-backed scratch storage for the restore Job. The default is 8 GiB.",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "target": {
+              "description": "Target reuses BackupTarget for storage connection details.\nThis includes endpoint, bucket, region, credentials, etc.",
+              "properties": {
+                "azure": {
+                  "description": "Azure contains Azure Blob Storage specific configuration.\nOnly used when Provider is \"azure\".",
+                  "properties": {
+                    "container": {
+                      "description": "Container is a compatibility alias for Bucket. A nonempty value takes\nprecedence over Bucket. Use Bucket alone for new configurations.",
+                      "type": "string"
+                    },
+                    "storageAccount": {
+                      "description": "StorageAccount is the Azure storage account name.\nRequired when using Azure provider.",
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "bucket": {
+                  "description": "Bucket is the bucket or container name for every provider. For Azure, a\nnonempty azure.container compatibility alias takes precedence.",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "concurrency": {
+                  "default": 3,
+                  "description": "Concurrency is the number of concurrent parts to upload during multipart uploads.\nDefaults to 3. Higher values may improve throughput on fast networks but increase\nmemory usage and may overwhelm slower storage backends.",
+                  "format": "int32",
+                  "maximum": 10,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "credentialsSecretRef": {
+                  "description": "CredentialsSecretRef optionally references a Secret containing credentials for the object store.\nThe Secret must exist in the same namespace as the owning OpenBao resource.\nCross-namespace references are not allowed for security reasons.\n\nFor S3: Expected keys are \"accessKeyId\" and \"secretAccessKey\" (optional: \"sessionToken\", \"region\", \"caCert\").\nFor GCS: Expected key is \"credentials.json\" containing a service account JSON key.\nFor Azure: Expected keys are \"accountKey\" or \"connectionString\".\nHardened clusters require an explicit storage identity path: credentialsSecretRef,\nworkloadIdentity metadata, or the effective S3 roleArn. Omitting those paths relies\non ambient/default credentials and is rejected for Hardened clusters.",
+                  "properties": {
+                    "name": {
+                      "default": "",
+                      "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object",
+                  "x-kubernetes-map-type": "atomic"
+                },
+                "endpoint": {
+                  "description": "Endpoint is the HTTP(S) endpoint for the object storage service.\nFor S3: Required (e.g., \"https://s3.amazonaws.com\" or MinIO endpoint).\nFor GCS: Optional (defaults to googleapis.com).\nFor Azure: Optional (derived from StorageAccount if not specified).",
+                  "type": "string"
+                },
+                "gcs": {
+                  "description": "GCS contains Google Cloud Storage specific configuration.\nOnly used when Provider is \"gcs\".",
+                  "properties": {
+                    "project": {
+                      "description": "Project is the GCP project ID. Optional if using ADC with default project or\nif the credentials JSON includes the project.",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "insecureSkipVerify": {
+                  "description": "InsecureSkipVerify allows skipping TLS verification (useful for MinIO/LocalStack/Azurite with self-signed certs).\nThis applies to all providers that support TLS.\nHardened clusters reject insecureSkipVerify.",
+                  "type": "boolean"
+                },
+                "partSize": {
+                  "default": 10485760,
+                  "description": "PartSize is the size of each part in multipart uploads (in bytes).\nDefaults to 10MB (10485760 bytes). Larger values may improve performance for large snapshots\non fast networks, while smaller values may be better for slow or unreliable networks.",
+                  "format": "int64",
+                  "minimum": 5242880,
+                  "type": "integer"
+                },
+                "pathPrefix": {
+                  "description": "PathPrefix is an optional prefix within the bucket for this cluster's snapshots.",
+                  "type": "string"
+                },
+                "provider": {
+                  "default": "s3",
+                  "description": "Provider selects the storage backend. Defaults to \"s3\" for backward compatibility.",
+                  "enum": [
+                    "s3",
+                    "gcs",
+                    "azure"
+                  ],
+                  "type": "string"
+                },
+                "region": {
+                  "default": "us-east-1",
+                  "description": "Region is the AWS region to use for S3-compatible clients.\nFor AWS, this should match the bucket region (for example, \"eu-west-1\").\nFor many S3-compatible stores (MinIO/Ceph), this can be any non-empty value.\nOnly used when Provider is \"s3\".\nCompatibility field: use s3.region for new configurations.",
+                  "type": "string"
+                },
+                "roleArn": {
+                  "description": "RoleARN is the IAM role ARN (or S3-compatible equivalent) to assume via Web Identity.\nWhen set, backup and restore Jobs mount a projected ServiceAccount token and set the\nAWS Web Identity environment variables explicitly.\nOnly used when Provider is \"s3\".\nOutside Hardened S3 targets, leave this empty when relying on ambient workload identity\nor provider-managed default credentials instead. For Hardened S3 targets, roleArn is\none accepted explicit identity path. It does not satisfy Hardened identity requirements\nfor GCS or Azure.\nCompatibility field: use s3.roleArn for new configurations.",
+                  "type": "string"
+                },
+                "s3": {
+                  "description": "S3 groups S3-specific configuration. Each configured field takes precedence\nover its top-level compatibility field. Omitted fields use the top-level value.\nOnly used when Provider is \"s3\".",
+                  "properties": {
+                    "region": {
+                      "description": "Region is the AWS region for S3-compatible requests. It overrides region\nwhen configured. An empty value uses the default region, us-east-1.",
+                      "type": "string"
+                    },
+                    "roleArn": {
+                      "description": "RoleARN selects the IAM role assumed with the projected ServiceAccount\ntoken. It overrides roleArn when configured. An empty value disables the\ntop-level roleArn path; other configured credentials still apply.\nA nonempty value is an explicit storage identity for the Hardened profile.",
+                      "type": "string"
+                    },
+                    "usePathStyle": {
+                      "description": "UsePathStyle selects path-style addressing. A configured false value\noverrides a true top-level usePathStyle value.",
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "usePathStyle": {
+                  "default": false,
+                  "description": "UsePathStyle controls whether to use path-style addressing (s3.amazonaws.com/bucket/object)\nor virtual-hosted-style addressing (bucket.s3.amazonaws.com/object).\nSet to true for MinIO and S3-compatible stores that require path-style.\nSet to false for AWS S3 (default, as AWS is deprecating path-style).\nOnly used when Provider is \"s3\".\nCompatibility field: use s3.usePathStyle for new configurations.",
+                  "type": "boolean"
+                },
+                "workloadIdentity": {
+                  "description": "WorkloadIdentity optionally applies provider-specific metadata required by cloud workload identity integrations.\nUse this for ambient identity setups such as EKS Pod Identity or IRSA, GKE Workload Identity, or Azure Workload Identity.\nWhen omitted, backup and restore workloads can still use any credentials exposed through the pod's default provider chain.\nHardened clusters reject that ambient/default path unless credentialsSecretRef is set,\nworkloadIdentity metadata is present, or an S3 target uses the effective roleArn.",
+                  "properties": {
+                    "podLabels": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "description": "PodLabels are merged into the generated backup or restore Job pod template.\nThis is typically used for provider-specific selectors such as Azure Workload Identity.\nOperator-managed labels take precedence if the same key is specified here.",
+                      "type": "object"
+                    },
+                    "serviceAccountAnnotations": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "description": "ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.\nAn existing restore executor ServiceAccount must already have these annotations;\nthe operator validates them without modifying that account.\nThis is typically used for provider-specific bindings such as GKE Workload Identity\nor webhook-based AWS/Azure workload identity integrations.",
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "required": [
+                "bucket"
+              ],
+              "type": "object",
+              "x-kubernetes-validations": [
+                {
+                  "message": "backup target endpoint is required when provider is s3",
+                  "rule": "self.provider != 's3' || (has(self.endpoint) && size(self.endpoint) > 0)"
+                },
+                {
+                  "message": "backup target gcs options are only supported when provider is gcs",
+                  "rule": "self.provider == 'gcs' || !has(self.gcs)"
+                },
+                {
+                  "message": "backup target azure options are only supported when provider is azure",
+                  "rule": "self.provider == 'azure' || !has(self.azure)"
+                },
+                {
+                  "message": "backup target s3 options are only supported when provider is s3",
+                  "rule": "self.provider == 's3' || !has(self.s3)"
+                },
+                {
+                  "message": "backup target roleArn is only supported when provider is s3",
+                  "rule": "self.provider == 's3' || !has(self.roleArn) || size(self.roleArn) == 0"
+                }
+              ]
+            }
+          },
+          "required": [
+            "key",
+            "target"
+          ],
+          "type": "object",
+          "x-kubernetes-validations": [
+            {
+              "message": "expectedSize exceeds maxSnapshotSizeBytes",
+              "rule": "!has(self.expectedSize) || self.expectedSize <= (has(self.maxSnapshotSizeBytes) ? self.maxSnapshotSizeBytes : 8589934592)"
+            }
+          ]
+        },
+        "targetLifecycle": {
+          "description": "TargetLifecycle retains recovery targets or deletes disposable test resources.",
+          "enum": [
+            "Retain",
+            "Disposable"
+          ],
+          "type": "string"
+        },
+        "tokenSecretRef": {
+          "description": "TokenSecretRef optionally references a Secret containing an OpenBao API\ntoken to use for restore operations (fallback method).\n\nThe Secret must exist in the same namespace as the OpenBaoRestore.\nCross-namespace references are not allowed for security reasons.\n\nThe token must have permission to update sys/storage/raft/snapshot. To support\nforce: true, it must also have permission to update\nsys/storage/raft/snapshot-force.\n\nIf JWTAuthRole is set, this field is ignored in favor of JWT Auth.",
+          "properties": {
+            "name": {
+              "default": "",
+              "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+              "type": "string"
+            }
+          },
+          "type": "object",
+          "x-kubernetes-map-type": "atomic"
+        }
+      },
+      "required": [
+        "cluster",
+        "source"
+      ],
+      "type": "object",
+      "x-kubernetes-validations": [
+        {
+          "message": "fresh targets require a lifecycle, matching source identity/version, force, and generated JWT authentication",
+          "rule": "!has(self.clusterTemplate) || (has(self.targetLifecycle) && self.force && !has(self.tokenSecretRef) && !has(self.jwtAuthRole) && (!has(self.overrideOperationLock) || !self.overrideOperationLock) && has(self.source.expectedClusterID) && size(self.source.expectedClusterID) > 0 && has(self.source.expectedVersion) && has(self.clusterTemplate.version) && self.source.expectedVersion == self.clusterTemplate.version)"
+        },
+        {
+          "message": "targetLifecycle requires clusterTemplate",
+          "rule": "has(self.clusterTemplate) || !has(self.targetLifecycle)"
+        },
+        {
+          "message": "cleanupAfterSeconds requires a disposable fresh target",
+          "rule": "!has(self.cleanupAfterSeconds) || (has(self.targetLifecycle) && self.targetLifecycle == 'Disposable')"
+        }
+      ]
+    },
+    "status": {
+      "description": "OpenBaoRestoreStatus defines the observed state of OpenBaoRestore.",
+      "properties": {
+        "administratorDisposition": {
+          "description": "AdministratorDisposition records an operation-bound recovery acknowledgement.",
+          "enum": [
+            "Resume",
+            "Abandon"
+          ],
+          "type": "string"
+        },
+        "completionTime": {
+          "description": "CompletionTime is when the restore operation completed (success or failure).",
+          "format": "date-time",
+          "type": "string"
+        },
+        "conditions": {
+          "description": "Conditions represent the latest available observations of the restore's state.",
+          "items": {
+            "description": "Condition contains details for one aspect of the current state of this API Resource.",
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "maxLength": 32768,
+                "type": "string"
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+                "type": "string"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array",
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "execution": {
+          "description": "Execution records the stable operation identity and durable lifecycle receipts.",
+          "properties": {
+            "committedAt": {
+              "description": "CommittedAt is when the controller committed to one Job creation attempt.",
+              "format": "date-time",
+              "type": "string"
+            },
+            "createdAt": {
+              "description": "CreatedAt is when the controller persisted the created Job receipt.",
+              "format": "date-time",
+              "type": "string"
+            },
+            "followThroughCompletedAt": {
+              "description": "FollowThroughCompletedAt is when post-restore recovery completed.",
+              "format": "date-time",
+              "type": "string"
+            },
+            "jobName": {
+              "description": "JobName is the expected restore Job name for this execution.",
+              "type": "string"
+            },
+            "jobUID": {
+              "description": "JobUID is the UID returned for the created restore Job.",
+              "type": "string"
+            },
+            "operationID": {
+              "description": "OperationID identifies this immutable restore execution.",
+              "type": "string"
+            },
+            "preparedAt": {
+              "description": "PreparedAt is when validation and execution preparation completed.",
+              "format": "date-time",
+              "type": "string"
+            },
+            "stage": {
+              "description": "Stage is the latest durable execution boundary observed by the controller.",
+              "enum": [
+                "Prepared",
+                "Committed",
+                "Created",
+                "TerminalObserved",
+                "FollowThroughComplete",
+                "Unknown"
+              ],
+              "type": "string"
+            },
+            "targetUID": {
+              "description": "TargetUID prevents a replacement cluster from inheriting this execution.",
+              "type": "string"
+            },
+            "terminalObservedAt": {
+              "description": "TerminalObservedAt is when the controller persisted the terminal Job result.",
+              "format": "date-time",
+              "type": "string"
+            },
+            "terminalResult": {
+              "description": "TerminalResult is the persisted terminal Job result.",
+              "enum": [
+                "Succeeded",
+                "Failed"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "jobName",
+            "operationID",
+            "stage"
+          ],
+          "type": "object"
+        },
+        "message": {
+          "description": "Message provides additional details about the current phase.",
+          "type": "string"
+        },
+        "phase": {
+          "default": "Pending",
+          "description": "Phase represents the current phase of the restore operation.",
+          "enum": [
+            "Pending",
+            "Validating",
+            "Running",
+            "Completed",
+            "Failed",
+            "Unknown"
+          ],
+          "type": "string"
+        },
+        "restart": {
+          "description": "Restart records managed workload recovery after administrator Resume.",
+          "properties": {
+            "completedAt": {
+              "description": "CompletedAt records that all bound Pods were replaced and became ready.",
+              "format": "date-time",
+              "type": "string"
+            },
+            "pods": {
+              "description": "Pods contains the original voters and read replicas.",
+              "items": {
+                "description": "RestoreRestartPod binds a managed restart to an original Pod and its StatefulSet.",
+                "properties": {
+                  "name": {
+                    "description": "Name is the original Pod name.",
+                    "type": "string"
+                  },
+                  "statefulSetUID": {
+                    "description": "StatefulSetUID identifies the StatefulSet that owned the original Pod.",
+                    "type": "string"
+                  },
+                  "uid": {
+                    "description": "UID identifies the original Pod; a different UID marks a replacement.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "statefulSetUID",
+                  "uid"
+                ],
+                "type": "object"
+              },
+              "minItems": 1,
+              "type": "array",
+              "x-kubernetes-list-type": "atomic"
+            }
+          },
+          "required": [
+            "pods"
+          ],
+          "type": "object"
+        },
+        "snapshotKey": {
+          "description": "SnapshotKey is the key of the snapshot that was restored.",
+          "type": "string"
+        },
+        "snapshotSize": {
+          "description": "SnapshotSize is the size of the restored snapshot in bytes.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "startTime": {
+          "description": "StartTime is when the restore operation started.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "submissionClaim": {
+          "description": "SubmissionClaim reserves the only permitted snapshot submission.",
+          "properties": {
+            "claimedAt": {
+              "description": "ClaimedAt records when submission was reserved.",
+              "format": "date-time",
+              "type": "string"
+            },
+            "digest": {
+              "description": "Digest is sha256: followed by the lowercase digest of the staged snapshot bytes.",
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "podUID": {
+              "description": "PodUID identifies the executor Pod that won the claim.",
+              "type": "string"
+            },
+            "size": {
+              "description": "Size is the staged snapshot size in bytes.",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "targetContainerID": {
+              "description": "TargetContainerID identifies the OpenBao container that received the snapshot.",
+              "type": "string"
+            },
+            "targetPodIP": {
+              "description": "TargetPodIP is the address the executor connected to.",
+              "type": "string"
+            },
+            "targetPodName": {
+              "description": "TargetPodName is the OpenBao Pod that received the snapshot.",
+              "type": "string"
+            },
+            "targetPodUID": {
+              "description": "TargetPodUID identifies the OpenBao Pod that received the snapshot.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "claimedAt",
+            "digest",
+            "podUID",
+            "size",
+            "targetContainerID",
+            "targetPodIP",
+            "targetPodName",
+            "targetPodUID"
+          ],
+          "type": "object"
+        },
+        "target": {
+          "description": "Target binds the fresh cluster and storage to this request.",
+          "properties": {
+            "appliedAt": {
+              "description": "AppliedAt records when the target reported the expected source identity.",
+              "format": "date-time",
+              "type": "string"
+            },
+            "bootstrapClusterID": {
+              "description": "BootstrapClusterID is the native cluster ID of the empty target before restore.",
+              "type": "string"
+            },
+            "cleanup": {
+              "description": "Cleanup is Pending, Complete, or Failed. A failed ownership check preserves\nthe refused resource; cleanup can still delete the original bound cluster.",
+              "enum": [
+                "Pending",
+                "Complete",
+                "Failed"
+              ],
+              "type": "string"
+            },
+            "dataPVCUID": {
+              "description": "DataPVCUID identifies the target's original data PersistentVolumeClaim.",
+              "type": "string"
+            },
+            "reservedAt": {
+              "description": "ReservedAt records the single target creation attempt.",
+              "format": "date-time",
+              "type": "string"
+            },
+            "uid": {
+              "description": "UID identifies the target OpenBaoCluster created for this request.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reservedAt"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "spec"
+  ],
+  "type": "object"
+}

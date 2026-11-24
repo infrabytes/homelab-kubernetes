@@ -7,6 +7,8 @@ instead of the Helm chart.
 - `openbaocluster.yaml`: the `OpenBaoCluster` CR — HA raft (3 voters),
   Longhorn PVCs, operator-generated static seal key, operator-managed in-cluster
   TLS, Gateway exposure, NetworkPolicy, metrics. Renovate bumps `spec.version`.
+- [migration-0.7.md](migration-0.7.md): the 0.6.3 → 0.7.0 API-group
+  (`openbao.org` → `kubebao.org`) live-cluster migration runbook.
 - Everything **inside** OpenBao — auth methods, policies, Kubernetes-auth and
   OIDC roles, mounts, secret data, tenants — is Terraform:
   [`infra/openbao-config`](../../../infra/openbao-config/README.md), applied by
