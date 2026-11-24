@@ -11,7 +11,7 @@ metadata:
   namespace: openbao
 spec:
   # Renovate: openbao-version custom manager (github-releases on openbao/openbao).
-  version: "2.7.2"
+  version: "2.7.3"
   replicas: 3
   # Hardened requires an external unseal provider (KMS/HSM); none exists on
   # this cluster. Development still demands Target + self-init OIDC and
