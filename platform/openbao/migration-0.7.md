@@ -12,10 +12,26 @@ Source: <https://docs.kubebao.org/docs/operate/api-group-migration/argocd/>
 migration again, 0.8.0 removes the tool).
 
 State of this migration (2026-11-23): **not yet run against the live
-cluster**. Rehearsed end-to-end in kind (operator 0.6.3 → 0.7.0, the
-`openbaocluster.yaml` CR with Cilium/Gateway/Longhorn specifics adapted,
-plan → migrate → commit → convert all green). Before the live run: re-check
-the guide for changed commands, then update this file.
+cluster**. Rehearsed end-to-end in kind (2026-11-24): operator 0.6.3 → 0.7.0
+with the `openbaocluster.yaml` CR (Cilium/Gateway/Longhorn specifics
+adapted to kind), `plan` → `migrate` → `commit` → `convert` → old-CRD
+deletion all green, and the converted CR validates against the vendored
+`.kubeconform/kubebao.org/` schemas. Before the live run: re-check the guide
+for changed commands, then update this file.
+
+Gotchas from the kind rehearsal that apply to the live run:
+
+- `helm upgrade` on an existing release does **not** install the chart's
+  CRDs (crds/ dir). Apply `kubectl apply --server-side -f <chart>/crds/`
+  explicitly at the `stopped` checkpoint, regardless of the install route.
+- The migration tool sets `.spec.replicas` on the operator Deployment as
+  field manager `kubebao-api-migration`. A later checkpoint apply (helm,
+  Argo CD sync or kubectl) conflicts with it; apply the checkpoint's rendered
+  Deployment with `kubectl apply --server-side --force-conflicts` and let
+  the destination manager take ownership back.
+- The `stopped`/`held`/`normal` checkpoint values files are
+  `migration-state/checkpoints/<state>-values.yaml` (e.g. `held` =
+  `controller.apiMigrationHold: true, replicas: 1`).
 
 ## What moves where
 
