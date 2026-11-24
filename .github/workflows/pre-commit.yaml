@@ -26,7 +26,7 @@ jobs:
       # Not gruntwork-io/terragrunt-action: it forces a ~200 MB mise-tree GitHub-cache re-download per run.
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5
         with:
-          version: 2026.11.10
+          version: 2026.11.12
           cache: false
           tool_versions: |
             terragrunt 1.2.2
@@ -39,7 +39,7 @@ jobs:
       - uses: Azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
         with:
           version: v4.3.2
-      - run: python3 -m pip install pyyaml==6.0.3
+      - run: python3 -m pip install pyyaml==6.0.4
       - uses: bmuschko/setup-kubeconform@e5d264ec1eafe2314e750c429a9da7639dd5a003 # v1.1.0
         with:
           kubeconform-version: 0.8.0
