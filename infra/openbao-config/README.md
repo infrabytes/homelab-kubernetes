@@ -28,7 +28,8 @@ roles, the shared `secret/` mount, and the consumer secret data. The stock
   Gateway's public LE cert needs no custom CA.
 - `tenants`: decoded directly from `argocd/tenants/tenants.json` — the single
   tenant source of truth (the old `TENANTS` marker is gone).
-- `kv_secrets`: consumer secret values from SOPS (`secrets.openbao_kv.*`),
+- `kv_secrets`: consumer secret values from SOPS (`openbao-kv.sops.yaml`,
+  `openbao_kv.*`),
   one entry per kv-v2 record; `mount: secret` (shared) or a tenant mount.
 
 ## Cold bootstrap ordering

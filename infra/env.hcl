@@ -15,6 +15,10 @@ locals {
 
   secrets = yamldecode(sops_decrypt_file(abspath("${local.infra_dir}/secrets.sops.yaml")))
 
+  # openbao_kv sits in its own file: sops exec-env rejects complex values, so a
+  # nested key in secrets.sops.yaml would break every playbook wrapped in it.
+  openbao_kv = yamldecode(sops_decrypt_file(abspath("${local.infra_dir}/openbao-kv.sops.yaml")))["openbao_kv"]
+
   # Single node list: Ansible reads ansible/inventory.json as its inventory (-i) and
   # `nodes` below is derived from the same host vars, so the two can no longer drift.
   inventory = jsondecode(file(abspath("${local.infra_dir}/../ansible/inventory.json")))
@@ -214,10 +218,10 @@ locals {
     tenants = jsondecode(file(abspath("${local.infra_dir}/../argocd/tenants/tenants.json")))
 
     # Consumer secret values, lifted from the pre-cutover OpenBao into SOPS
-    # (openbao_kv.*). `mount` is the kv-v2 mount the record lands in (shared
-    # `secret` or a tenant mount).
+    # (openbao-kv.sops.yaml). `mount` is the kv-v2 mount the record lands in
+    # (shared `secret` or a tenant mount).
     kv_secrets = {
-      for name, entry in try(local.secrets.openbao_kv, {}) : name => {
+      for name, entry in local.openbao_kv : name => {
         mount = try(entry.mount, "secret")
         data  = entry.data
       }
