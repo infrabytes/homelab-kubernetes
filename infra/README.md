@@ -38,7 +38,8 @@ the argocd provider before ArgoCD exists.
 infra/
   root.hcl            # shared remote_state (S3 via SeaweedFS, pbkdf2-encrypted) + artifact-sync hooks
   env.hcl             # ALL unit inputs + shared values (secrets decrypt, kubeconfig)
-  secrets.sops.yaml   # single SOPS-encrypted secrets file (all units)
+  secrets.sops.yaml   # SOPS-encrypted secrets (all units, scalars only — see openbao-kv.sops.yaml)
+  openbao-kv.sops.yaml # SOPS-encrypted openbao_kv dict (excluded from exec-env wrapping)
   scripts/            # sync-artifacts.sh: bucket <-> /var/tmp/homelab-artifacts (symlinked from artifacts/)
   cluster/            # unit: cluster terraform root (main.tf, ... modules/)
     terragrunt.hcl    # logic only: inputs = local.env.locals.cluster
@@ -56,8 +57,12 @@ infra/
 
 ## Secrets (SOPS + AGE)
 
-- One encrypted file for all units: `infra/secrets.sops.yaml`.
+- One encrypted file for all units: `infra/secrets.sops.yaml` (scalars only).
   (`.sops.yaml` at the repo root holds the recipients / creation rules.)
+- The nested `openbao_kv` dict lives separately in `infra/openbao-kv.sops.yaml`:
+  `sops exec-env` (used by the ansible playbooks to unwrap `secrets.sops.yaml`
+  into env vars) rejects complex values, so one nested key there would break
+  every wrapped playbook.
 - The **private** AGE key is NOT in git: it lives at
   `~/.config/sops/age/keys.txt` (override with `SOPS_AGE_KEY_FILE`).
 

@@ -1,7 +1,8 @@
 ---
 extends: default
 ignore: |
-  **/secrets.sops.yaml
+  **/*secrets.sops.yaml
+  **/openbao-kv.sops.yaml
   charts/*/templates/
 rules:
   line-length:
