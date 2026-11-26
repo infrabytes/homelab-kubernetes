@@ -111,7 +111,7 @@ resource "argocd_application_set" "gurkerl" {
         repo_url = var.gurkerl_repo_url
         revision = "main"
         directory {
-          path = "deploy/*"
+          path = "deploy/shopper"
         }
       }
     }
@@ -126,9 +126,9 @@ resource "argocd_application_set" "gurkerl" {
           repo_url        = var.gurkerl_repo_url
           target_revision = "main"
           path            = "{{path}}"
-          directory {
-            recurse = true
-          }
+          # Kustomize applies the CI digest pins; directory would apply
+          # kustomization.yaml raw (no Kustomization CRD on the cluster)
+          kustomize {}
         }
         destination {
           server    = "https://kubernetes.default.svc"
