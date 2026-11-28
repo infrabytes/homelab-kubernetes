@@ -31,7 +31,10 @@ spec:
             - port: "3000"
               protocol: TCP
 ---
-# CNPG pods accept connections from the server on their container port.
+# CNPG pods accept connections from the server and from the cluster's own
+# instances on the container port: standby -> primary streaming replication and
+# the pg-2-join pg_basebackup connect through here too, and without the second
+# rule the join job loops on "DB not available, will retry" dial timeouts.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -49,6 +52,13 @@ spec:
           podSelector:
             matchLabels:
               app: factory-server
+      ports:
+        - port: 5432
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: factory-pg
       ports:
         - port: 5432
           protocol: TCP
