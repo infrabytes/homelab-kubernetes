@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://runatlantis.github.io/helm-charts
     chart: atlantis
-    targetRevision: 7.4.0
+    targetRevision: 7.5.1
     helm:
       releaseName: atlantis
       values: |
@@ -18,7 +18,7 @@ spec:
         # atlantis.yaml's terraform_version; it also drives Atlantis's own copy
         # (/atlantis-data/bin/tofu<version>), which the terragrunt workflow never uses.
         defaultTFDistribution: opentofu
-        defaultTFVersion: "1.13.9"
+        defaultTFVersion: "1.13.10"
         atlantisUrl: https://atlantis.icaninto.space
         # SWAG terminates TLS on the host and proxies to this NodePort.
         service:
@@ -58,7 +58,7 @@ spec:
           script: |
             #!/bin/sh
             set -eu
-            TOFU_VERSION=1.13.9
+            TOFU_VERSION=1.13.10
             wget -q -O "$INIT_SHARED_DIR/terragrunt" \
               https://github.com/gruntwork-io/terragrunt/releases/download/v1.2.2/terragrunt_linux_amd64
             wget -q -O "$INIT_SHARED_DIR/sops" \
