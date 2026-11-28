@@ -38,12 +38,16 @@ spec:
           persistence:
             storageClass: nfs-nas
             size: 40Gi
-          # OnRootMismatch: kubelet recurses the 40Gi NFS volume (60k+ small
-          # index files, ~1k/min) on EVERY start by default, pinning pod startup
-          # for the better part of an hour after each node upgrade; with this
-          # it only recurses when the root ownership actually mismatches.
+          # No fsGroup: the NAS export squashes all clients to 65534 (the volume
+          # root stays 65534/0777 no matter what), so kubelet's fsGroup chown can
+          # never match and it re-walks all ~90k files of this 40Gi NFS volume on
+          # EVERY start (~30-60min in ContainerCreating). With fsGroup unset,
+          # kubelet skips ownership management entirely; Loki still writes because
+          # the squash makes every client the effective owner. OnRootMismatch
+          # (#724) could never work for the same reason.
           securityContext:
-            fsGroupChangePolicy: OnRootMismatch
+            fsGroup: null
+            fsGroupChangePolicy: null
           # New component (2026-09-16): initial estimate; re-measure after two weeks.
           resources:
             requests:
