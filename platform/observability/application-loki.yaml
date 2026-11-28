@@ -38,6 +38,12 @@ spec:
           persistence:
             storageClass: nfs-nas
             size: 40Gi
+          # OnRootMismatch: kubelet recurses the 40Gi NFS volume (60k+ small
+          # index files, ~1k/min) on EVERY start by default, pinning pod startup
+          # for the better part of an hour after each node upgrade; with this
+          # it only recurses when the root ownership actually mismatches.
+          securityContext:
+            fsGroupChangePolicy: OnRootMismatch
           # New component (2026-09-16): initial estimate; re-measure after two weeks.
           resources:
             requests:
