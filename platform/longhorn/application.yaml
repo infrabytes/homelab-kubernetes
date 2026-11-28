@@ -38,6 +38,11 @@ spec:
             storageMinimalAvailablePercentage: "10"
             # Replicas are only placed at creation/rebuild time; best-effort lets Longhorn correct the 2026-09-13 skew itself.
             replicaAutoBalance: best-effort
+            # Default 5: after an upgrade the returning node rebuilds all its
+            # replica assignments serially-ish, and the degraded window must fit
+            # inside the next node's drain (see talos drain_timeout). 10 halves
+            # the rebuild queue on a 3-worker cluster.
+            concurrentAutomaticEngineRebuildPerNodeLimit: "10"
             # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): the chart applies this to
             # the runtime-created csi-plugin DaemonSet containers (longhorn-csi-plugin,
             # node-driver-registrar, longhorn-liveness-probe).
