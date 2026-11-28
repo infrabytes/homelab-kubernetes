@@ -15,6 +15,16 @@ spec:
         deploymentMode: SingleBinary
         loki:
           auth_enabled: false
+          # No fsGroup: the NAS export squashes all clients to 65534 (the volume
+          # root stays 65534/0777 no matter what), so kubelet's fsGroup chown can
+          # never match and it re-walks all ~90k files of this 40Gi NFS volume on
+          # EVERY start (~30-60min in ContainerCreating). With fsGroup unset,
+          # kubelet skips ownership management entirely; Loki still writes because
+          # the squash makes every client the effective owner. Chart default is
+          # OnRootMismatch, which could never work for the same reason.
+          podSecurityContext:
+            fsGroup: null
+            fsGroupChangePolicy: null
           commonConfig:
             replication_factor: 1
           storage:
@@ -38,16 +48,6 @@ spec:
           persistence:
             storageClass: nfs-nas
             size: 40Gi
-          # No fsGroup: the NAS export squashes all clients to 65534 (the volume
-          # root stays 65534/0777 no matter what), so kubelet's fsGroup chown can
-          # never match and it re-walks all ~90k files of this 40Gi NFS volume on
-          # EVERY start (~30-60min in ContainerCreating). With fsGroup unset,
-          # kubelet skips ownership management entirely; Loki still writes because
-          # the squash makes every client the effective owner. OnRootMismatch
-          # (#724) could never work for the same reason.
-          securityContext:
-            fsGroup: null
-            fsGroupChangePolicy: null
           # New component (2026-09-16): initial estimate; re-measure after two weeks.
           resources:
             requests:
