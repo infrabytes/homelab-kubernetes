@@ -20,14 +20,14 @@ spec:
       helm:
         releaseName: cloudnative-pg
         values: |
-          # Sizing baseline 2026-08-27..09-10 (Grafana Cloud, 13d22h): memory request = p95
+          # 14d (2026-11-14..2026-11-28): mem p95 80.9Mi, peak 95.7Mi -> 128Mi/192Mi; request = p95
           # rounded up to 64Mi (32Mi floor), limit = max(1.5x request, 1.25x peak); CPU requests only.
           resources:
             requests:
               cpu: 20m
-              memory: 64Mi
+              memory: 128Mi
             limits:
-              memory: 96Mi
+              memory: 192Mi
           monitoring:
             podMonitorEnabled: true
             grafanaDashboard:
