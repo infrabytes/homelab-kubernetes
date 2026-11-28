@@ -4,9 +4,16 @@ metadata:
   name: factory-pg
   namespace: factory
 spec:
-  instances: 1
-  # One instance: the operator PDB (minAvailable 1) can never allow an eviction, it only blocks node drains.
-  enablePDB: false
+  instances: 2
+  # 2 instances: the standby keeps authentik up through node drains/upgrades;
+  # required anti-affinity keeps it off the primary's node. The operator PDB
+  # (minAvailable instances-1) now allows exactly one eviction — with 1
+  # instance it could only block drains, hence enablePDB was off.
+  enablePDB: true
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: required
   # The official CNPG image ships the pgvector extension; enabled by
   # postInitApplicationSQL below.
   imageName: ghcr.io/cloudnative-pg/postgresql:17.9
