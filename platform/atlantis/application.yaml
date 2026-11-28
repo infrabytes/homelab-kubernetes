@@ -34,6 +34,8 @@ spec:
         loadEnvFromSecrets:
           - atlantis-env
         environment:
+          # v0.50.0 refuses to start with ATLANTIS_API_SECRET set (atlantis-env) unless the `api` experiment is granted.
+          ATLANTIS_EXPERIMENTS: "api"
           ATLANTIS_AUTOMERGE: "true"
           ATLANTIS_AUTOMERGE_METHOD: squash
           ATLANTIS_ENABLE_DIFF_MARKDOWN_FORMAT: "true"
