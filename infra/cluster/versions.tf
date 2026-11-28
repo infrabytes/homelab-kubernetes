@@ -12,9 +12,11 @@ terraform {
       source = "siderolabs/talos"
       # 0.12 adds talos_machine/talos_cluster, which own Talos OS and
       # Kubernetes upgrades (the 0.11 apply-only flow never upgraded the OS).
-      # Beta until 0.12.0 stable; pinned exactly, and Renovate bumps the pin
-      # once a newer stable release exists (pre-releases are skipped).
-      version = "0.12.0"
+      # 0.13.0-alpha adds drain_timeout and uncordons a node whose drain
+      # failed (0.12.0 left it SchedulingDisabled forever, #718). Pinned
+      # exactly; Renovate skips pre-releases, so bump manually and go back
+      # to a stable pin once 0.13.0 ships.
+      version = "0.13.0-alpha.3"
     }
     local = {
       source  = "hashicorp/local"
