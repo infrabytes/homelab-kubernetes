@@ -263,7 +263,7 @@ resource "terraform_data" "node_vm" {
 # Controlplane and worker are separate resources so controlplanes always
 # install/upgrade before workers; workers serialize via -parallelism=1
 # (see terragrunt.hcl).
-# drain_timeout 10m: the provider's 5m default is shorter than Longhorn's
+# drain_timeout 20m: the provider's 5m default is shorter than Longhorn's
 # instance-manager teardown + replica relocation during a node upgrade.
 resource "talos_machine" "controlplane" {
   for_each = { for k, v in var.nodes : k => v if v.role == "controlplane" }
@@ -276,7 +276,7 @@ resource "talos_machine" "controlplane" {
   client_configuration            = talos_machine_secrets.this.client_configuration
   kubeconfig_wo                   = ephemeral.talos_cluster_kubeconfig.drain.kubeconfig_raw
   drain_on_upgrade                = each.value.drain_on_upgrade
-  drain_timeout                   = "10m"
+  drain_timeout                   = "20m"
   ignore_kubernetes_upgrade_drift = true
 }
 
@@ -291,7 +291,7 @@ resource "talos_machine" "worker" {
   client_configuration            = talos_machine_secrets.this.client_configuration
   kubeconfig_wo                   = ephemeral.talos_cluster_kubeconfig.drain.kubeconfig_raw
   drain_on_upgrade                = each.value.drain_on_upgrade
-  drain_timeout                   = "10m"
+  drain_timeout                   = "20m"
   ignore_kubernetes_upgrade_drift = true
 }
 
